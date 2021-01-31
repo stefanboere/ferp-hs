@@ -1,0 +1,4 @@
+--command="cabal repl --ghc-options=-Wwarn"
+--test="DevelMain.update"
+--warnings
+--restart=./frontend.cabal

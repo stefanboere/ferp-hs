@@ -1,0 +1,9 @@
+dist-*
+cabal.project.local
+cabal.project.local~
+.ghc.environment.*
+
+.direnv
+/.pre-commit-config.yaml
+result
+result-*

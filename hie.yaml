@@ -1,0 +1,16 @@
+cradle:
+  cabal:
+    - path: "backend/src"
+      component: "lib:backend"
+
+    - path: "backend/app/Main.hs"
+      component: "backend:exe:backend"
+
+    - path: "common/src"
+      component: "lib:common"
+
+    - path: "frontend/src"
+      component: "lib:frontend"
+
+    - path: "frontend/app/Main.hs"
+      component: "frontend:exe:frontend"
