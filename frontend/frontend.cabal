@@ -49,6 +49,7 @@ library
     , containers
     , data-default
     , foreign-store
+    , process
     , reflex
     , reflex-dom
     , text

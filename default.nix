@@ -16,6 +16,7 @@ in (import ./reflex-platform { inherit system; }).project ({ pkgs, ... }: {
 
   shellToolOverrides = ghc: super: {
     haskell-language-server = unstable.haskell-language-server;
+    xdotool = pkgs.xdotool;
   };
 
   overrides = self: super: {

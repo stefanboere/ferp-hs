@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- Source: servant-persistent
 -- See https://www.parsonsmatt.org/2018/05/19/ghcid_for_the_win.html
 
@@ -25,6 +26,7 @@ where
 
 import           Prelude
 
+
 import           Control.Concurrent             ( MVar
                                                 , ThreadId
                                                 , forkIO
@@ -47,14 +49,36 @@ import           Foreign.Store                  ( Store(..)
                                                 , withStore
                                                 )
 import           GHC.Word                       ( Word32 )
+import           System.Process                 ( readProcess
+                                                , callProcess
+                                                )
 import           Frontend                       ( main )
 
+update :: IO ()
+update = do
+  update'
+  refreshBrowserPage
+
+refreshBrowserPage :: IO ()
+refreshBrowserPage = do
+  w <- readProcess "xdotool" ["getactivewindow"] ""
+  callProcess
+    "xdotool"
+    [ "search"
+    , "--classname"
+    , "qutebrowser"
+    , "windowactivate"
+    , "--sync"
+    , "key"
+    , "r"
+    ]
+  callProcess "xdotool" ["windowactivate", w]
 
 -- | Start or restart the server.
 -- newStore is from foreign-store.
 -- A Store holds onto some data across ghci reloads
-update :: IO ()
-update = do
+update' :: IO ()
+update' = do
   mtidStore <- lookupStore tidStoreNum
   case mtidStore of
     -- no server running
