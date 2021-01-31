@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -7,6 +8,7 @@ module Components.Input
   , inputStyle
   , InputConfig(..)
   , inputElement'
+  , InputStatus(..)
   )
 where
 
@@ -15,6 +17,7 @@ import           Clay                    hiding ( (&)
                                                 )
 import           Clay.Stylesheet                ( key )
 import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
@@ -25,6 +28,12 @@ import           Data.Text                      ( Text
 import           Reflex
 import           Reflex.Dom
 import           Text.Read                      ( readMaybe )
+import           Text.Printf                    ( printf )
+import           System.Random                  ( getStdGen
+                                                , StdGen
+                                                , setStdGen
+                                                , random
+                                                )
 
 import           Nordtheme
 
@@ -39,11 +48,15 @@ data InputConfig t a = InputConfig
   , _inputConfig_label        :: Dynamic t Text
   , _inputConfig_status       :: Dynamic t InputStatus
   , _inputConfig_attributes   :: Map AttributeName Text
-  , _inputConfig_id           :: Text
   }
 
-instance Default Text where
-  def = ""
+instance (Reflex t) => Default (InputConfig t Text) where
+  def = InputConfig { _inputConfig_initialValue = ""
+                    , _inputConfig_setValue     = never
+                    , _inputConfig_label        = constDyn ""
+                    , _inputConfig_status       = def
+                    , _inputConfig_attributes   = def
+                    }
 
 instance (Default a, Reflex t) => Default (InputConfig t a) where
   def = InputConfig { _inputConfig_initialValue = def
@@ -51,7 +64,6 @@ instance (Default a, Reflex t) => Default (InputConfig t a) where
                     , _inputConfig_label        = constDyn ""
                     , _inputConfig_status       = def
                     , _inputConfig_attributes   = def
-                    , _inputConfig_id           = ""
                     }
 
 inputStyle :: Css
@@ -70,6 +82,9 @@ inputStyle = do
     marginBottom (px (-1))
 
   input # "::placeholder" ? do
+    fontColor nord4'
+
+  input # disabled ? do
     fontColor nord4'
 
   input # ".has-error" ? do
@@ -97,12 +112,23 @@ inputStyle = do
       fontColor nord14'
 
 inputElement'
-  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t Text
   -> m (Dynamic t Text)
 inputElement' cfg = do
-  elAttr "label" ("for" =: _inputConfig_id cfg)
-    $ dynText (_inputConfig_label cfg)
+  stdGen <- liftIO getStdGen
+  let (idInt, stdGen') = random stdGen :: (Int, StdGen)
+  liftIO $ setStdGen stdGen'
+  let idStr = pack (printf "%x" idInt)
+
+
+  elAttr "label" ("for" =: idStr) $ dynText (_inputConfig_label cfg)
+
+  postBuildEv <- getPostBuild
+  let postBuildAttrEv = attachPromptlyDynWith
+        (\x _ -> Just <$> statusAttrs x)
+        (_inputConfig_status cfg)
+        postBuildEv
 
   el "div" $ do
     n <-
@@ -116,12 +142,12 @@ inputElement' cfg = do
       .  elementConfig_initialAttributes
       .~ _inputConfig_attributes cfg
       <> "id"
-      =: _inputConfig_id cfg
+      =: idStr
       &  inputElementConfig_elementConfig
       .  elementConfig_modifyAttributes
-      .~ modAttrEv
+      .~ leftmost [modAttrEv, postBuildAttrEv]
 
-    let dynClass = (\state -> "class" =: (color state <> " helptext"))
+    let dynClass = (\state -> "class" =: (colorCls state <> " helptext"))
           <$> _inputConfig_status cfg
     let dynMessage = message <$> _inputConfig_status cfg
     elDynAttr "div" dynClass $ dynText dynMessage
@@ -129,13 +155,15 @@ inputElement' cfg = do
     pure (_inputElement_value n)
 
  where
-  modAttrEv = updated (style <$> _inputConfig_status cfg)
-  style :: InputStatus -> Map AttributeName (Maybe Text)
-  style state = "class" =: Just (color state)
+  modAttrEv = updated (fmap Just . statusAttrs <$> _inputConfig_status cfg)
+  statusAttrs :: InputStatus -> Map AttributeName Text
+  statusAttrs state = "class" =: colorCls state <> if state == InputDisabled
+    then "disabled" =: ""
+    else Map.empty
 
-  color (InputSuccess _) = "has-success"
-  color (InputError   _) = "has-error"
-  color _                = ""
+  colorCls (InputSuccess _) = "has-success"
+  colorCls (InputError   _) = "has-error"
+  colorCls _                = ""
 
   message (InputError   x       ) = x
   message (InputSuccess x       ) = x
@@ -143,7 +171,14 @@ inputElement' cfg = do
   message _                       = ""
 
 numberInput
-  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Read a, Show a)
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , Show a
+     , MonadIO m
+     )
   => InputConfig t a
   -> m (Dynamic t (Maybe a))
 numberInput cfg = do

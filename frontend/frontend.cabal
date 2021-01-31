@@ -50,6 +50,7 @@ library
     , data-default
     , foreign-store
     , process
+    , random
     , reflex
     , reflex-dom
     , text
