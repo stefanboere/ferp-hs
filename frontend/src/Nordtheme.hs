@@ -229,14 +229,14 @@ white0' = parse white0
 
 --hsl(220, 2, 97)
 white1 :: Text
-white1 = "f2f4f8"
+white1 = "#f2f4f8"
 
 white1' :: Color
 white1' = parse white1
 
 -- hsl(220, 24, 63)
 grey0 :: Text
-grey0 = "7b88a1"
+grey0 = "#7b88a1"
 
 grey0' :: Color
 grey0' = parse grey0
