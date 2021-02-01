@@ -41,14 +41,16 @@ main =
           { _inputConfig_label        = constDyn "Straight flange height"
           , _inputConfig_initialValue = 0 :: Double
           }
-        crown_radius <- overridableNumberInput def
-          { _inputConfig_label        = constDyn "Crown radius"
-          , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
-          }
-        knuckle_radius <- overridableNumberInput def
-          { _inputConfig_label        = constDyn "Knuckle radius"
-          , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
-          }
+        crown_radius <- overridableNumberInput
+          (fmapMaybe Prelude.id $ updated outside_diameter)
+          def { _inputConfig_label        = constDyn "Crown radius"
+              , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
+              }
+        knuckle_radius <- overridableNumberInput
+          (fmapMaybe (fmap (* 0.1)) $ updated outside_diameter)
+          def { _inputConfig_label        = constDyn "Knuckle radius"
+              , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
+              }
         let dynTori =
               Torispherical
                 <$> wall_thickness

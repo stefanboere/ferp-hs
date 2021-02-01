@@ -46,9 +46,10 @@ overridableNumberInput
      , Show a
      , MonadIO m
      )
-  => InputConfig t (Overridable a)
+  => Event t a
+  -> InputConfig t (Overridable a)
   -> m (Dynamic t (Maybe (Overridable a)))
-overridableNumberInput cfg = labeled cfg $ \idStr _ -> el "div" $ do
+overridableNumberInput setCalc cfg = labeled cfg $ \idStr _ -> el "div" $ do
   rec
     dynMVal <- numberInput'
       idStr
@@ -58,17 +59,20 @@ overridableNumberInput cfg = labeled cfg $ \idStr _ -> el "div" $ do
                                   <*> dynOverridden
         , _inputConfig_setValue = leftmost
           [ overridableValue <$> _inputConfig_setValue cfg
-          , attachPromptlyDynWith (\x _ -> ovr_calculation x) calc
+          , attachPromptlyDynWith const calc
             $ ffilter not (updated dynOverridden)
+          , gate (not <$> current dynOverridden) setCalc
           ]
         }
     dynOverridden <- toggleInput (fmap isOverridden cfg)
       { _inputConfig_label  = constDyn "Override"
       , _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
       }
-    calc <- holdDyn (_inputConfig_initialValue cfg) (_inputConfig_setValue cfg)
+    calc <- holdDyn
+      (ovr_calculation $ _inputConfig_initialValue cfg)
+      (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])
 
-  pure $ overridable <$> fmap ovr_calculation calc <*> dynOverridden <*> dynMVal
+  pure $ overridable <$> calc <*> dynOverridden <*> dynMVal
  where
   overridable :: a -> Bool -> Maybe a -> Maybe (Overridable a)
   overridable _ True  Nothing    = Nothing
