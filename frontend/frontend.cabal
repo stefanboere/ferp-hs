@@ -40,6 +40,8 @@ library
   exposed-modules: Frontend
   other-modules:
     Components.Input
+    Components.Input.Basic
+    Components.Input.Numeric
     DevelMain
     Nordtheme
 
