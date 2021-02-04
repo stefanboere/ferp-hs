@@ -43,7 +43,7 @@ overridableNumberInput
      , DomBuilder t m
      , MonadFix m
      , Read a
-     , Show a
+     , RealFloat a
      , MonadIO m
      )
   => Event t a
@@ -52,6 +52,7 @@ overridableNumberInput
 overridableNumberInput setCalc cfg = labeled cfg $ \idStr _ -> el "div" $ do
   rec
     dynMVal <- numberInput'
+      def { _numberInputConfig_precision = Just 3 }
       idStr
       (fmap overridableValue cfg)
         { _inputConfig_status   = numStatus

@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -14,11 +15,13 @@ module Components.Input.Basic
   , textInput'
   , InputStatus(..)
   , labeled
+  , NumberInputConfig(..)
   )
 where
 
 import           Clay                    hiding ( (&)
                                                 , max
+                                                , not
                                                 )
 import qualified Clay                           ( (&) )
 import           Clay.Stylesheet                ( key )
@@ -27,10 +30,15 @@ import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
+import           Data.Maybe                     ( catMaybes
+                                                , fromJust
+                                                )
 import           Data.Text                      ( Text
                                                 , pack
                                                 , unpack
                                                 )
+import qualified Data.Text                     as Text
+import           Numeric                        ( showFFloatAlt )
 import           Reflex
 import           Reflex.Dom              hiding ( textInput )
 import           Text.Read                      ( readMaybe )
@@ -56,6 +64,11 @@ data InputConfig t a = InputConfig
   , _inputConfig_attributes   :: Map AttributeName Text
   }
 
+data InputEl t a = InputEl
+  { _inputEl_value :: Dynamic t a
+  , _inputEl_hasFocus :: Dynamic t Bool
+  }
+
 instance (Reflex t) => Default (InputConfig t Text) where
   def = InputConfig { _inputConfig_initialValue = ""
                     , _inputConfig_setValue     = never
@@ -77,6 +90,15 @@ instance Reflex t => Functor (InputConfig t) where
     { _inputConfig_initialValue = f $ _inputConfig_initialValue cfg
     , _inputConfig_setValue     = f <$> _inputConfig_setValue cfg
     }
+
+data NumberInputConfig a = NumberInputConfig
+  { _numberInputConfig_maxValue :: Maybe a
+  , _numberInputConfig_minValue :: Maybe a
+  , _numberInputConfig_precision :: Maybe Int
+  }
+
+instance Default (NumberInputConfig a) where
+  def = NumberInputConfig Nothing Nothing Nothing
 
 inputStyle :: Css
 inputStyle = do
@@ -290,8 +312,8 @@ labelFor dynLabel = do
 labeled
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t a
-  -> (Text -> InputConfig t a -> m (Dynamic t b))
-  -> m (Dynamic t b)
+  -> (Text -> InputConfig t a -> m b)
+  -> m b
 labeled cfg editor = do
   idStr <- labelFor (_inputConfig_label cfg)
   editor idStr cfg
@@ -299,14 +321,14 @@ labeled cfg editor = do
 textInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t Text
-  -> m (Dynamic t Text)
+  -> m (InputEl t Text)
 textInput cfg = labeled cfg textInput'
 
 textInput'
   :: (PostBuild t m, DomBuilder t m)
   => Text
   -> InputConfig t Text
-  -> m (Dynamic t Text)
+  -> m (InputEl t Text)
 textInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -329,7 +351,9 @@ textInput' idStr cfg = do
 
     statusMessageElement (_inputConfig_status cfg)
 
-    pure (_inputElement_value n)
+    pure $ InputEl { _inputEl_value    = _inputElement_value n
+                   , _inputEl_hasFocus = _inputElement_hasFocus n
+                   }
 
 numberInput
   :: ( MonadHold t m
@@ -337,41 +361,78 @@ numberInput
      , DomBuilder t m
      , MonadFix m
      , Read a
-     , Show a
+     , RealFloat a
      , MonadIO m
      )
-  => InputConfig t a
-  -> m (Dynamic t (Maybe a))
-numberInput cfg = labeled cfg numberInput'
-
-numberInput'
-  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Read a, Show a)
-  => Text
+  => NumberInputConfig a
   -> InputConfig t a
   -> m (Dynamic t (Maybe a))
-numberInput' idStr cfg = do
-  let initAttrs = "type" =: "number"
-      styleChange :: Maybe a -> InputStatus
-      styleChange result = case result of
-        (Just _) -> def
-        Nothing  -> InputError "Not a valid number"
+numberInput nc cfg = labeled cfg (numberInput' nc)
+
+numberInput'
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , RealFloat a
+     )
+  => NumberInputConfig a
+  -> Text
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+numberInput' nc idStr cfg = do
+  let initAttrs =
+        "type" =: "number" <> "style" =: "text-align:right" <> Map.fromList
+          (catMaybes
+            [ ("max", ) . prnt <$> _numberInputConfig_maxValue nc
+            , ("min", ) . prnt <$> _numberInputConfig_minValue nc
+            , ("step", ) . mkStep <$> _numberInputConfig_precision nc
+            ]
+          )
+      styleChange (Just x) _ _
+        | maybe False (x >) (_numberInputConfig_maxValue nc)
+        = InputError $ "Exceeds the maximum " <> prnt
+          (fromJust (_numberInputConfig_maxValue nc))
+        | maybe False (x <) (_numberInputConfig_minValue nc)
+        = InputError $ "Is less than the minimum " <> prnt
+          (fromJust (_numberInputConfig_minValue nc))
+        | otherwise
+        = def
+      styleChange Nothing hasFocus t
+        | Text.null t || hasFocus = def
+        | -- Don't update the value when still typing
+          otherwise               = InputError "Not a valid number"
 
   rec
     n <- textInput'
       idStr
       cfg
-        { _inputConfig_initialValue = pack . show $ _inputConfig_initialValue
-                                        cfg
-        , _inputConfig_setValue     = pack . show <$> _inputConfig_setValue cfg
+        { _inputConfig_initialValue = prnt $ _inputConfig_initialValue cfg
+        , _inputConfig_setValue     = leftmost
+          [prnt <$> _inputConfig_setValue cfg, zeroIfEmptyEv]
         , _inputConfig_status       = zipDynWith max
                                                  (_inputConfig_status cfg)
                                                  statusDyn
         , _inputConfig_attributes   = _inputConfig_attributes cfg <> initAttrs
         }
-    let result    = readMaybe . unpack <$> n
-        modAttrEv = fmap styleChange (updated result)
+    let
+      result        = readMaybe . unpack <$> _inputEl_value n
+      zeroIfEmptyEv = attachPromptlyDynWithMaybe
+        emptyNoFocus
+        ((,) <$> _inputEl_value n <*> result)
+        (updated (_inputEl_hasFocus n))
+      modAttrEv = updated
+        (styleChange <$> result <*> _inputEl_hasFocus n <*> _inputEl_value n)
     statusDyn <- holdDyn def modAttrEv
   return result
+ where
+  mkStep :: Int -> Text
+  mkStep x = prnt (10 ^^ (-x))
+  prnt x = pack $ showFFloatAlt (_numberInputConfig_precision nc) x ""
+  emptyNoFocus (x, r) f | Text.null x && not f = Just (prnt 0)
+                        | not f                = prnt <$> r
+                        | otherwise            = Nothing
 
 toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)

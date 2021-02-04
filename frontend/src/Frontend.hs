@@ -29,25 +29,28 @@ main =
   mainWidgetWithCss (encodeUtf8 . toStrict $ renderWith compact [] css)
     $ el "form"
     $ do
-        wall_thickness <- numberInput def
-          { _inputConfig_label        = constDyn "Wall thickness"
-          , _inputConfig_initialValue = 0 :: Double
-          }
-        outside_diameter <- numberInput def
-          { _inputConfig_label        = constDyn "Outside diameter"
-          , _inputConfig_initialValue = 0 :: Double
-          }
-        straight_flange_height <- numberInput def
-          { _inputConfig_label        = constDyn "Straight flange height"
-          , _inputConfig_initialValue = 0 :: Double
-          }
+        wall_thickness <- numberInput
+          def { _numberInputConfig_precision = Just 3 }
+          def { _inputConfig_label        = constDyn "Wall thickness"
+              , _inputConfig_initialValue = 0 :: Double
+              }
+        outside_diameter <- numberInput
+          def { _numberInputConfig_precision = Just 3 }
+          def { _inputConfig_label        = constDyn "Outside diameter"
+              , _inputConfig_initialValue = 0 :: Double
+              }
+        straight_flange_height <- numberInput
+          def { _numberInputConfig_precision = Just 3 }
+          def { _inputConfig_label        = constDyn "Straight flange height"
+              , _inputConfig_initialValue = 0 :: Double
+              }
         crown_radius <- overridableNumberInput
           (fmapMaybe Prelude.id $ updated outside_diameter)
           def { _inputConfig_label        = constDyn "Crown radius"
               , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
               }
         knuckle_radius <- overridableNumberInput
-          (fmapMaybe (fmap (* 0.1)) $ updated outside_diameter)
+          (fmapMaybe (fmap (/ 10)) $ updated outside_diameter)
           def { _inputConfig_label        = constDyn "Knuckle radius"
               , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
               }
