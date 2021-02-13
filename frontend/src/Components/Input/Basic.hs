@@ -20,6 +20,7 @@ module Components.Input.Basic
 where
 
 import           Clay                    hiding ( (&)
+                                                , icon
                                                 , max
                                                 , not
                                                 )
@@ -49,6 +50,7 @@ import           System.Random                  ( getStdGen
                                                 , random
                                                 )
 
+import           Components.Icon
 import           Nordtheme
 
 data InputStatus = InputNeutral (Maybe Text) | InputSuccess Text | InputError Text | InputDisabled deriving (Eq, Ord)
@@ -127,7 +129,7 @@ toggleStyle = do
       transitionTimingFunction easeIn
 
       checked Clay.& do
-        backgroundColor nord14'
+        backgroundColor nord10'
         transitionDuration 0.1
         transitionTimingFunction easeIn
 
@@ -286,6 +288,17 @@ statusModAttrEv mCls status = do
       <> "disabled"
       =: if state == InputDisabled then Just "" else Nothing
 
+statusMessageIcon
+  :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
+statusMessageIcon = dyn_ . fmap mkIcon
+ where
+  cfg = def { _iconConfig_size = 24 }
+  mkIcon (InputError _) =
+    icon cfg { _iconConfig_status = Just Danger } exclamationCircleIcon
+  mkIcon (InputSuccess _) =
+    icon cfg { _iconConfig_status = Just Success } checkCircleIcon
+  mkIcon _ = blank
+
 statusMessageElement
   :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
 statusMessageElement status = do
@@ -349,6 +362,8 @@ textInput' idStr cfg = do
       .  elementConfig_modifyAttributes
       .~ modAttrEv
 
+    statusMessageIcon (_inputConfig_status cfg)
+
     statusMessageElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value    = _inputElement_value n
@@ -383,13 +398,19 @@ numberInput'
   -> m (Dynamic t (Maybe a))
 numberInput' nc idStr cfg = do
   let initAttrs =
-        "type" =: "number" <> "style" =: "text-align:right" <> Map.fromList
-          (catMaybes
-            [ ("max", ) . prnt <$> _numberInputConfig_maxValue nc
-            , ("min", ) . prnt <$> _numberInputConfig_minValue nc
-            , ("step", ) . mkStep <$> _numberInputConfig_precision nc
-            ]
-          )
+        "type"
+          =: "number"
+          <> "style"
+          =: "text-align:right"
+          <> "onClick"
+          =: "this.select()"
+          <> Map.fromList
+               (catMaybes
+                 [ ("max", ) . prnt <$> _numberInputConfig_maxValue nc
+                 , ("min", ) . prnt <$> _numberInputConfig_minValue nc
+                 , ("step", ) . mkStep <$> _numberInputConfig_precision nc
+                 ]
+               )
       styleChange (Just x) _ _
         | maybe False (x >) (_numberInputConfig_maxValue nc)
         = InputError $ "Exceeds the maximum " <> prnt
@@ -473,6 +494,8 @@ checkboxInput cfg = elClass "div" "inlineabs" $ do
 
     elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label")
       $ dynText (_inputConfig_label cfg)
+
+    statusMessageIcon (_inputConfig_status cfg)
 
     pure (_inputElement_checked n)
 

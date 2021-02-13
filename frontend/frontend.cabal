@@ -39,6 +39,7 @@ library
   hs-source-dirs:  src
   exposed-modules: Frontend
   other-modules:
+    Components.Icon
     Components.Input
     Components.Input.Basic
     Components.Input.Numeric
