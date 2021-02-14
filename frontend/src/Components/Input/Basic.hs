@@ -24,6 +24,8 @@ module Components.Input.Basic
   , textAreaInput'
   , rangeInput
   , rangeInput'
+  , radioInput
+  , radioInput'
   )
 where
 
@@ -116,6 +118,7 @@ inputStyle = do
   rangeElementStyle
   checkboxStyle
   toggleStyle
+  radioStyle
   ".inlineabs" ? do
     Clay.display inlineBlock
     verticalAlign vAlignTop
@@ -167,7 +170,7 @@ checkboxStyle = do
     cursor pointer
     fontWeight normal
 
-  input # ("type" @= "checkbox") ? do
+  (input # ("type" @= "checkbox") <> input # ("type" @= "radio")) ? do
     position relative
     cursor pointer
 
@@ -193,6 +196,28 @@ checkboxStyle = do
         transform (rotate (deg 45))
         top (px 2)
         left (px 6)
+
+radioStyle :: Css
+radioStyle = input # ("type" @= "radio") ? do
+  marginLeft (px 10)
+  marginRight (px 10)
+
+  before Clay.& do
+    borderRadiusAll (px 12)
+    left (px (-2))
+
+  checked Clay.& after Clay.& do
+    width (px 2)
+    height (px 2)
+    left (px 5)
+    top (px 7)
+    background white0'
+    borderRadiusAll (pct 50)
+
+    checked Clay.& do
+      absoluteBlock
+
+
 
 absoluteBlock :: Css
 absoluteBlock = do
@@ -657,17 +682,80 @@ selectInput' idStr cfg = do
   arrowElement =
     icon def { _iconConfig_direction = constDyn DirDown } angleIcon
 
-  allPossible :: (Enum a, Bounded a) => Maybe a -> [a]
-  allPossible _ = [minBound .. maxBound]
-
-  showNum :: Enum a => Maybe a -> Text
-  showNum (Just x) = pack . show . fromEnum $ x
-  showNum Nothing  = mempty
-
-  parseEnum :: Enum a => Text -> Maybe a
-  parseEnum = fmap toEnum . readMaybe . unpack
-
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
+
+allPossible :: (Enum a, Bounded a) => Maybe a -> [a]
+allPossible _ = [minBound .. maxBound]
+
+showNum :: Enum a => Maybe a -> Text
+showNum (Just x) = pack . show . fromEnum $ x
+showNum Nothing  = mempty
+
+parseEnum :: Enum a => Text -> Maybe a
+parseEnum = fmap toEnum . readMaybe . unpack
+
+radioInput
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , MonadFix m
+     , MonadHold t m
+     , Eq a
+     , HasLabel a
+     , Enum a
+     , Bounded a
+     )
+  => InputConfig t (Maybe a)
+  -> m (Dynamic t (Maybe a))
+radioInput cfg = labeled cfg radioInput'
+
+radioInput'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , MonadFix m
+     , MonadHold t m
+     , Eq a
+     , HasLabel a
+     , Enum a
+     , Bounded a
+     )
+  => Text
+  -> InputConfig t (Maybe a)
+  -> m (Dynamic t (Maybe a))
+radioInput' idStr cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+
+  elAttr "div" ("style" =: "display:inline-block") $ do
+    rec ns <- mapM (mkOption modAttrEv checkEv)
+                   (allPossible (_inputConfig_initialValue cfg))
+        let checkEv = leftmost (fmap updated ns)
+
+    result <- holdDyn (_inputConfig_initialValue cfg) checkEv
+
+    statusMessageIcon (_inputConfig_status cfg)
+
+    statusMessageElement (_inputConfig_status cfg)
+
+    pure result
+
+ where
+  initAttrs = "type" =: "radio" <> "name" =: idStr
+
+  attach' x = fmap (\selected' -> if selected' then Just x else Nothing)
+
+  mkOption modAttrEv setOtherEv x = attach' x <$> checkboxInput cfg
+    { _inputConfig_attributes       = _inputConfig_attributes cfg <> initAttrs
+    , _inputConfig_modifyAttributes = mergeWith
+                                        (<>)
+                                        [ _inputConfig_modifyAttributes cfg
+                                        , modAttrEv
+                                        ]
+    , _inputConfig_label            = constDyn (toLabel x)
+    , _inputConfig_initialValue     = _inputConfig_initialValue cfg == Just x
+    , _inputConfig_setValue         = (== Just x)
+      <$> leftmost [_inputConfig_setValue cfg, setOtherEv]
+    }
 
 textAreaInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
