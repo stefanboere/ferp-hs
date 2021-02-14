@@ -20,6 +20,8 @@ module Components.Input.Basic
   , HasLabel(..)
   , selectInput'
   , selectInput
+  , textAreaInput
+  , textAreaInput'
   )
 where
 
@@ -76,14 +78,6 @@ data InputEl t a = InputEl
   , _inputEl_hasFocus :: Dynamic t Bool
   }
 
-instance (Reflex t) => Default (InputConfig t Text) where
-  def = InputConfig { _inputConfig_initialValue = ""
-                    , _inputConfig_setValue     = never
-                    , _inputConfig_label        = constDyn ""
-                    , _inputConfig_status       = def
-                    , _inputConfig_attributes   = def
-                    }
-
 instance (Default a, Reflex t) => Default (InputConfig t a) where
   def = InputConfig { _inputConfig_initialValue = def
                     , _inputConfig_setValue     = never
@@ -112,6 +106,7 @@ inputStyle = do
   formStyle
   inputElementStyle
   selectElementStyle
+  textAreaElementStyle
   checkboxStyle
   toggleStyle
   ".inlineabs" ? do
@@ -201,7 +196,7 @@ absoluteBlock = do
 
 inputElementStyle :: Css
 inputElementStyle = do
-  (input <> Clay.select) ? do
+  (input <> Clay.select <> textarea) ? do
     background transparent
     borderWidth 0
     borderBottomWidth 1
@@ -219,6 +214,7 @@ inputElementStyle = do
 
     disabled Clay.& do
       fontColor grey0'
+      cursor notAllowed
 
     ".has-error" Clay.& do
       borderColor nord11'
@@ -240,6 +236,18 @@ selectElementStyle = do
     Clay.display inlineBlock
     transform (translate (px (-24)) (px (-12)))
     pointerEvents none
+
+textAreaElementStyle :: Css
+textAreaElementStyle = textarea ? do
+  background white
+  borderWidth (px 1)
+  borderRadiusAll (px 3)
+  minWidth (px 300)
+  minHeight (px 100)
+
+  disabled Clay.& do
+    background white0'
+    cursor notAllowed
 
 formStyle :: Css
 formStyle = do
@@ -583,3 +591,42 @@ selectInput' idStr cfg = do
   parseEnum = fmap toEnum . readMaybe . unpack
 
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
+
+textAreaInput
+  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  => InputConfig t Text
+  -> m (Dynamic t Text)
+textAreaInput cfg = _inputEl_value <$> labeled cfg textAreaInput'
+
+textAreaInput'
+  :: (PostBuild t m, DomBuilder t m)
+  => Text
+  -> InputConfig t Text
+  -> m (InputEl t Text)
+textAreaInput' idStr cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+
+  elAttr "div" ("style" =: "display:inline-block") $ do
+    n <- textAreaElement
+      (  def
+      &  textAreaElementConfig_initialValue
+      .~ _inputConfig_initialValue cfg
+      &  textAreaElementConfig_setValue
+      .~ _inputConfig_setValue cfg
+      &  textAreaElementConfig_elementConfig
+      .  elementConfig_initialAttributes
+      .~ _inputConfig_attributes cfg
+      <> "id"
+      =: idStr
+      &  textAreaElementConfig_elementConfig
+      .  elementConfig_modifyAttributes
+      .~ modAttrEv
+      )
+
+    statusMessageIcon (_inputConfig_status cfg)
+
+    statusMessageElement (_inputConfig_status cfg)
+
+    pure $ InputEl { _inputEl_value    = _textAreaElement_value n
+                   , _inputEl_hasFocus = _textAreaElement_hasFocus n
+                   }

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Frontend
   ( main
   )
@@ -6,7 +7,9 @@ where
 
 import           Clay
 import           Data.Default
-import           Data.Text                      ( pack )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import           Data.Text.Encoding             ( encodeUtf8 )
 import           Data.Text.Lazy                 ( toStrict )
 import           Reflex
@@ -14,6 +17,9 @@ import           Reflex.Dom
 
 import           Components.Input
 import           Nordtheme
+
+instance Default Text where
+  def = mempty
 
 data Material = M14404 | M14307 deriving (Eq, Show, Enum, Bounded)
 
@@ -30,7 +36,8 @@ data Torispherical = Torispherical
   , ts_straight_flange_height :: Maybe Double
   , ts_crown_radius           :: Maybe (Overridable Double)
   , ts_knuckle_radius         :: Maybe (Overridable Double)
-  , ts_memo                   :: Maybe Material
+  , ts_material               :: Maybe Material
+  , ts_memo                   :: Text
   } deriving (Eq, Show)
 
 main :: IO ()
@@ -66,6 +73,9 @@ main =
         material <- selectInput def { _inputConfig_label = constDyn "Material"
                                     , _inputConfig_initialValue = Nothing
                                     }
+        memo <- textAreaInput def { _inputConfig_label        = constDyn "Memo"
+                                  , _inputConfig_initialValue = mempty
+                                  }
         let dynTori =
               Torispherical
                 <$> wall_thickness
@@ -74,6 +84,7 @@ main =
                 <*> crown_radius
                 <*> knuckle_radius
                 <*> material
+                <*> memo
         dynText $ fmap (pack . show) dynTori
 
 textFont :: Css
