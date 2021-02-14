@@ -38,8 +38,8 @@ import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( catMaybes
-                                                , fromJust
+import           Data.Maybe                     ( fromJust
+                                                , isNothing
                                                 )
 import           Data.Text                      ( Text
                                                 , pack
@@ -48,7 +48,9 @@ import           Data.Text                      ( Text
 import qualified Data.Text                     as Text
 import           Numeric                        ( showFFloatAlt )
 import           Reflex
-import           Reflex.Dom              hiding ( textInput )
+import           Reflex.Dom              hiding ( textInput
+                                                , rangeInput
+                                                )
 import           Text.Read                      ( readMaybe )
 import           Text.Printf                    ( printf )
 import           System.Random                  ( getStdGen
@@ -71,6 +73,7 @@ data InputConfig t a = InputConfig
   , _inputConfig_label        :: Dynamic t Text
   , _inputConfig_status       :: Dynamic t InputStatus
   , _inputConfig_attributes   :: Map AttributeName Text
+  , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
   }
 
 data InputEl t a = InputEl
@@ -79,11 +82,12 @@ data InputEl t a = InputEl
   }
 
 instance (Default a, Reflex t) => Default (InputConfig t a) where
-  def = InputConfig { _inputConfig_initialValue = def
-                    , _inputConfig_setValue     = never
-                    , _inputConfig_label        = constDyn ""
-                    , _inputConfig_status       = def
-                    , _inputConfig_attributes   = def
+  def = InputConfig { _inputConfig_initialValue     = def
+                    , _inputConfig_setValue         = never
+                    , _inputConfig_label            = constDyn ""
+                    , _inputConfig_status           = def
+                    , _inputConfig_attributes       = def
+                    , _inputConfig_modifyAttributes = never
                     }
 
 instance Reflex t => Functor (InputConfig t) where
@@ -92,14 +96,14 @@ instance Reflex t => Functor (InputConfig t) where
     , _inputConfig_setValue     = f <$> _inputConfig_setValue cfg
     }
 
-data NumberInputConfig a = NumberInputConfig
-  { _numberInputConfig_maxValue :: Maybe a
-  , _numberInputConfig_minValue :: Maybe a
+data NumberInputConfig t a = NumberInputConfig
+  { _numberInputConfig_maxValue :: Dynamic t (Maybe a)
+  , _numberInputConfig_minValue :: Dynamic t (Maybe a)
   , _numberInputConfig_precision :: Maybe Int
   }
 
-instance Default (NumberInputConfig a) where
-  def = NumberInputConfig Nothing Nothing Nothing
+instance Reflex t => Default (NumberInputConfig t a) where
+  def = NumberInputConfig def def Nothing
 
 inputStyle :: Css
 inputStyle = do
@@ -302,7 +306,7 @@ statusModAttrEv mCls status = do
   let postBuildAttrEv =
         attachPromptlyDynWith (\x _ -> statusAttrs x) status postBuildEv
 
-  pure $ leftmost [modAttrEv, postBuildAttrEv]
+  pure $ mergeWith (<>) [modAttrEv, postBuildAttrEv]
 
  where
   modAttrEv = updated (statusAttrs <$> status)
@@ -390,7 +394,7 @@ textInput' idStr cfg = do
       =: idStr
       &  inputElementConfig_elementConfig
       .  elementConfig_modifyAttributes
-      .~ modAttrEv
+      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
     statusMessageIcon (_inputConfig_status cfg)
 
@@ -409,7 +413,7 @@ numberInput
      , RealFloat a
      , MonadIO m
      )
-  => NumberInputConfig a
+  => NumberInputConfig t a
   -> InputConfig t a
   -> m (Dynamic t (Maybe a))
 numberInput nc cfg = labeled cfg (numberInput' nc)
@@ -422,62 +426,85 @@ numberInput'
      , Read a
      , RealFloat a
      )
-  => NumberInputConfig a
+  => NumberInputConfig t a
   -> Text
   -> InputConfig t a
   -> m (Dynamic t (Maybe a))
 numberInput' nc idStr cfg = do
-  let initAttrs =
-        "type"
-          =: "number"
-          <> "style"
-          =: "text-align:right"
-          <> "onClick"
-          =: "this.select()"
-          <> Map.fromList
-               (catMaybes
-                 [ ("max", ) . prnt <$> _numberInputConfig_maxValue nc
-                 , ("min", ) . prnt <$> _numberInputConfig_minValue nc
-                 , ("step", ) . mkStep <$> _numberInputConfig_precision nc
-                 ]
-               )
-      styleChange (Just x) _ _
-        | maybe False (x >) (_numberInputConfig_maxValue nc)
-        = InputError $ "Exceeds the maximum " <> prnt
-          (fromJust (_numberInputConfig_maxValue nc))
-        | maybe False (x <) (_numberInputConfig_minValue nc)
-        = InputError $ "Is less than the minimum " <> prnt
-          (fromJust (_numberInputConfig_minValue nc))
-        | otherwise
-        = def
-      styleChange Nothing hasFocus t
-        | Text.null t || hasFocus = def
-        | -- Don't update the value when still typing
-          otherwise               = InputError "Not a valid number"
+  let
+    initAttrs = Map.fromList $ mapMaybe
+      (\(x, y) -> (x, ) <$> y)
+      [ ("type" , Just "number")
+      , ("style", Just "text-align:right")
+      , ( "onClick"
+        , if _inputConfig_initialValue cfg == 0
+          then Just "this.select()"
+          else Nothing
+        )
+      , ("step", mkStep <$> _numberInputConfig_precision nc)
+      ]
+
+    styleChange (b_min, b_max) (Just x) _ _
+      | maybe False (x >) b_max
+      = InputError $ "Exceeds the maximum " <> prnt (fromJust b_max)
+      | maybe False (x <) b_min
+      = InputError $ "Is less than the minimum " <> prnt (fromJust b_min)
+      | otherwise
+      = def
+    styleChange _ Nothing hasFocus t
+      | Text.null t || hasFocus = def
+      | -- Don't update the value when still typing
+        otherwise               = InputError "Not a valid number"
+
+  let minMaxDyn =
+        (,)
+          <$> _numberInputConfig_minValue nc
+          <*> _numberInputConfig_maxValue nc
+  postBuildEv <-
+    attachPromptlyDynWith (\x _ -> minMaxAttrs x) minMaxDyn <$> getPostBuild
+  let updatedMinMaxEv = updated (minMaxAttrs <$> minMaxDyn)
 
   rec
     n <- textInput'
       idStr
       cfg
-        { _inputConfig_initialValue = prnt $ _inputConfig_initialValue cfg
-        , _inputConfig_setValue     = leftmost
+        { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
+        , _inputConfig_setValue         = leftmost
           [prnt <$> _inputConfig_setValue cfg, zeroIfEmptyEv]
-        , _inputConfig_status       = zipDynWith max
-                                                 (_inputConfig_status cfg)
-                                                 statusDyn
-        , _inputConfig_attributes   = _inputConfig_attributes cfg <> initAttrs
+        , _inputConfig_status           = zipDynWith max
+                                                     (_inputConfig_status cfg)
+                                                     statusDyn
+        , _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
+        , _inputConfig_modifyAttributes = mergeWith
+                                            (<>)
+                                            [ _inputConfig_modifyAttributes cfg
+                                            , postBuildEv
+                                            , updatedMinMaxEv
+                                            , selectAttrEv
+                                            ]
         }
-    let
-      result        = readMaybe . unpack <$> _inputEl_value n
-      zeroIfEmptyEv = attachPromptlyDynWithMaybe
-        emptyNoFocus
-        ((,) <$> _inputEl_value n <*> result)
-        (updated (_inputEl_hasFocus n))
-      modAttrEv = updated
-        (styleChange <$> result <*> _inputEl_hasFocus n <*> _inputEl_value n)
+    let result        = readMaybe . unpack <$> _inputEl_value n
+        selectAttrEv  = mkOnClick <$> updated result
+        zeroIfEmptyEv = attachPromptlyDynWithMaybe
+          emptyNoFocus
+          ((,) <$> _inputEl_value n <*> result)
+          (updated (_inputEl_hasFocus n))
+        modAttrEv = updated
+          (   styleChange
+          <$> minMaxDyn
+          <*> result
+          <*> _inputEl_hasFocus n
+          <*> _inputEl_value n
+          )
     statusDyn <- holdDyn def modAttrEv
   return result
  where
+  minMaxAttrs (b_min, b_max) =
+    "min" =: fmap prnt b_min <> "max" =: fmap prnt b_max
+
+  mkOnClick x = "onClick"
+    =: if isNothing x || x == Just 0 then Just "this.select()" else Nothing
+
   mkStep :: Int -> Text
   mkStep x = prnt (10 ^^ (-x))
   prnt x = pack $ showFFloatAlt (_numberInputConfig_precision nc) x ""
@@ -520,7 +547,7 @@ checkboxInput cfg = elClass "div" "inlineabs" $ do
       =: idStr
       &  inputElementConfig_elementConfig
       .  elementConfig_modifyAttributes
-      .~ modAttrEv
+      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
     elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label")
       $ dynText (_inputConfig_label cfg)
@@ -620,7 +647,7 @@ textAreaInput' idStr cfg = do
       =: idStr
       &  textAreaElementConfig_elementConfig
       .  elementConfig_modifyAttributes
-      .~ modAttrEv
+      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
       )
 
     statusMessageIcon (_inputConfig_status cfg)

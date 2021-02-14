@@ -13,7 +13,7 @@ import           Data.Text                      ( Text
 import           Data.Text.Encoding             ( encodeUtf8 )
 import           Data.Text.Lazy                 ( toStrict )
 import           Reflex
-import           Reflex.Dom
+import           Reflex.Dom              hiding ( rangeInput )
 
 import           Components.Input
 import           Nordtheme
@@ -46,7 +46,9 @@ main =
     $ el "form"
     $ do
         wall_thickness <- numberInput
-          def { _numberInputConfig_precision = Just 3 }
+          def { _numberInputConfig_precision = Just 3
+              , _numberInputConfig_minValue  = constDyn (Just 0)
+              }
           def { _inputConfig_label        = constDyn "Wall thickness"
               , _inputConfig_initialValue = 0 :: Double
               }
