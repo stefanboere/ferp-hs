@@ -22,6 +22,8 @@ module Components.Input.Basic
   , selectInput
   , textAreaInput
   , textAreaInput'
+  , rangeInput
+  , rangeInput'
   )
 where
 
@@ -111,6 +113,7 @@ inputStyle = do
   inputElementStyle
   selectElementStyle
   textAreaElementStyle
+  rangeElementStyle
   checkboxStyle
   toggleStyle
   ".inlineabs" ? do
@@ -252,6 +255,37 @@ textAreaElementStyle = textarea ? do
   disabled Clay.& do
     background white0'
     cursor notAllowed
+
+rangeElementStyle :: Css
+rangeElementStyle = input # ("type" @= "range") ? do
+  "-webkit-appearance" -: "none"
+  padding (px 0) (px 0) (px 0) (px 0)
+  height (Clay.rem 0.2)
+  borderRadiusAll (Clay.rem 0.1)
+  cursor pointer
+  background nord10'
+  disabledStyle
+
+  "::-webkit-slider-thumb" Clay.& do
+    "-webkit-appearance" -: "none"
+    thumb
+
+  "::-moz-range-thumb" Clay.& thumb
+
+ where
+  disabledStyle :: Css
+  disabledStyle = disabled Clay.& do
+    background grey0'
+    cursor notAllowed
+
+  thumb = do
+    height (px 16)
+    width (px 16)
+    borderRadiusAll (px 8)
+    background nord10'
+    cursor pointer
+
+    disabledStyle
 
 formStyle :: Css
 formStyle = do
@@ -430,14 +464,30 @@ numberInput'
   -> Text
   -> InputConfig t a
   -> m (Dynamic t (Maybe a))
-numberInput' nc idStr cfg = do
+numberInput' = numberRangeInput' True
+
+
+numberRangeInput'
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , RealFloat a
+     )
+  => Bool
+  -> NumberInputConfig t a
+  -> Text
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+numberRangeInput' isReg nc idStr cfg = do
   let
     initAttrs = Map.fromList $ mapMaybe
       (\(x, y) -> (x, ) <$> y)
-      [ ("type" , Just "number")
+      [ ("type" , if isReg then Just "number" else Just "range")
       , ("style", Just "text-align:right")
       , ( "onClick"
-        , if _inputConfig_initialValue cfg == 0
+        , if _inputConfig_initialValue cfg == 0 && isReg
           then Just "this.select()"
           else Nothing
         )
@@ -484,7 +534,7 @@ numberInput' nc idStr cfg = do
                                             ]
         }
     let result        = readMaybe . unpack <$> _inputEl_value n
-        selectAttrEv  = mkOnClick <$> updated result
+        selectAttrEv  = if isReg then mkOnClick <$> updated result else never
         zeroIfEmptyEv = attachPromptlyDynWithMaybe
           emptyNoFocus
           ((,) <$> _inputEl_value n <*> result)
@@ -657,3 +707,31 @@ textAreaInput' idStr cfg = do
     pure $ InputEl { _inputEl_value    = _textAreaElement_value n
                    , _inputEl_hasFocus = _textAreaElement_hasFocus n
                    }
+
+rangeInput
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , RealFloat a
+     , MonadIO m
+     )
+  => NumberInputConfig t a
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+rangeInput nc cfg = labeled cfg (rangeInput' nc)
+
+rangeInput'
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , RealFloat a
+     )
+  => NumberInputConfig t a
+  -> Text
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+rangeInput' = numberRangeInput' False
