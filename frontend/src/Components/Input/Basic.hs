@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Components.Input.Basic
   ( numberInput
   , numberInput'
@@ -16,6 +17,9 @@ module Components.Input.Basic
   , InputStatus(..)
   , labeled
   , NumberInputConfig(..)
+  , HasLabel(..)
+  , selectInput'
+  , selectInput
   )
 where
 
@@ -23,6 +27,7 @@ import           Clay                    hiding ( (&)
                                                 , icon
                                                 , max
                                                 , not
+                                                , selectElement
                                                 )
 import qualified Clay                           ( (&) )
 import           Clay.Stylesheet                ( key )
@@ -106,6 +111,7 @@ inputStyle :: Css
 inputStyle = do
   formStyle
   inputElementStyle
+  selectElementStyle
   checkboxStyle
   toggleStyle
   ".inlineabs" ? do
@@ -195,7 +201,7 @@ absoluteBlock = do
 
 inputElementStyle :: Css
 inputElementStyle = do
-  input ? do
+  (input <> Clay.select) ? do
     background transparent
     borderWidth 0
     borderBottomWidth 1
@@ -203,22 +209,37 @@ inputElementStyle = do
     borderColor grey0'
     outlineWidth 0
 
-  input # focus ? do
-    borderBottomWidth 2
-    borderColor nord10'
-    marginBottom (px (-1))
+    focus Clay.& do
+      borderBottomWidth 2
+      borderColor nord10'
+      marginBottom (px (-1))
 
-  input # "::placeholder" ? do
-    fontColor grey0'
+    "::placeholder" Clay.& do
+      fontColor grey0'
 
-  input # disabled ? do
-    fontColor grey0'
+    disabled Clay.& do
+      fontColor grey0'
 
-  input # ".has-error" ? do
-    borderColor nord11'
+    ".has-error" Clay.& do
+      borderColor nord11'
 
-  input # ".has-success" ? do
-    borderColor nord14'
+    ".has-success" Clay.& do
+      borderColor nord14'
+
+selectElementStyle :: Css
+selectElementStyle = do
+  Clay.select ? do
+    cursor pointer
+    width (pc 100)
+    maxWidth (px 185)
+    "appearance" -: "none"
+    "-webkit-appearance" -: "none"
+    "-moz-appearance" -: "none"
+
+  Clay.select |+ ".select-icon" ? do
+    Clay.display inlineBlock
+    transform (translate (px (-24)) (px (-12)))
+    pointerEvents none
 
 formStyle :: Css
 formStyle = do
@@ -293,10 +314,11 @@ statusMessageIcon
 statusMessageIcon = dyn_ . fmap mkIcon
  where
   cfg = def { _iconConfig_size = 24 }
-  mkIcon (InputError _) =
-    icon cfg { _iconConfig_status = Just Danger } exclamationCircleIcon
+  mkIcon (InputError _) = icon
+    cfg { _iconConfig_status = constDyn $ Just Danger }
+    exclamationCircleIcon
   mkIcon (InputSuccess _) =
-    icon cfg { _iconConfig_status = Just Success } checkCircleIcon
+    icon cfg { _iconConfig_status = constDyn $ Just Success } checkCircleIcon
   mkIcon _ = blank
 
 statusMessageElement
@@ -502,3 +524,62 @@ checkboxInput cfg = elClass "div" "inlineabs" $ do
   statusMessageElement (_inputConfig_status cfg)
   pure result
 
+class HasLabel a where
+  toLabel :: a -> Text
+
+selectInput
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, HasLabel a, Enum a, Bounded a)
+  => InputConfig t (Maybe a)
+  -> m (Dynamic t (Maybe a))
+selectInput cfg = _inputEl_value <$> labeled cfg selectInput'
+
+selectInput'
+  :: (PostBuild t m, DomBuilder t m, HasLabel a, Enum a, Bounded a)
+  => Text
+  -> InputConfig t (Maybe a)
+  -> m (InputEl t (Maybe a))
+selectInput' idStr cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+
+  elAttr "div" ("style" =: "display:inline-block") $ do
+    n <- selectElement
+      (  def
+      &  selectElementConfig_initialValue
+      .~ showNum (_inputConfig_initialValue cfg)
+      &  selectElementConfig_setValue
+      .~ fmap showNum (_inputConfig_setValue cfg)
+      &  selectElementConfig_elementConfig
+      .  elementConfig_initialAttributes
+      .~ _inputConfig_attributes cfg
+      <> "id"
+      =: idStr
+      &  selectElementConfig_elementConfig
+      .  elementConfig_modifyAttributes
+      .~ modAttrEv
+      )
+      (mapM_ mkOption (allPossible (_inputConfig_initialValue cfg)))
+
+    elClass "div" "select-icon" arrowElement
+
+    statusMessageIcon (_inputConfig_status cfg)
+
+    statusMessageElement (_inputConfig_status cfg)
+
+    pure $ InputEl { _inputEl_value = parseEnum <$> _selectElement_value (fst n)
+                   , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
+                   }
+ where
+  arrowElement =
+    icon def { _iconConfig_direction = constDyn DirDown } angleIcon
+
+  allPossible :: (Enum a, Bounded a) => Maybe a -> [a]
+  allPossible _ = [minBound .. maxBound]
+
+  showNum :: Enum a => Maybe a -> Text
+  showNum (Just x) = pack . show . fromEnum $ x
+  showNum Nothing  = mempty
+
+  parseEnum :: Enum a => Text -> Maybe a
+  parseEnum = fmap toEnum . readMaybe . unpack
+
+  mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))

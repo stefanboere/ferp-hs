@@ -6,6 +6,7 @@
 -}
 module Components.Icon
   ( Status(..)
+  , Direction(..)
   , IconConfig(..)
   , icon
   -- * Core icons
@@ -16,6 +17,7 @@ module Components.Icon
   , statusStandardIcon
   , checkCircleIcon
   , exclamationCircleIcon
+  , angleIcon
   )
 where
 
@@ -42,6 +44,15 @@ data Status = Danger -- ^ Show errors to make user pause and evaluate
 instance Default Status where
   def = Info
 
+data Direction = DirUp  -- ^ No rotation
+               | DirRight -- ^ 90 degrees rotation (right angle :p)
+               | DirDown -- ^ 180 degrees rotation
+               | DirLeft -- ^ 270 degrees rotation
+               deriving (Eq, Enum, Bounded)
+
+instance Default Direction where
+  def = DirUp
+
 statusColor :: Status -> Color
 statusColor = \case
   Danger  -> nord11'
@@ -52,26 +63,41 @@ statusColor = \case
 showColor :: Color -> Text
 showColor = plain . unValue . value
 
-data IconConfig = IconConfig
+data IconConfig t = IconConfig
   { _iconConfig_size :: Int
-  , _iconConfig_status :: Maybe Status
+  , _iconConfig_status :: Dynamic t (Maybe Status)
+  , _iconConfig_direction :: Dynamic t Direction
   }
 
-instance Default IconConfig where
-  def = IconConfig { _iconConfig_size = 16, _iconConfig_status = Nothing }
+instance Reflex t => Default (IconConfig t) where
+  def = IconConfig { _iconConfig_size      = 16
+                   , _iconConfig_status    = def
+                   , _iconConfig_direction = def
+                   }
 
-icon :: DomBuilder t m => IconConfig -> m a -> m a
-icon IconConfig {..} = elAttr "div" ("class" =: "icon" <> "style" =: style)
+icon :: (PostBuild t m, DomBuilder t m) => IconConfig t -> m a -> m a
+icon IconConfig {..} = elDynAttr
+  "div"
+  (   (\s d -> "class" =: "icon" <> "style" =: style s d)
+  <$> _iconConfig_status
+  <*> _iconConfig_direction
+  )
  where
-  style =
+  style status direction =
     "display:inline-block;position:absolute;width:"
       <> rem'
       <> "rem;height:"
       <> rem'
       <> "rem;"
-      <> styleStatus _iconConfig_status
+      <> styleStatus status
+      <> styleDirection direction
   styleStatus Nothing  = ""
   styleStatus (Just x) = "fill:" <> showColor (statusColor x) <> ";"
+
+  styleDirection DirUp    = mempty
+  styleDirection DirRight = "transform:rotate(90deg);"
+  styleDirection DirDown  = "transform:rotate(180deg);"
+  styleDirection DirLeft  = "transform:rotate(270deg);"
   rem' = pack (show (fromIntegral _iconConfig_size / 16 :: Double))
 
 
@@ -156,3 +182,8 @@ exclamationCircleIcon = svg $ do
   path
     "M18,20.07a1.3,1.3,0,0,1-1.3-1.3v-6a1.3,1.3,0,1,1,2.6,0v6A1.3,1.3,0,0,1,18,20.07Z"
   circle (17.95, 23.02) 1.5
+
+angleIcon :: (PostBuild t m, DomBuilder t m) => m ()
+angleIcon = svg $ do
+  path
+    "M29.52,22.52,18,10.6,6.48,22.52a1.7,1.7,0,0,0,2.45,2.36L18,15.49l9.08,9.39a1.7,1.7,0,0,0,2.45-2.36Z"

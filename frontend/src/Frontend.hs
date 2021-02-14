@@ -15,13 +15,22 @@ import           Reflex.Dom
 import           Components.Input
 import           Nordtheme
 
+data Material = M14404 | M14307 deriving (Eq, Show, Enum, Bounded)
+
+instance Default Material where
+  def = M14404
+
+instance HasLabel Material where
+  toLabel M14404 = "1.4404"
+  toLabel M14307 = "1.4307"
 
 data Torispherical = Torispherical
-  { ts_wall_thickness         ::  Maybe Double
-  , ts_outside_diameter       ::  Maybe Double
-  , ts_straight_flange_height ::  Maybe Double
-  , ts_crown_radius           ::  Maybe (Overridable Double)
-  , ts_knuckle_radius          :: Maybe (Overridable Double)
+  { ts_wall_thickness         :: Maybe Double
+  , ts_outside_diameter       :: Maybe Double
+  , ts_straight_flange_height :: Maybe Double
+  , ts_crown_radius           :: Maybe (Overridable Double)
+  , ts_knuckle_radius         :: Maybe (Overridable Double)
+  , ts_memo                   :: Maybe Material
   } deriving (Eq, Show)
 
 main :: IO ()
@@ -54,6 +63,9 @@ main =
           def { _inputConfig_label        = constDyn "Knuckle radius"
               , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
               }
+        material <- selectInput def { _inputConfig_label = constDyn "Material"
+                                    , _inputConfig_initialValue = Nothing
+                                    }
         let dynTori =
               Torispherical
                 <$> wall_thickness
@@ -61,6 +73,7 @@ main =
                 <*> straight_flange_height
                 <*> crown_radius
                 <*> knuckle_radius
+                <*> material
         dynText $ fmap (pack . show) dynTori
 
 textFont :: Css
