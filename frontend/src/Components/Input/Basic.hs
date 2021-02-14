@@ -224,7 +224,7 @@ inputElementStyle = do
       borderColor nord11'
 
     ".has-success" Clay.& do
-      borderColor nord14'
+      borderColor green1'
 
 selectElementStyle :: Css
 selectElementStyle = do
@@ -260,7 +260,7 @@ formStyle = do
       fontColor nord11'
 
     ".helptext" # ".has-success" ? do
-      fontColor nord14'
+      fontColor green1'
 
 -- | Class to be added when the input is in a certain state
 colorCls :: InputStatus -> Text

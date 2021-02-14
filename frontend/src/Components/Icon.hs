@@ -58,7 +58,7 @@ statusColor = \case
   Danger  -> nord11'
   Warning -> nord13'
   Info    -> nord10'
-  Success -> nord14'
+  Success -> green1'
 
 showColor :: Color -> Text
 showColor = plain . unValue . value

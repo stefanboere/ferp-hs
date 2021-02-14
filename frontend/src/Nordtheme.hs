@@ -240,3 +240,12 @@ grey0 = "#7b88a1"
 
 grey0' :: Color
 grey0' = parse grey0
+
+-- Nord 14 with a higher saturation and contrast
+green1 :: Text
+green1 = "#456629"
+
+green1' :: Color
+green1' = parse green1
+
+
