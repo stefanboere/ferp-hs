@@ -11,8 +11,14 @@ module Nordtheme where
 
 import           Clay                           ( Color
                                                 , parse
+                                                , value
+                                                , unValue
+                                                , plain
                                                 )
 import           Data.Text
+
+showColor :: Color -> Text
+showColor = plain . unValue . value
 
 -- | Base component color of "Polar Night".
 -- Used for texts, backgrounds, carets and structuring characters like curly- and square brackets.

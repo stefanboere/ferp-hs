@@ -15,6 +15,7 @@ import           Data.Text.Lazy                 ( toStrict )
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput )
 
+import           Components.Button
 import           Components.Input
 import           Nordtheme
 
@@ -92,7 +93,7 @@ main =
 textFont :: Css
 textFont = do
   fontSize (px 14)
-  fontColor nord0'
+  fontColor nord3'
   fontFamily ["Metropolis", "Fira Sans", "Helvetica"] [sansSerif]
 
 css :: Css
@@ -102,5 +103,6 @@ css = do
     background white0'
 
   inputStyle
+  buttonStyle
 
 

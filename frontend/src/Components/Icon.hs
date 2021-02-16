@@ -6,6 +6,7 @@
 -}
 module Components.Icon
   ( Status(..)
+  , statusColor
   , Direction(..)
   , IconConfig(..)
   , icon
@@ -21,11 +22,6 @@ module Components.Icon
   )
 where
 
-import           Clay                           ( Color
-                                                , value
-                                                , unValue
-                                                , plain
-                                                )
 import           Data.Default
 import           Data.Map                       ( Map )
 import           Data.Text                      ( Text
@@ -33,16 +29,8 @@ import           Data.Text                      ( Text
                                                 )
 import           Reflex.Dom              hiding ( value )
 
+import           Components.Class
 import           Nordtheme
-
-data Status = Danger -- ^ Show errors to make user pause and evaluate
-            | Warning  -- ^ Proceed with caution
-            | Info  -- ^ Inform the user
-            | Success -- ^ Let the user know something is correct
-            deriving (Eq, Ord)
-
-instance Default Status where
-  def = Info
 
 data Direction = DirUp  -- ^ No rotation
                | DirRight -- ^ 90 degrees rotation (right angle :p)
@@ -52,16 +40,6 @@ data Direction = DirUp  -- ^ No rotation
 
 instance Default Direction where
   def = DirUp
-
-statusColor :: Status -> Color
-statusColor = \case
-  Danger  -> nord11'
-  Warning -> nord13'
-  Info    -> nord10'
-  Success -> green1'
-
-showColor :: Color -> Text
-showColor = plain . unValue . value
 
 data IconConfig t = IconConfig
   { _iconConfig_size :: Int

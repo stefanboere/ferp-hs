@@ -63,6 +63,7 @@ import           System.Random                  ( getStdGen
                                                 , random
                                                 )
 
+import           Components.Class
 import           Components.Icon
 import           Nordtheme
 
@@ -160,9 +161,6 @@ toggleStyle = do
         borderWidth (px 0)
         transitionDuration 0.1
         transitionTimingFunction easeIn
-
-borderRadiusAll :: Size a -> Css
-borderRadiusAll x = borderRadius x x x x
 
 checkboxStyle :: Css
 checkboxStyle = do
