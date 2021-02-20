@@ -122,6 +122,8 @@ inputStyle = do
   checkboxStyle
   toggleStyle
   radioStyle
+  ".absolute" ? do
+    position absolute
   ".inlineabs" ? do
     Clay.display inlineBlock
     verticalAlign vAlignTop
@@ -270,6 +272,8 @@ selectElementStyle = do
     Clay.display inlineBlock
     transform (translate (rem (-1.5)) (rem (-0.7)))
     pointerEvents none
+    ".icon" ? do
+      position absolute
 
 textAreaElementStyle :: Css
 textAreaElementStyle = textarea ? do
@@ -386,12 +390,17 @@ statusMessageIcon
   :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
 statusMessageIcon = dyn_ . fmap mkIcon
  where
-  cfg = def { _iconConfig_size = 24 }
+  cfg = def { _iconConfig_size = 1.5 }
   mkIcon (InputError _) = icon
-    cfg { _iconConfig_status = constDyn $ Just Danger }
+    cfg { _iconConfig_status = constDyn $ Just Danger
+        , _iconConfig_class  = Just "absolute"
+        }
     exclamationCircleIcon
-  mkIcon (InputSuccess _) =
-    icon cfg { _iconConfig_status = constDyn $ Just Success } checkCircleIcon
+  mkIcon (InputSuccess _) = icon
+    cfg { _iconConfig_status = constDyn $ Just Success
+        , _iconConfig_class  = Just "absolute"
+        }
+    checkCircleIcon
   mkIcon _ = blank
 
 statusMessageElement

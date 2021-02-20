@@ -5,6 +5,7 @@ module Components.Class
   , statusColor
   , borderRadiusAll
   , paddingAll
+  , marginAll
   )
 where
 
@@ -42,3 +43,6 @@ borderRadiusAll x = borderRadius x x x x
 
 paddingAll :: Size a -> Css
 paddingAll x = padding x x x x
+
+marginAll :: Size a -> Css
+marginAll x = margin x x x x

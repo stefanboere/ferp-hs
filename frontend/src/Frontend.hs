@@ -15,9 +15,9 @@ import           Data.Text.Lazy                 ( toStrict )
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput )
 
+import           Components.Navigation
 import           Components.Button
 import           Components.Input
-import           Nordtheme
 
 instance Default Text where
   def = mempty
@@ -44,6 +44,7 @@ data Torispherical = Torispherical
 main :: IO ()
 main =
   mainWidgetWithCss (encodeUtf8 . toStrict $ renderWith compact [] css)
+    $ app HeaderConfig { _headerConfig_appname = constDyn "Ferp-hs" }
     $ el "form"
     $ do
         wall_thickness <- numberInput
@@ -90,17 +91,9 @@ main =
                 <*> memo
         dynText $ fmap (pack . show) dynTori
 
-textFont :: Css
-textFont = do
-  fontColor nord3'
-  fontFamily ["Metropolis", "Fira Sans", "Helvetica"] [sansSerif]
-
 css :: Css
 css = do
-  body ? do
-    textFont
-    background white0'
-
+  appStyle
   inputStyle
   buttonStyle
 

@@ -10,6 +10,7 @@ module Components.Icon
   , Direction(..)
   , IconConfig(..)
   , icon
+  , ferpIcon
   -- * Core icons
   , successStandardIcon
   , errorStandardIcon
@@ -42,27 +43,30 @@ instance Default Direction where
   def = DirUp
 
 data IconConfig t = IconConfig
-  { _iconConfig_size :: Int
+  { _iconConfig_size :: Double
   , _iconConfig_status :: Dynamic t (Maybe Status)
   , _iconConfig_direction :: Dynamic t Direction
+  , _iconConfig_class :: Maybe Text
   }
 
 instance Reflex t => Default (IconConfig t) where
-  def = IconConfig { _iconConfig_size      = 16
+  def = IconConfig { _iconConfig_size      = 1
                    , _iconConfig_status    = def
                    , _iconConfig_direction = def
+                   , _iconConfig_class     = def
                    }
 
 icon :: (PostBuild t m, DomBuilder t m) => IconConfig t -> m a -> m a
 icon IconConfig {..} = elDynAttr
   "div"
-  (   (\s d -> "class" =: "icon" <> "style" =: style s d)
+  (   (\s d -> "class" =: ("icon" <> classStr) <> "style" =: style s d)
   <$> _iconConfig_status
   <*> _iconConfig_direction
   )
  where
+  classStr = maybe "" (" " <>) _iconConfig_class
   style status direction =
-    "display:inline-block;position:absolute;width:"
+    "display:inline-block;width:"
       <> rem'
       <> "rem;height:"
       <> rem'
@@ -76,7 +80,7 @@ icon IconConfig {..} = elDynAttr
   styleDirection DirRight = "transform:rotate(90deg);"
   styleDirection DirDown  = "transform:rotate(180deg);"
   styleDirection DirLeft  = "transform:rotate(270deg);"
-  rem' = pack (show (fromIntegral _iconConfig_size / 16 :: Double))
+  rem' = pack (show _iconConfig_size)
 
 
 elSvg
@@ -100,7 +104,10 @@ svg = elSvg
   )
 
 path :: (PostBuild t m, DomBuilder t m) => Text -> m ()
-path d = elSvg "path" (constDyn ("d" =: d)) blank
+path = path' mempty
+
+path' :: (PostBuild t m, DomBuilder t m) => Map Text Text -> Text -> m ()
+path' attrs d = elSvg "path" (constDyn ("d" =: d <> attrs)) blank
 
 circle :: (PostBuild t m, DomBuilder t m) => (Double, Double) -> Double -> m ()
 circle (cx, cy) r = elSvg
@@ -165,3 +172,13 @@ angleIcon :: (PostBuild t m, DomBuilder t m) => m ()
 angleIcon = svg $ do
   path
     "M29.52,22.52,18,10.6,6.48,22.52a1.7,1.7,0,0,0,2.45,2.36L18,15.49l9.08,9.39a1.7,1.7,0,0,0,2.45-2.36Z"
+
+
+ferpIcon :: (PostBuild t m, DomBuilder t m) => m ()
+ferpIcon = svg $ do
+  path'
+    ("style" =: "fill:#8fbcbb")
+    "M 28.985715,4.9715795 18.579006,0.1684825 a 0.8005161,0.8005161 0 0 0 -0.672435,0 L 7.4998623,4.9715795 A 0.8005161,0.8005161 0 0 0 7.035563,5.7000492 V 19.308823 a 0.8005161,0.8005161 0 0 0 0.4642993,0.72847 l 10.4067087,4.803096 a 0.8005161,0.8005161 0 0 0 0.672435,0 l 10.406709,-4.803096 a 0.8005161,0.8005161 0 0 0 0.464299,-0.72847 V 5.7000492 A 0.8005161,0.8005161 0 0 0 28.985715,4.9715795 Z M 18.242788,1.77752 26.736265,5.7000492 18.242788,9.622578 9.7493126,5.7000492 Z M 8.6365952,6.9488541 17.442273,11.015476 V 22.863115 L 8.6365952,18.796493 Z M 19.043304,22.863115 V 11.015476 L 27.848982,6.9488541 V 18.796493 Z"
+  path'
+    ("style" =: "fill:none;stroke:#8fbcbb;stroke-width:1.5")
+    "m 18.708098,27.224358 c -4.32253,0.0073 -8.585215,1.010805 -12.457031,2.932618 -0.9567525,0.475144 -1.5617363,1.45129 -1.5615233,2.519531 v 2.069824 H 32.826262 l -0.0015,-2.069824 c -6.3e-5,-1.068568 -0.605666,-2.044798 -1.562988,-2.519531 -3.901068,-1.936334 -8.198523,-2.940243 -12.553711,-2.932618 z"
