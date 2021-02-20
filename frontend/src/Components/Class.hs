@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 module Components.Class
   ( Status(..)
@@ -6,6 +7,7 @@ module Components.Class
   , borderRadiusAll
   , paddingAll
   , marginAll
+  , absoluteBlock
   )
 where
 
@@ -46,3 +48,9 @@ paddingAll x = padding x x x x
 
 marginAll :: Size a -> Css
 marginAll x = margin x x x x
+
+absoluteBlock :: Css
+absoluteBlock = do
+  content (stringContent "")
+  Clay.display block
+  position absolute

@@ -222,14 +222,6 @@ radioStyle = input # ("type" @= "radio") ? do
       absoluteBlock
 
 
-
-absoluteBlock :: Css
-absoluteBlock = do
-  content (stringContent "")
-  Clay.display block
-  position absolute
-
-
 inputElementStyle :: Css
 inputElementStyle = do
   (input <> Clay.select <> textarea) ? do
