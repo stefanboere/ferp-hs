@@ -140,7 +140,7 @@ toggleStyle = do
       height (rem 1.1)
       backgroundColor nord3'
       borderWidth nil
-      borderRadiusAll (pct 50)
+      borderRadiusAll (rem 1)
       transitionDuration 0.1
       transitionTimingFunction easeIn
 
