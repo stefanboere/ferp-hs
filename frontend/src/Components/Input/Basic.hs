@@ -140,7 +140,7 @@ toggleStyle = do
       height (rem 1.1)
       backgroundColor nord3'
       borderWidth nil
-      borderRadiusAll (pc 50)
+      borderRadiusAll (pct 50)
       transitionDuration 0.1
       transitionTimingFunction easeIn
 
@@ -155,7 +155,7 @@ toggleStyle = do
       height (rem 0.9)
       left (rem (-0.2))
       top (rem 0.1)
-      borderRadiusAll (pc 50)
+      borderRadiusAll (pct 50)
       background white0'
       transitionDuration 0.1
       transitionTimingFunction easeIn
@@ -254,7 +254,7 @@ selectElementStyle :: Css
 selectElementStyle = do
   Clay.select ? do
     cursor pointer
-    width (pc 100)
+    width (pct 100)
     maxWidth (px 185)
     "appearance" -: "none"
     "-webkit-appearance" -: "none"
@@ -284,7 +284,7 @@ rangeElementStyle = input # ("type" @= "range") ? do
   "-webkit-appearance" -: "none"
   paddingAll nil
   height (Clay.rem 0.2)
-  borderRadiusAll (pc 50)
+  borderRadiusAll (pct 50)
   cursor pointer
   background nord10'
   disabledStyle
@@ -304,7 +304,7 @@ rangeElementStyle = input # ("type" @= "range") ? do
   thumb = do
     height (rem 1)
     width (rem 1)
-    borderRadiusAll (pc 50)
+    borderRadiusAll (pct 50)
     background nord10'
     cursor pointer
 

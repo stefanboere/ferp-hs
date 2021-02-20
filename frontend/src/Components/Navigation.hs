@@ -86,7 +86,7 @@ appHeaderStyle = do
 
     "nav" ? do
       display flex
-      width (pc 100)
+      width (pct 100)
 
       a ? do
         position relative
