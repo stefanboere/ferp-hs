@@ -29,6 +29,8 @@ module Components.Input.Basic
   )
 where
 
+import           Prelude                 hiding ( rem )
+
 import           Clay                    hiding ( (&)
                                                 , icon
                                                 , max
@@ -127,16 +129,16 @@ inputStyle = do
 toggleStyle :: Css
 toggleStyle = do
   input # ("type" @= "checkbox") # ".toggle" ? do
-    marginLeft (px 5)
-    marginRight (px 22)
+    marginLeft (rem (1 / 2))
+    marginRight (rem 1.5)
 
     before Clay.& do
-      left (px (-5))
-      width (px 34)
-      height (px 18)
+      left (rem (-0.3))
+      width (rem 2.2)
+      height (rem 1.1)
       backgroundColor nord3'
-      borderWidth (px 0)
-      borderRadius (px 9) (px 9) (px 9) (px 9)
+      borderWidth nil
+      borderRadiusAll (pc 50)
       transitionDuration 0.1
       transitionTimingFunction easeIn
 
@@ -147,18 +149,18 @@ toggleStyle = do
 
     after Clay.& do
       absoluteBlock
-      width (px 14)
-      height (px 14)
-      left (px (-3))
-      top (px 2)
-      borderRadius (pct 50) (pct 50) (pct 50) (pct 50)
+      width (rem 0.9)
+      height (rem 0.9)
+      left (rem (-0.2))
+      top (rem 0.1)
+      borderRadiusAll (pc 50)
       background white0'
       transitionDuration 0.1
       transitionTimingFunction easeIn
 
       checked Clay.& do
-        left (px 13)
-        borderWidth (px 0)
+        left (rem 0.9)
+        borderWidth nil
         transitionDuration 0.1
         transitionTimingFunction easeIn
 
@@ -171,13 +173,14 @@ checkboxStyle = do
   (input # ("type" @= "checkbox") <> input # ("type" @= "radio")) ? do
     position relative
     cursor pointer
+    marginRight (rem 0.8)
 
     before Clay.& do
       absoluteBlock
-      width (px 16)
-      height (px 16)
+      width (rem 1)
+      height (rem 1)
       borderRadiusAll (px 3)
-      border solid (px 1) grey0'
+      border solid 1 grey0'
       backgroundColor white0'
 
     checked Clay.& do
@@ -186,29 +189,30 @@ checkboxStyle = do
         backgroundColor nord10'
 
       after Clay.& do
-        width (px 5)
-        height (px 10)
+        absoluteBlock
+        width (rem 0.25)
+        height (rem 0.5)
         borderStyle solid
         borderColor white0'
-        borderWidth4 (px 0) (px 2) (px 2) (px 0)
+        borderWidth4 nil 2 2 nil
         transform (rotate (deg 45))
-        top (px 2)
-        left (px 6)
+        top (rem 0.15)
+        left (rem 0.4)
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do
-  marginLeft (px 10)
-  marginRight (px 10)
+  marginLeft (rem 0.5)
+  marginRight (rem 0.5)
 
   before Clay.& do
-    borderRadiusAll (px 12)
-    left (px (-2))
+    borderRadiusAll (pct 50)
+    left (rem (-0.1))
 
   checked Clay.& after Clay.& do
-    width (px 2)
-    height (px 2)
-    left (px 5)
-    top (px 7)
+    width (rem 0.25)
+    height (rem 0.25)
+    left (rem 0.25)
+    top (rem 0.35)
     background white0'
     borderRadiusAll (pct 50)
 
@@ -230,7 +234,7 @@ inputElementStyle = do
     background transparent
     borderWidth 0
     borderBottomWidth 1
-    padding (px 4) (px 4) (px 4) (px 4)
+    paddingAll (rem 0.25)
     borderColor grey0'
     outlineWidth 0
 
@@ -264,16 +268,16 @@ selectElementStyle = do
 
   Clay.select |+ ".select-icon" ? do
     Clay.display inlineBlock
-    transform (translate (px (-24)) (px (-12)))
+    transform (translate (rem (-1.5)) (rem (-0.7)))
     pointerEvents none
 
 textAreaElementStyle :: Css
 textAreaElementStyle = textarea ? do
   background white
-  borderWidth (px 1)
+  borderWidth 1
   borderRadiusAll (px 3)
-  minWidth (px 300)
-  minHeight (px 100)
+  minWidth (rem 20)
+  minHeight (rem 8)
 
   disabled Clay.& do
     background white0'
@@ -282,9 +286,9 @@ textAreaElementStyle = textarea ? do
 rangeElementStyle :: Css
 rangeElementStyle = input # ("type" @= "range") ? do
   "-webkit-appearance" -: "none"
-  padding (px 0) (px 0) (px 0) (px 0)
+  paddingAll nil
   height (Clay.rem 0.2)
-  borderRadiusAll (Clay.rem 0.1)
+  borderRadiusAll (pc 50)
   cursor pointer
   background nord10'
   disabledStyle
@@ -302,9 +306,9 @@ rangeElementStyle = input # ("type" @= "range") ? do
     cursor notAllowed
 
   thumb = do
-    height (px 16)
-    width (px 16)
-    borderRadiusAll (px 8)
+    height (rem 1)
+    width (rem 1)
+    borderRadiusAll (pc 50)
     background nord10'
     cursor pointer
 
@@ -314,16 +318,16 @@ formStyle :: Css
 formStyle = do
   label ? do
     fontWeight bold
-    lineHeight (px 23)
+    lineHeight (rem 1.5)
 
   form ? do
     Clay.display grid
-    key "grid-column-gap"       (px 50)
-    key "grid-row-gap"          (px 5)
+    key "grid-column-gap"       (rem 2)
+    key "grid-row-gap"          (rem 0.25)
     key "grid-template-columns" (pct 25, pct 75)
 
     ".helptext" ? do
-      fontSize (px 12)
+      fontSize (rem 0.75)
 
     ".helptext" # ".has-error" ? do
       fontColor nord11'

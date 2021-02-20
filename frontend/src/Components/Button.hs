@@ -8,6 +8,8 @@ module Components.Button
   )
 where
 
+import           Prelude                 hiding ( rem )
+
 import           Clay                    hiding ( (&) )
 import qualified Clay                           ( (&) )
 import           Data.Default
@@ -46,7 +48,7 @@ buttonStyle :: Css
 buttonStyle = Clay.button ? do
   Clay.display inlineBlock
   height (px 34)
-  borderWidth (px 0)
+  borderWidth nil
   borderRadiusAll (px 3)
   paddingRight (px 12)
   paddingLeft (px 12)
@@ -61,7 +63,7 @@ buttonStyle = Clay.button ? do
   verticalAlign middle
 
   ".compactsize" Clay.& do
-    height (px 24)
+    height (rem 1.5)
 
   ".info" Clay.& do
     background nord7'
@@ -84,13 +86,13 @@ buttonStyle = Clay.button ? do
     hover Clay.& background (rgb 235 187 92)
 
   ".secondary" Clay.& do
-    border solid (px 1) nord3'
+    border solid 1 nord3'
     background white0'
     hoverSecondary
 
   ".tertiary" Clay.& do
     background white0'
-    borderWidth (px 0)
+    borderWidth nil
     hoverSecondary
 
  where

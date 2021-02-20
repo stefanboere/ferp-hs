@@ -92,7 +92,6 @@ main =
 
 textFont :: Css
 textFont = do
-  fontSize (px 14)
   fontColor nord3'
   fontFamily ["Metropolis", "Fira Sans", "Helvetica"] [sansSerif]
 
