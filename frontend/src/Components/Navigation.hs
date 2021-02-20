@@ -199,13 +199,14 @@ sideNavStyle = do
   ".sidenav" |> (a <> section) ? do
     margin (rem 1.2) nil nil (rem 1.5)
 
-  ".sidenav" ? do
+  ".sidenav" ? borderRight solid 1 grey0'
+
+  (".verticalnav" <> ".sidenav") ? do
     display flex
     flexDirection column
     flexGrow 0
     flexShrink 0
     flexBasis (rem 12)
-    borderRight solid 1 grey0'
     overflow auto
     fontSize (rem 0.9)
 
@@ -215,6 +216,12 @@ sideNavStyle = do
       fontWeight (weight 500)
       paddingLeft (rem 0.6)
       borderRadius (rem 0.15) nil nil (rem 0.15)
+
+    (a <> (".nav-group" ** Clay.span)) ? do
+      display inlineBlock
+      overflow hidden
+      whiteSpace nowrap
+      textOverflow overflowEllipsis
 
     a ? do
       textDecoration none
@@ -228,13 +235,16 @@ sideNavStyle = do
     ".nav-group" ? do
       ".icon" ? do
         marginLeft (rem (-0.8))
-        marginRight (rem 0.1)
+        marginRight (rem 0.2)
         "fill" -: showColor nord3'
         transforms [translateY (rem 0.7), rotate (deg 180)]
 
       label ? do
+        display flex
         fontWeight (weight 500)
         cursor pointer
+
+        Clay.span ? order 1
 
       input # ("type" @= "checkbox") ? do
         display none
@@ -247,12 +257,41 @@ sideNavStyle = do
           fontWeight normal
 
       input # checked |+ Clay.div ? do
-        ".icon" ? transforms [translate (rem 0.3) (rem 0.3), rotate (deg 90)]
+        ".icon" ? transforms [translate (rem 0.3) (rem 0.4), rotate (deg 90)]
         ul ? display none
 
       ul ? do
         marginAll nil
         paddingAll nil
+
+  ".verticalnav" ? do
+    backgroundColor nord4'
+
+    ".nav-group" ? do
+      lineHeight (rem 2)
+      paddingLeft nil
+      label ? do
+        paddingLeft (rem 0.6)
+        lineHeight (rem 2)
+        hover Clay.& do
+          backgroundColor grey0'
+
+      li ? do
+        a ? lineHeight (rem 2)
+
+      ".icon" ? do
+        order 1
+        marginAll (rem 0.2)
+
+    a ? do
+      lineHeight (rem 2)
+
+      ".active" Clay.& do
+        backgroundColor white0'
+
+      hover Clay.& do
+        backgroundColor grey0'
+
 
 
   "app" ? do
@@ -270,19 +309,26 @@ sideNavStyle = do
 
 
 sideNav :: (PostBuild t m, DomBuilder t m) => m ()
-sideNav = elClass "nav" "sidenav" $ do
-  elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
-  elAttr "a" ("href" =: "#") $ text "Subnav link 1"
+sideNav = verticalSideNav True
 
-  elClass "section" "nav-group" $ do
-    elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
-    el "div" $ do
-      elAttr "label" ("for" =: "a") $ do
-        icon def { _iconConfig_size = 0.7 } angleIcon
-        text "Collapsible Nav element"
-      el "ul" $ do
-        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 1"
-        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 2"
-        el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
-          "Link 2"
+verticalSideNav :: (PostBuild t m, DomBuilder t m) => Bool -> m ()
+verticalSideNav isSideNav =
+  elClass "nav" (if isSideNav then "sidenav" else "verticalnav") $ do
+    elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
+    elAttr "a" ("href" =: "#") $ text "Subnav link 1 very long link idnee"
+
+    elClass "section" "nav-group" $ do
+      elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
+      el "div" $ do
+        elAttr "label" ("for" =: "a")
+          $ let sz = if isSideNav then 0.7 else 1
+            in  do
+                  el "span" $ text "Collapsible Nav element"
+                  icon def { _iconConfig_size = sz } angleIcon
+
+        el "ul" $ do
+          el "li" $ elAttr "a" ("href" =: "#") $ text "Link 1"
+          el "li" $ elAttr "a" ("href" =: "#") $ text "Link 2"
+          el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
+            "Link 2 very long link indeed"
 
