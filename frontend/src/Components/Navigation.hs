@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecursiveDo #-}
 module Components.Navigation
   ( HeaderConfig(..)
   , NavigationPattern(..)
@@ -19,7 +20,10 @@ import           Prelude                 hiding ( rem
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
 import           Control.Monad                  ( when )
+import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
+import           Data.Map                       ( Map )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -27,6 +31,7 @@ import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( display )
 
 import           Components.Class
+import           Components.Input.Basic         ( randomId )
 import           Components.Icon
 import           Nordtheme
 
@@ -68,22 +73,42 @@ appStyle = do
 tshow :: String -> Text
 tshow = pack . show
 
-ahref :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Bool -> m a -> m a
-ahref ref activ = elDynAttr
-  "a"
-  ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty)
-  <$> activ
-  )
+ahref
+  :: (PostBuild t m, DomBuilder t m)
+  => Text
+  -> Dynamic t Bool
+  -> m ()
+  -> m (Event t ())
+ahref ref activ cnt = do
+  (e, _) <- elDynAttr'
+    "a"
+    ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty
+     )
+    <$> activ
+    )
+    cnt
+
+  pure $ domEvent Click e
 
 liahref
-  :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Bool -> m a -> m a
+  :: (PostBuild t m, DomBuilder t m)
+  => Text
+  -> Dynamic t Bool
+  -> m ()
+  -> m (Event t ())
 liahref ref activ = el "li" . ahref ref activ
 
-navGroup :: (PostBuild t m, DomBuilder t m) => m () -> m () -> m ()
-navGroup titl cnt = elClass "section" "nav-group" $ do
-  elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
+navGroup
+  :: (MonadIO m, PostBuild t m, DomBuilder t m)
+  => Event t Bool
+  -> m ()
+  -> m a
+  -> m a
+navGroup setOpen titl cnt = elClass "section" "nav-group" $ do
+  idStr <- randomId
+  checkboxInput setOpen $ "id" =: idStr
   el "div" $ do
-    elAttr "label" ("for" =: "a") $ do
+    elAttr "label" ("for" =: idStr) $ do
       el "span" titl
       icon
         def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
@@ -92,10 +117,10 @@ navGroup titl cnt = elClass "section" "nav-group" $ do
     el "ul" cnt
 
 app
-  :: (PostBuild t m, DomBuilder t m)
+  :: (MonadFix m, PostBuild t m, DomBuilder t m)
   => HeaderConfig t
-  -> m ()
-  -> m ()
+  -> m (Event t ())
+  -> m (Event t ())
   -> m ()
   -> m a
   -> m a
@@ -114,17 +139,37 @@ app cfg primary secondary actions page = do
 
   elClass "article" "main-content" page
 
-navigationCheckbox :: (PostBuild t m, DomBuilder t m) => Text -> m ()
-navigationCheckbox idStr = elAttr
-  "input"
-  ("type" =: "checkbox" <> "id" =: idStr <> "class" =: "nav-opener")
-  blank
+checkboxInput
+  :: DomBuilder t m => Event t Bool -> Map AttributeName Text -> m ()
+checkboxInput setOpen attrs = do
+  _ <-
+    inputElement
+    $            def
+    Reflex.Dom.& inputElementConfig_setChecked
+    .~           setOpen
+    Reflex.Dom.& inputElementConfig_elementConfig
+    .            elementConfig_initialAttributes
+    .~           attrs
+    <>           ("type" =: "checkbox")
+  pure ()
 
-primaryNavigation :: (PostBuild t m, DomBuilder t m) => m () -> m ()
-primaryNavigation x = navigationCheckbox "nav-primary" >> x
+navigationCheckbox :: (DomBuilder t m) => Text -> Event t Bool -> m ()
+navigationCheckbox idStr setOpen =
+  checkboxInput setOpen $ "id" =: idStr <> "class" =: "nav-opener"
 
-secondaryNavigation :: (PostBuild t m, DomBuilder t m) => m () -> m ()
-secondaryNavigation x = navigationCheckbox "nav-secondary" >> x
+primaryNavigation
+  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()
+primaryNavigation x = do
+  rec navigationCheckbox "nav-primary" (False <$ closeEv)
+      closeEv <- x
+  pure ()
+
+secondaryNavigation
+  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()
+secondaryNavigation x = do
+  rec navigationCheckbox "nav-secondary" (False <$ closeEv)
+      closeEv <- x
+  pure ()
 
 data NavigationPattern = Header -- ^ Menu items in the main header
                        | Subnav  -- ^ A bar below the main header
@@ -243,7 +288,11 @@ headerSeparatorStyle = do
 
 
 appHeader
-  :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m () -> m ()
+  :: (MonadFix m, PostBuild t m, DomBuilder t m)
+  => HeaderConfig t
+  -> m (Event t ())
+  -> m ()
+  -> m ()
 appHeader HeaderConfig {..} primary actions =
   elClass "header" "app-header" $ do
     elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger")
@@ -302,7 +351,7 @@ subNavStyle = ".subnav" ? do
     fontColor nord0'
     borderBottom solid 3 nord10'
 
-subNav :: (DomBuilder t m) => m () -> m ()
+subNav :: (DomBuilder t m) => m a -> m a
 subNav = elClass "nav" "subnav"
 
 tabsStyle :: Css
@@ -471,6 +520,6 @@ sideNavStyle = do
         ".angle-icon" ? order (-1)
 
 
-sideNav :: DomBuilder t m => m () -> m ()
+sideNav :: DomBuilder t m => m a -> m a
 sideNav = elClass "nav" "sidenav"
 

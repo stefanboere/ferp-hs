@@ -73,20 +73,28 @@ css = do
   buttonStyle
 
 withHeader
-  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Dynamic t URI) -> m ()
+  :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
+  => m (Dynamic t URI)
+  -> m ()
 withHeader x = do
-  rec dynUri <- app cfg (sideNav dynUri) (pure ()) actions x
+  rec dynUri <- app cfg (sideNav dynUri) (pure never) actions x
   pure ()
 
  where
   cfg = HeaderConfig { _headerConfig_appname           = constDyn "Ferp-hs"
                      , _headerConfig_navigationPattern = Sidenav
                      }
-  actions = ahref "#" (constDyn False) $ icon def cogIcon
+  actions = do
+    _ <- ahref "#" (constDyn False) $ icon def cogIcon
+    pure ()
 
 
 safelink
-  :: (DomBuilder t m, PostBuild t m) => Dynamic t URI -> Link -> m () -> m ()
+  :: (DomBuilder t m, PostBuild t m)
+  => Dynamic t URI
+  -> Link
+  -> m ()
+  -> m (Event t ())
 safelink dynLoc lnk = ahref frag ((frag' ==) . uriPath <$> dynLoc)
  where
   frag' = "/" <> B.pack (L.uriPath uri)
@@ -167,10 +175,15 @@ myApi = Proxy
 inputBasicLink, inputButtonLink :: Link
 inputBasicLink :<|> inputButtonLink = allLinks myApi
 
-sideNav :: (DomBuilder t m, PostBuild t m) => Dynamic t URI -> m ()
-sideNav dynUri = navGroup (text "Input elements") $ do
-  safelink dynUri inputBasicLink $ text "Basic"
-  safelink dynUri inputButtonLink $ text "Button"
+sideNav
+  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  => Dynamic t URI
+  -> m (Event t ())
+sideNav dynUri =
+  fmap leftmost <$> navGroup never (text "Input elements") $ sequence
+    [ safelink dynUri inputBasicLink $ text "Basic"
+    , safelink dynUri inputButtonLink $ text "Button"
+    ]
 
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
 handler = inputBasic :<|> inputButton

@@ -16,6 +16,7 @@ module Components.Input.Basic
   , textInput'
   , InputStatus(..)
   , labeled
+  , randomId
   , NumberInputConfig(..)
   , HasLabel(..)
   , selectInput'
