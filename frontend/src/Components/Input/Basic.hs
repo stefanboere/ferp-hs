@@ -122,49 +122,47 @@ inputStyle = do
   checkboxStyle
   toggleStyle
   radioStyle
-  ".absolute" ? do
-    position absolute
+  ".absolute" ? position absolute
   ".inlineabs" ? do
     Clay.display inlineBlock
     verticalAlign vAlignTop
 
 toggleStyle :: Css
-toggleStyle = do
-  input # ("type" @= "checkbox") # ".toggle" ? do
-    marginLeft (rem (1 / 2))
-    marginRight (rem 1.5)
+toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
+  marginLeft (rem (1 / 2))
+  marginRight (rem 1.5)
 
-    before Clay.& do
-      left (rem (-0.3))
-      width (rem 2.2)
-      height (rem 1.1)
-      backgroundColor nord3'
+  before Clay.& do
+    left (rem (-0.3))
+    width (rem 2.2)
+    height (rem 1.1)
+    backgroundColor nord3'
+    borderWidth nil
+    borderRadiusAll (rem 1)
+    transitionDuration 0.1
+    transitionTimingFunction easeIn
+
+    checked Clay.& do
+      backgroundColor nord10'
+      transitionDuration 0.1
+      transitionTimingFunction easeIn
+
+  after Clay.& do
+    absoluteBlock
+    width (rem 0.9)
+    height (rem 0.9)
+    left (rem (-0.15))
+    top (rem 0.1)
+    borderRadiusAll (pct 50)
+    background white0'
+    transitionDuration 0.1
+    transitionTimingFunction easeIn
+
+    checked Clay.& do
+      left (rem 0.9)
       borderWidth nil
-      borderRadiusAll (rem 1)
       transitionDuration 0.1
       transitionTimingFunction easeIn
-
-      checked Clay.& do
-        backgroundColor nord10'
-        transitionDuration 0.1
-        transitionTimingFunction easeIn
-
-    after Clay.& do
-      absoluteBlock
-      width (rem 0.9)
-      height (rem 0.9)
-      left (rem (-0.2))
-      top (rem 0.1)
-      borderRadiusAll (pct 50)
-      background white0'
-      transitionDuration 0.1
-      transitionTimingFunction easeIn
-
-      checked Clay.& do
-        left (rem 0.9)
-        borderWidth nil
-        transitionDuration 0.1
-        transitionTimingFunction easeIn
 
 checkboxStyle :: Css
 checkboxStyle = do
@@ -218,37 +216,32 @@ radioStyle = input # ("type" @= "radio") ? do
     background white0'
     borderRadiusAll (pct 50)
 
-    checked Clay.& do
-      absoluteBlock
+    checked Clay.& absoluteBlock
 
 
 inputElementStyle :: Css
-inputElementStyle = do
-  (input <> Clay.select <> textarea) ? do
-    background transparent
-    borderWidth 0
-    borderBottomWidth 1
-    paddingAll (rem 0.25)
-    borderColor grey0'
-    outlineWidth 0
+inputElementStyle = (input <> Clay.select <> textarea) ? do
+  background transparent
+  borderWidth 0
+  borderBottomWidth 1
+  paddingAll (rem 0.25)
+  borderColor grey0'
+  outlineWidth 0
 
-    focus Clay.& do
-      borderBottomWidth 2
-      borderColor nord10'
-      marginBottom (px (-1))
+  focus Clay.& do
+    borderBottomWidth 2
+    borderColor nord10'
+    marginBottom (px (-1))
 
-    "::placeholder" Clay.& do
-      fontColor grey0'
+  "::placeholder" Clay.& fontColor grey0'
 
-    disabled Clay.& do
-      fontColor grey0'
-      cursor notAllowed
+  disabled Clay.& do
+    fontColor grey0'
+    cursor notAllowed
 
-    ".has-error" Clay.& do
-      borderColor nord11'
+  ".has-error" Clay.& borderColor nord11'
 
-    ".has-success" Clay.& do
-      borderColor green1'
+  ".has-success" Clay.& borderColor green1'
 
 selectElementStyle :: Css
 selectElementStyle = do
@@ -264,8 +257,7 @@ selectElementStyle = do
     Clay.display inlineBlock
     transform (translate (rem (-1.5)) (rem (-0.7)))
     pointerEvents none
-    ".icon" ? do
-      position absolute
+    ".icon" ? position absolute
 
 textAreaElementStyle :: Css
 textAreaElementStyle = textarea ? do
@@ -322,14 +314,11 @@ formStyle = do
     key "grid-row-gap"          (rem 0.25)
     key "grid-template-columns" (pct 25, pct 75)
 
-    ".helptext" ? do
-      fontSize (rem 0.75)
+    ".helptext" ? fontSize (rem 0.75)
 
-    ".helptext" # ".has-error" ? do
-      fontColor nord11'
+    ".helptext" # ".has-error" ? fontColor nord11'
 
-    ".helptext" # ".has-success" ? do
-      fontColor green1'
+    ".helptext" # ".has-success" ? fontColor green1'
 
 -- | Class to be added when the input is in a certain state
 colorCls :: InputStatus -> Text
