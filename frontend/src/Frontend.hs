@@ -16,6 +16,8 @@ import           Clay                    hiding ( icon
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import qualified Data.ByteString.Char8         as B
+                                                ( pack )
 import           Data.Default
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
@@ -26,10 +28,14 @@ import           Data.Text.Encoding             ( encodeUtf8 )
 import           Data.Text.Lazy                 ( toStrict )
 import           URI.ByteString
 import           Reflex
-import           Reflex.Dom              hiding ( rangeInput )
+import           Reflex.Dom              hiding ( rangeInput
+                                                , Link(..)
+                                                )
 import           Reflex.Dom.Contrib.Router
                                          hiding ( URI )
 import           Servant.API             hiding ( URI(..) )
+import           Servant.Links           hiding ( URI(..) )
+import qualified Servant.Links                 as L
 import           Servant.Router
 
 import           Components
@@ -60,8 +66,17 @@ main :: IO ()
 main = mainWidgetWithCss (encodeUtf8 . toStrict $ renderWith compact [] css)
   $ withHeader mainPage
 
-withHeader :: (PostBuild t m, DomBuilder t m) => m () -> m ()
-withHeader = app cfg sideNav (pure ()) actions
+css :: Css
+css = do
+  appStyle
+  inputStyle
+  buttonStyle
+
+withHeader
+  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Dynamic t URI) -> m ()
+withHeader x = do
+  rec dynUri <- app cfg (sideNav dynUri) (pure ()) actions x
+  pure ()
 
  where
   cfg = HeaderConfig { _headerConfig_appname           = constDyn "Ferp-hs"
@@ -69,19 +84,25 @@ withHeader = app cfg sideNav (pure ()) actions
                      }
   actions = ahref "#" (constDyn False) $ icon def cogIcon
 
-  sideNav = navGroup (text "Input elements") $ do
-    ahref "#/input/basic" (constDyn False) $ text "Basic"
-    ahref "#/input/button" (constDyn False) $ text "Button"
 
-mainPage :: forall t m . MonadWidget t m => m ()
+safelink
+  :: (DomBuilder t m, PostBuild t m) => Dynamic t URI -> Link -> m () -> m ()
+safelink dynLoc lnk = ahref frag ((frag' ==) . uriPath <$> dynLoc)
+ where
+  frag' = "/" <> B.pack (L.uriPath uri)
+  uri   = linkURI lnk
+  frag  = "#/" <> pack (show uri)
+
+mainPage :: forall t m . MonadWidget t m => m (Dynamic t URI)
 mainPage = do
-  let routeHandler = route' (\_ uri -> fixFragment uri)
-                            (routeURI myApi handler . fixFragment)
+  let routeHandler = route'
+        (\_ uri -> fixFragment uri)
+        (\uri -> (fixFragment uri, routeURI myApi handler . fixFragment $ uri))
 
   rec dynamicRoute <- routeHandler (switch (current changeRoute))
-      routeWasSet  <- dyn dynamicRoute -- Will fire on postbuild
+      routeWasSet  <- dyn (snd <$> dynamicRoute) -- Will fire on postbuild
       changeRoute  <- holdDyn never $ fmap (either (const never) id) routeWasSet
-  return ()
+  return $ fst <$> dynamicRoute
 
  where
   fixFragment :: URI -> URI
@@ -143,17 +164,19 @@ type MyApi = "input" :> "basic" :> View
 myApi :: Proxy MyApi
 myApi = Proxy
 
+inputBasicLink, inputButtonLink :: Link
+inputBasicLink :<|> inputButtonLink = allLinks myApi
+
+sideNav :: (DomBuilder t m, PostBuild t m) => Dynamic t URI -> m ()
+sideNav dynUri = navGroup (text "Input elements") $ do
+  safelink dynUri inputBasicLink $ text "Basic"
+  safelink dynUri inputButtonLink $ text "Button"
+
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
 handler = inputBasic :<|> inputButton
  where
   inputBasic  = formTest >> pure never
   inputButton = text "TBD" >> pure never
 
-
-css :: Css
-css = do
-  appStyle
-  inputStyle
-  buttonStyle
 
 

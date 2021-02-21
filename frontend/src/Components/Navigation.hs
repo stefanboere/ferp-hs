@@ -98,8 +98,8 @@ app
   -> m ()
   -> m ()
   -> m ()
-  -> m ()
-  -> m ()
+  -> m a
+  -> m a
 app cfg primary secondary actions page = do
   appHeader cfg primary actions
 
