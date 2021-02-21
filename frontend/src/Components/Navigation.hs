@@ -123,7 +123,9 @@ commonAppHeaderStyle = do
     background nord0'
     fontColor nord6'
 
-    ".hamburger" ? display none
+    ".hamburger" ? do
+      cursor pointer
+      display none
 
     ".icon" ? do
       verticalAlign middle
@@ -333,6 +335,7 @@ commonNavStyle :: Css
 commonNavStyle = do
   nav |> star ? do
     paddingLeft (rem 0.6)
+    paddingRight (rem 0.6)
 
   nav ? do
     display flex
@@ -348,6 +351,7 @@ commonNavStyle = do
       fontColor inherit
       textDecoration none
       paddingLeft (rem 0.6)
+      paddingRight (rem 0.6)
 
     ul ? do
       display flex
@@ -377,15 +381,18 @@ commonNavStyle = do
       display none
 
     ".nav-group" ? do
+      paddingRight nil
       ".angle-icon" ? do
         marginLeft (rem (-0.8))
         marginRight (rem 0.2)
         transforms [translateY (rem 0.7), rotate (deg 180)]
 
+      label ? do
+        paddingRight (rem 0.6)
 
       input # checked |+ star ? do
         ".angle-icon"
-          ? transforms [translate (rem 0.3) (rem 0.4), rotate (deg 90)]
+          ? transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
         ul ? display none
 
 sideNavStyle :: Css
@@ -414,12 +421,9 @@ sideNavStyle = do
         fontWeight normal
         lineHeight (rem 1.5)
 
-      ".angle-icon" ? do
-        marginLeft (rem (-0.8))
-        marginRight (rem 0.2)
-
       label ? do
         lineHeight (rem 1.5)
+        marginLeft (rem (-0.8))
         ".angle-icon" ? order (-1)
 
 sideNav :: (PostBuild t m, DomBuilder t m) => m ()
