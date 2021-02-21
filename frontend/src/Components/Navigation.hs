@@ -414,7 +414,7 @@ commonNavStyle = do
       paddingRight (rem 0.6)
 
     ul ? do
-      display flex
+      display none
       flexDirection column
       marginAll nil
       paddingAll nil
@@ -445,15 +445,14 @@ commonNavStyle = do
       ".angle-icon" ? do
         marginLeft (rem (-0.8))
         marginRight (rem 0.2)
-        transforms [translateY (rem 0.7), rotate (deg 180)]
+        transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
 
       label ? do
         paddingRight (rem 0.6)
 
       input # checked |+ star ? do
-        ".angle-icon"
-          ? transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
-        ul ? display none
+        ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
+        ul ? display flex
 
 sideNavStyle :: Css
 sideNavStyle = do
