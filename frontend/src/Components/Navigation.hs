@@ -65,17 +65,21 @@ tshow = pack . show
 app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
 app cfg page = do
   appHeader cfg
-  elAttr
-    "input"
-    ("type" =: "checkbox" <> "id" =: "nav-primary" <> "class" =: "nav-opener")
-    blank
   subNav
-  elAttr
-    "input"
-    ("type" =: "checkbox" <> "id" =: "nav-secondary" <> "class" =: "nav-opener")
-    blank
-  sideNav
+  secondaryNavigation sideNav
   elClass "article" "main-content" page
+
+navigationCheckbox :: (PostBuild t m, DomBuilder t m) => Text -> m ()
+navigationCheckbox idStr = elAttr
+  "input"
+  ("type" =: "checkbox" <> "id" =: idStr <> "class" =: "nav-opener")
+  blank
+
+primaryNavigation :: (PostBuild t m, DomBuilder t m) => m () -> m ()
+primaryNavigation x = navigationCheckbox "nav-primary" >> x
+
+secondaryNavigation :: (PostBuild t m, DomBuilder t m) => m () -> m ()
+secondaryNavigation x = navigationCheckbox "nav-secondary" >> x
 
 newtype HeaderConfig t = HeaderConfig
   { _headerConfig_appname :: Dynamic t Text
@@ -104,6 +108,10 @@ appHeaderStyle = do
       headerSeparatorStyle
       left nil
 
+    nav ** a ? headerIconStyle
+    ".icon" ? do
+      "fill" -: showColor nord4'
+
 commonAppHeaderStyle :: Css
 commonAppHeaderStyle = do
   ".app-header" ? do
@@ -124,26 +132,11 @@ commonAppHeaderStyle = do
 
     "nav" ? do
       flexDirection row
-      width (pct 100)
 
       a ? do
         position relative
 
-    a <> label ? do
-      "fill" -: showColor nord4'
-      display inlineFlex
-      height (rem 3)
-      alignItems center
-      fontColor nord4'
-      fontSize (rem 1.2)
-      textDecoration none
-      padding nil (rem 1.2) nil (rem 1.2)
-      position relative
-
-      hover Clay.& do
-        background nord2'
-        fontColor nord6'
-        "fill" -: showColor nord6'
+    (star # Clay.not nav ** a) <> label ? headerIconStyle
 
   ".header-actions" ? do
     display flex
@@ -154,11 +147,27 @@ commonAppHeaderStyle = do
     minWidth (rem 12)
 
     a # hover ? do
-      backgroundColor inherit
-      fontColor inherit
+      important $ backgroundColor inherit
 
     ".icon" ? do
       marginRight (rem 0.5)
+
+headerIconStyle :: Css
+headerIconStyle = do
+  "fill" -: showColor nord4'
+  display inlineFlex
+  height (rem 3)
+  alignItems center
+  fontColor nord4'
+  fontSize (rem 1.1)
+  textDecoration none
+  padding nil (rem 1.2) nil (rem 1.2)
+  position relative
+
+  hover Clay.& do
+    background nord2'
+    fontColor nord6'
+    "fill" -: showColor nord6'
 
 headerSeparatorStyle :: Css
 headerSeparatorStyle = do
@@ -182,9 +191,10 @@ appHeader HeaderConfig {..} = do
         icon def { _iconConfig_size = 2 } ferpIcon
         dynText _headerConfig_appname
 
-    elClass "nav" "main-nav" $ do
+    primaryNavigation $ elClass "nav" "main-nav" $ do
       elAttr "a" ("href" =: "#") $ do
         icon def { _iconConfig_size = 1.5 } userIcon
+        text "Home"
 
     elClass "div" "header-actions" $ do
       elAttr "a" ("href" =: "#") $ do
@@ -233,6 +243,9 @@ mobileNavStyle = do
     display block
     position absolute
     cursor cursorDefault
+    left (rem (-2))
+    top (rem 3)
+    marginAll nil
 
     before Clay.& do
       zIndex 1
@@ -240,9 +253,9 @@ mobileNavStyle = do
       important $ backgroundColor nord0'
       important $ borderColor nord0'
       opacity 0.5
-      left (rem (-1))
       height (vh 110)
       width (vw 110)
+      borderWidth nil
 
   "#nav-secondary" # checked |+ nav ? do
     right nil
@@ -259,6 +272,7 @@ mobileNavStyle = do
   nav ? do
     display none
     backgroundColor nord4'
+    fontColor nord3'
 
     ".nav-group" ? do
       paddingLeft nil
@@ -289,6 +303,10 @@ commonNavStyle = do
     flexDirection column
     overflowX hidden
     overflowY auto
+
+    ".icon" ? do
+      "fill" -: showColor nord3'
+      paddingRight (rem 0.6)
 
     a ? do
       fontColor inherit
@@ -326,7 +344,6 @@ commonNavStyle = do
       ".angle-icon" ? do
         marginLeft (rem (-0.8))
         marginRight (rem 0.2)
-        "fill" -: showColor nord3'
         transforms [translateY (rem 0.7), rotate (deg 180)]
 
 
