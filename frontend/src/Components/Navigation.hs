@@ -14,7 +14,10 @@ import           Prelude                 hiding ( rem
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
 import           Data.Default
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
+import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( display )
 
 import           Components.Class
@@ -34,12 +37,19 @@ appStyle = do
     height (vh 100)
 
   body ? do
-    display flex
-    flexDirection column
+    display grid
+    "grid-template-columns" -: "12rem auto"
+    "grid-template-rows" -: "min-content min-content auto"
+    "grid-template-areas" -: Text.unlines
+      (fmap tshow ["header  header", "subnav subnav", "sidenav content"])
     boxSizing borderBox
     background white0'
     fontColor nord3'
     fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
+
+ where
+  tshow :: String -> Text
+  tshow = pack . show
 
 
 
@@ -47,10 +57,8 @@ app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
 app cfg page = do
   appHeader cfg
   subNav
-  el "app" $ do
-    sideNav
-    el "article" page
-
+  sideNav
+  el "article" page
 
 newtype HeaderConfig t = HeaderConfig
   { _headerConfig_appname :: Dynamic t Text
@@ -62,9 +70,8 @@ instance Reflex t => Default (HeaderConfig t) where
 appHeaderStyle :: Css
 appHeaderStyle = do
   ".app-header" ? do
+    "grid-area" -: "header"
     display flex
-    flexGrow 0
-    flexBasis (rem 3)
     background nord0'
     fontColor nord6'
 
@@ -156,10 +163,8 @@ appHeader HeaderConfig {..} = do
 
 subNavStyle :: Css
 subNavStyle = ".subnav" ? do
+  "grid-area" -: "subnav"
   display flex
-  flexGrow 0
-  flexShrink 0
-  flexBasis (rem 2)
   justifyContent spaceBetween
   alignItems center
   background white
@@ -202,11 +207,9 @@ sideNavStyle = do
   ".sidenav" ? borderRight solid 1 grey0'
 
   (".verticalnav" <> ".sidenav") ? do
+    "grid-area" -: "sidenav"
     display flex
     flexDirection column
-    flexGrow 0
-    flexShrink 0
-    flexBasis (rem 12)
     overflow auto
     fontSize (rem 0.9)
 
@@ -292,17 +295,8 @@ sideNavStyle = do
       hover Clay.& do
         backgroundColor grey0'
 
-
-
-  "app" ? do
-    display flex
-    flexGrow 1
-    flexShrink 1
-    overflowX hidden
-    overflowY auto
-
   article ? do
-    flexGrow 1
+    "grid-area" -: "content"
     paddingAll (rem 1)
     overflowX hidden
     overflowY auto
