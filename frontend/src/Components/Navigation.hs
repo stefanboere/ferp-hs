@@ -27,30 +27,35 @@ import           Nordtheme
 
 appStyle :: Css
 appStyle = do
-  appHeaderStyle
-  subNavStyle
-  sideNavStyle
+  commonAppHeaderStyle
+  commonNavStyle
+  query Clay.all [Media.maxWidth 768]
+    $ mconcat [mobileNavStyle, mobileAppHeaderStyle]
+  query Clay.all [Media.minWidth 768]
+    $ mconcat [subNavStyle, sideNavStyle, appHeaderStyle]
 
   (html <> body) ? do
     marginAll nil
     maxHeight (vh 100)
     height (vh 100)
 
+  ".main-content" ? do
+    "grid-area" -: "content"
+    paddingAll (rem 1)
+    overflowX hidden
+    overflowY auto
+
   body ? do
     display grid
     "grid-template-columns" -: "12rem auto"
     "grid-template-rows" -: "min-content min-content auto"
-    "grid-template-areas" -: Text.unlines
-      (fmap tshow ["header  header", "subnav subnav", "sidenav content"])
     boxSizing borderBox
     background white0'
     fontColor nord3'
     fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
 
- where
-  tshow :: String -> Text
-  tshow = pack . show
-
+tshow :: String -> Text
+tshow = pack . show
 
 
 app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
@@ -58,7 +63,7 @@ app cfg page = do
   appHeader cfg
   subNav
   sideNav
-  el "article" page
+  elClass "article" "main-content" page
 
 newtype HeaderConfig t = HeaderConfig
   { _headerConfig_appname :: Dynamic t Text
@@ -67,8 +72,26 @@ newtype HeaderConfig t = HeaderConfig
 instance Reflex t => Default (HeaderConfig t) where
   def = HeaderConfig { _headerConfig_appname = constDyn "" }
 
+mobileAppHeaderStyle :: Css
+mobileAppHeaderStyle = do
+  body ? do
+    "grid-template-areas" -: Text.unlines
+      (fmap tshow ["header  header", "subnav subnav", "content content"])
+
+  ".app-header" ? pure ()
+
 appHeaderStyle :: Css
 appHeaderStyle = do
+  body ? do
+    "grid-template-areas" -: Text.unlines
+      (fmap tshow ["header  header", "subnav subnav", "sidenav content"])
+  ".app-header" ? do
+    nav ** a # firstOfType # before ? do
+      headerSeparatorStyle
+      left nil
+
+commonAppHeaderStyle :: Css
+commonAppHeaderStyle = do
   ".app-header" ? do
     "grid-area" -: "header"
     display flex
@@ -80,19 +103,12 @@ appHeaderStyle = do
     ".icon" ? do
       verticalAlign middle
 
-    ((".header-actions" ** a # after) <> (nav ** a # firstOfType # before)) ? do
-      absoluteBlock
-      display inlineBlock
-      height (rem 2)
-      width (px 1)
-      top (rem 0.5)
-      left nil
-      backgroundColor nord4'
-      opacity 0.15
-
+    ".header-actions" ** a # after ? do
+      headerSeparatorStyle
+      right nil
 
     "nav" ? do
-      display flex
+      flexDirection row
       width (pct 100)
 
       a ? do
@@ -107,6 +123,7 @@ appHeaderStyle = do
       fontSize (rem 1.2)
       textDecoration none
       padding nil (rem 1.2) nil (rem 1.2)
+      position relative
 
       hover Clay.& do
         background nord2'
@@ -130,6 +147,16 @@ appHeaderStyle = do
 
   query Clay.all [Media.maxWidth 768] mobileHeaderStyle
 
+headerSeparatorStyle :: Css
+headerSeparatorStyle = do
+  content (stringContent "")
+  position absolute
+  height (rem 2)
+  width (px 1)
+  top (rem 0.5)
+  backgroundColor nord4'
+  opacity 0.15
+
 mobileHeaderStyle :: Css
 mobileHeaderStyle = do
   ".app-header" ? ".hamburger" ? display inlineFlex
@@ -147,42 +174,37 @@ appHeader HeaderConfig {..} = do
         icon def { _iconConfig_size = 2 } ferpIcon
         dynText _headerConfig_appname
 
-    el "nav" $ do
+    elClass "nav" "main-nav" $ do
       elAttr "a" ("href" =: "#") $ do
         icon def { _iconConfig_size = 1.5 } userIcon
-      elClass "div" "header-actions" $ do
-        elAttr "a" ("href" =: "#") $ do
-          icon def { _iconConfig_size = 1.5 } userIcon
 
-        elAttr "a" ("href" =: "#") $ do
-          icon def { _iconConfig_size = 1.5 } cogIcon
+    elClass "div" "header-actions" $ do
+      elAttr "a" ("href" =: "#") $ do
+        icon def { _iconConfig_size = 1.5 } userIcon
 
-        elAttr "a" ("href" =: "#" <> "class" =: "hamburger") $ do
-          icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
+      elAttr "a" ("href" =: "#") $ do
+        icon def { _iconConfig_size = 1.5 } cogIcon
+
+      elAttr "a" ("href" =: "#" <> "class" =: "hamburger") $ do
+        icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
 
 
 subNavStyle :: Css
 subNavStyle = ".subnav" ? do
   "grid-area" -: "subnav"
   display flex
-  justifyContent spaceBetween
-  alignItems center
+  flexDirection row
+  justifyContent flexStart
+  alignItems baseline
   background white
   borderBottom solid 1 grey0'
-
-  ul ? do
-    marginAll nil
-    paddingLeft (rem 1)
-
-  li ? do
-    display inlineBlock
-    padding nil (rem 1.2) nil (rem 1.2)
+  paddingLeft (rem 1)
 
   a ? do
+    marginLeft (rem 1)
+    marginRight (rem 1)
     display inlineBlock
-    lineHeight (rem 2)
     fontColor nord3'
-    textDecoration none
     padding nil (rem 0.2) nil (rem 0.2)
 
     hover Clay.& do
@@ -194,41 +216,105 @@ subNavStyle = ".subnav" ? do
 
 subNav :: (PostBuild t m, DomBuilder t m) => m ()
 subNav = elClass "nav" "subnav" $ do
-  el "ul" $ do
-    el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
-      "Subnav link 1"
-    el "li" $ elAttr "a" ("href" =: "#") $ text "Subnav link 2"
+  elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
+  elAttr "a" ("href" =: "#") $ text "Subnav link 2"
 
-sideNavStyle :: Css
-sideNavStyle = do
-  ".sidenav" |> (a <> section) ? do
-    margin (rem 1.2) nil nil (rem 1.5)
+mobileNavStyle :: Css
+mobileNavStyle = do
+  nav ? do
+    display none
+    backgroundColor nord4'
 
-  ".sidenav" ? borderRight solid 1 grey0'
+    ".nav-group" ? do
+      paddingLeft nil
+      label ? do
+        paddingLeft (rem 0.6)
+        hover Clay.& do
+          backgroundColor grey0'
 
-  (".verticalnav" <> ".sidenav") ? do
-    "grid-area" -: "sidenav"
+      ".angle-icon" ? do
+        marginAll (rem 0.2)
+        important $ width (rem 1)
+        important $ height (rem 1)
+
+    a ? do
+      ".active" Clay.& do
+        backgroundColor white0'
+
+      hover Clay.& do
+        backgroundColor grey0'
+
+commonNavStyle :: Css
+commonNavStyle = do
+  nav |> star ? do
+    paddingLeft (rem 0.6)
+
+  nav ? do
     display flex
     flexDirection column
-    overflow auto
-    fontSize (rem 0.9)
+    overflowX hidden
+    overflowY auto
 
-    (a <> ".nav-group") ? do
-      lineHeight (rem 1.5)
+    a ? do
       fontColor inherit
-      fontWeight (weight 500)
+      textDecoration none
       paddingLeft (rem 0.6)
-      borderRadius (rem 0.15) nil nil (rem 0.15)
 
-    (a <> (".nav-group" ** Clay.span)) ? do
-      display inlineBlock
+    ul ? do
+      display flex
+      flexDirection column
+      marginAll nil
+      paddingAll nil
+
+    li ? do
+      display block
+
+    a ? do
+      display block
+      lineHeight (rem 2)
+
+    label ? do
+      display flex
+      justifyContent spaceBetween
+      cursor pointer
+      lineHeight (rem 2)
+
+    (Clay.span <> a) ? do
       overflow hidden
       whiteSpace nowrap
       textOverflow overflowEllipsis
 
-    a ? do
-      textDecoration none
+    input # ("type" @= "checkbox") ? do
+      display none
 
+    ".nav-group" ? do
+      ".angle-icon" ? do
+        marginLeft (rem (-0.8))
+        marginRight (rem 0.2)
+        "fill" -: showColor nord3'
+        transforms [translateY (rem 0.7), rotate (deg 180)]
+
+
+      input # checked |+ star ? do
+        ".angle-icon"
+          ? transforms [translate (rem 0.3) (rem 0.4), rotate (deg 90)]
+        ul ? display none
+
+sideNavStyle :: Css
+sideNavStyle = do
+  ".sidenav" |> star ? do
+    margin (rem 1.2) nil nil (rem 1.5)
+    fontWeight (weight 500)
+    lineHeight (rem 1.5)
+
+  ".sidenav" ? do
+    "grid-area" -: "sidenav"
+    flexDirection column
+    fontSize (rem 0.9)
+    borderRight solid 1 grey0'
+
+    a ? do
+      borderRadius (rem 0.15) nil nil (rem 0.15)
       hover Clay.& do
         background nord6'
 
@@ -236,93 +322,35 @@ sideNavStyle = do
         background nord4'
 
     ".nav-group" ? do
-      ".icon" ? do
+      a ? do
+        fontWeight normal
+        lineHeight (rem 1.5)
+
+      ".angle-icon" ? do
         marginLeft (rem (-0.8))
         marginRight (rem 0.2)
-        "fill" -: showColor nord3'
-        transforms [translateY (rem 0.7), rotate (deg 180)]
 
       label ? do
-        display flex
-        fontWeight (weight 500)
-        cursor pointer
-
-        Clay.span ? order 1
-
-      input # ("type" @= "checkbox") ? do
-        display none
-
-      li ? do
-        display block
-        a ? do
-          display block
-          lineHeight (rem 1.5)
-          fontWeight normal
-
-      input # checked |+ Clay.div ? do
-        ".icon" ? transforms [translate (rem 0.3) (rem 0.4), rotate (deg 90)]
-        ul ? display none
-
-      ul ? do
-        marginAll nil
-        paddingAll nil
-
-  ".verticalnav" ? do
-    backgroundColor nord4'
-
-    ".nav-group" ? do
-      lineHeight (rem 2)
-      paddingLeft nil
-      label ? do
-        paddingLeft (rem 0.6)
-        lineHeight (rem 2)
-        hover Clay.& do
-          backgroundColor grey0'
-
-      li ? do
-        a ? lineHeight (rem 2)
-
-      ".icon" ? do
-        order 1
-        marginAll (rem 0.2)
-
-    a ? do
-      lineHeight (rem 2)
-
-      ".active" Clay.& do
-        backgroundColor white0'
-
-      hover Clay.& do
-        backgroundColor grey0'
-
-  article ? do
-    "grid-area" -: "content"
-    paddingAll (rem 1)
-    overflowX hidden
-    overflowY auto
-
+        lineHeight (rem 1.5)
+        ".angle-icon" ? order (-1)
 
 sideNav :: (PostBuild t m, DomBuilder t m) => m ()
-sideNav = verticalSideNav True
+sideNav = elClass "nav" "sidenav" $ do
+  elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
+  elAttr "a" ("href" =: "#") $ text "Subnav link 1 very long link idnee"
 
-verticalSideNav :: (PostBuild t m, DomBuilder t m) => Bool -> m ()
-verticalSideNav isSideNav =
-  elClass "nav" (if isSideNav then "sidenav" else "verticalnav") $ do
-    elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
-    elAttr "a" ("href" =: "#") $ text "Subnav link 1 very long link idnee"
+  elClass "section" "nav-group" $ do
+    elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
+    el "div" $ do
+      elAttr "label" ("for" =: "a") $ do
+        el "span" $ text "Collapsible Nav element"
+        icon
+          def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
+          angleIcon
 
-    elClass "section" "nav-group" $ do
-      elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
-      el "div" $ do
-        elAttr "label" ("for" =: "a")
-          $ let sz = if isSideNav then 0.7 else 1
-            in  do
-                  el "span" $ text "Collapsible Nav element"
-                  icon def { _iconConfig_size = sz } angleIcon
-
-        el "ul" $ do
-          el "li" $ elAttr "a" ("href" =: "#") $ text "Link 1"
-          el "li" $ elAttr "a" ("href" =: "#") $ text "Link 2"
-          el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
-            "Link 2 very long link indeed"
+      el "ul" $ do
+        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 1"
+        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 2"
+        el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
+          "Link 2 very long link indeed"
 
