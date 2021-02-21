@@ -20,6 +20,7 @@ import qualified Data.ByteString.Char8         as B
                                                 ( pack )
 import           Data.Default
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Any(..) )
 import           Data.Proxy
 import           Data.Text                      ( Text
                                                 , pack
@@ -94,12 +95,30 @@ safelink
   => Dynamic t URI
   -> Link
   -> m ()
-  -> m (Event t ())
-safelink dynLoc lnk = ahref frag ((frag' ==) . uriPath <$> dynLoc)
+  -> m (Dynamic t Bool, Event t ())
+safelink dynLoc lnk cnt = do
+  closeEv <- ahref frag isActiveDyn cnt
+  pure (isActiveDyn, closeEv)
  where
-  frag' = "/" <> B.pack (L.uriPath uri)
-  uri   = linkURI lnk
-  frag  = "#/" <> pack (show uri)
+  isActiveDyn = (frag' ==) . uriPath <$> dynLoc
+  frag'       = "/" <> B.pack (L.uriPath uri)
+  uri         = linkURI lnk
+  frag        = "#/" <> pack (show uri)
+
+-- | A group of links which automatically opens if one child is active
+safelinkGroup
+  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  => m ()
+  -> [m (Dynamic t Bool, Event t ())]
+  -> m (Event t ())
+safelinkGroup lbl childs = do
+  rec closeEvs <- navGroup (leftmost [initActive, updated anyActive]) lbl
+        $ sequence childs
+
+      postBuild <- getPostBuild
+      let anyActive  = fmap getAny $ mconcat $ fmap (fmap Any . fst) closeEvs
+      let initActive = tagPromptlyDyn anyActive postBuild
+  pure $ leftmost $ fmap snd closeEvs
 
 mainPage :: forall t m . MonadWidget t m => m (Dynamic t URI)
 mainPage = do
@@ -176,14 +195,14 @@ inputBasicLink, inputButtonLink :: Link
 inputBasicLink :<|> inputButtonLink = allLinks myApi
 
 sideNav
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t ())
-sideNav dynUri =
-  fmap leftmost <$> navGroup never (text "Input elements") $ sequence
-    [ safelink dynUri inputBasicLink $ text "Basic"
-    , safelink dynUri inputButtonLink $ text "Button"
-    ]
+sideNav dynUri = safelinkGroup
+  (text "Input elements")
+  [ safelink dynUri inputBasicLink $ text "Basic"
+  , safelink dynUri inputButtonLink $ text "Button"
+  ]
 
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
 handler = inputBasic :<|> inputButton
