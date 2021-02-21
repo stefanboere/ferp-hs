@@ -30,7 +30,7 @@ appStyle = do
   commonAppHeaderStyle
   commonNavStyle
   query Clay.all [Media.maxWidth 768]
-    $ mconcat [mobileNavStyle, mobileAppHeaderStyle]
+    $ mconcat [mobileNavStyle, mobileHeaderStyle]
   query Clay.all [Media.minWidth 768]
     $ mconcat [subNavStyle, sideNavStyle, appHeaderStyle]
 
@@ -38,6 +38,10 @@ appStyle = do
     marginAll nil
     maxHeight (vh 100)
     height (vh 100)
+    overflowX hidden
+    overflowY hidden
+
+  ".nav-opener" ? display none
 
   ".main-content" ? do
     "grid-area" -: "content"
@@ -61,7 +65,15 @@ tshow = pack . show
 app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
 app cfg page = do
   appHeader cfg
+  elAttr
+    "input"
+    ("type" =: "checkbox" <> "id" =: "nav-primary" <> "class" =: "nav-opener")
+    blank
   subNav
+  elAttr
+    "input"
+    ("type" =: "checkbox" <> "id" =: "nav-secondary" <> "class" =: "nav-opener")
+    blank
   sideNav
   elClass "article" "main-content" page
 
@@ -72,13 +84,15 @@ newtype HeaderConfig t = HeaderConfig
 instance Reflex t => Default (HeaderConfig t) where
   def = HeaderConfig { _headerConfig_appname = constDyn "" }
 
-mobileAppHeaderStyle :: Css
-mobileAppHeaderStyle = do
+
+mobileHeaderStyle :: Css
+mobileHeaderStyle = do
   body ? do
     "grid-template-areas" -: Text.unlines
       (fmap tshow ["header  header", "subnav subnav", "content content"])
+  ".app-header" ? ".hamburger" ? display inlineFlex
 
-  ".app-header" ? pure ()
+  ".app-logo" ? ".icon" ? important (display none)
 
 appHeaderStyle :: Css
 appHeaderStyle = do
@@ -93,6 +107,7 @@ appHeaderStyle = do
 commonAppHeaderStyle :: Css
 commonAppHeaderStyle = do
   ".app-header" ? do
+    zIndex 2
     "grid-area" -: "header"
     display flex
     background nord0'
@@ -114,7 +129,7 @@ commonAppHeaderStyle = do
       a ? do
         position relative
 
-    a ? do
+    a <> label ? do
       "fill" -: showColor nord4'
       display inlineFlex
       height (rem 3)
@@ -145,8 +160,6 @@ commonAppHeaderStyle = do
     ".icon" ? do
       marginRight (rem 0.5)
 
-  query Clay.all [Media.maxWidth 768] mobileHeaderStyle
-
 headerSeparatorStyle :: Css
 headerSeparatorStyle = do
   content (stringContent "")
@@ -157,17 +170,12 @@ headerSeparatorStyle = do
   backgroundColor nord4'
   opacity 0.15
 
-mobileHeaderStyle :: Css
-mobileHeaderStyle = do
-  ".app-header" ? ".hamburger" ? display inlineFlex
-
-  ".app-logo" ? ".icon" ? important (display none)
 
 
 appHeader :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m ()
 appHeader HeaderConfig {..} = do
   elClass "header" "app-header" $ do
-    elAttr "a" ("href" =: "#" <> "class" =: "hamburger") $ do
+    elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger") $ do
       icon def { _iconConfig_size = 1.5 } barsIcon
     elClass "div" "app-logo" $ do
       elAttr "a" ("href" =: "/") $ do
@@ -185,7 +193,7 @@ appHeader HeaderConfig {..} = do
       elAttr "a" ("href" =: "#") $ do
         icon def { _iconConfig_size = 1.5 } cogIcon
 
-      elAttr "a" ("href" =: "#" <> "class" =: "hamburger") $ do
+      elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger") $ do
         icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
 
 
@@ -221,6 +229,33 @@ subNav = elClass "nav" "subnav" $ do
 
 mobileNavStyle :: Css
 mobileNavStyle = do
+  ".nav-opener" # checked ? do
+    display block
+    position absolute
+    cursor cursorDefault
+
+    before Clay.& do
+      zIndex 1
+      absoluteBlock
+      important $ backgroundColor nord0'
+      important $ borderColor nord0'
+      opacity 0.5
+      left (rem (-1))
+      height (vh 110)
+      width (vw 110)
+
+  "#nav-secondary" # checked |+ nav ? do
+    right nil
+
+  ".nav-opener" # checked |+ nav ? do
+    display block
+    position absolute
+    top (rem 3)
+    zIndex 2
+    paddingTop (rem 1)
+    minWidth (rem 15)
+    height (pct 100 @-@ rem 4)
+
   nav ? do
     display none
     backgroundColor nord4'
