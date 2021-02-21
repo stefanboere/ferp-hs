@@ -29,6 +29,7 @@ appStyle :: Css
 appStyle = do
   commonAppHeaderStyle
   commonNavStyle
+  tabsStyle
   query Clay.all [Media.maxWidth 768]
     $ mconcat [mobileNavStyle, mobileHeaderStyle]
   query Clay.all [Media.minWidth 768]
@@ -65,9 +66,10 @@ tshow = pack . show
 app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
 app cfg page = do
   appHeader cfg
-  subNav
   secondaryNavigation sideNav
-  elClass "article" "main-content" page
+  elClass "article" "main-content" $ do
+    tabs
+    page
 
 navigationCheckbox :: (PostBuild t m, DomBuilder t m) => Text -> m ()
 navigationCheckbox idStr = elAttr
@@ -206,14 +208,27 @@ appHeader HeaderConfig {..} = do
       elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger") $ do
         icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
 
-
-subNavStyle :: Css
-subNavStyle = ".subnav" ? do
-  "grid-area" -: "subnav"
+flexRowLeft :: Css
+flexRowLeft = do
   display flex
   flexDirection row
   justifyContent flexStart
   alignItems baseline
+
+tabLinkStyle :: Css
+tabLinkStyle = do
+  textDecoration none
+  display inlineBlock
+  fontColor nord3'
+  padding nil (rem 0.2) nil (rem 0.2)
+
+  hover Clay.& do
+    borderBottom solid 3 nord10'
+
+subNavStyle :: Css
+subNavStyle = ".subnav" ? do
+  "grid-area" -: "subnav"
+  flexRowLeft
   background white
   borderBottom solid 1 grey0'
   paddingLeft (rem 1)
@@ -221,12 +236,7 @@ subNavStyle = ".subnav" ? do
   a ? do
     marginLeft (rem 1)
     marginRight (rem 1)
-    display inlineBlock
-    fontColor nord3'
-    padding nil (rem 0.2) nil (rem 0.2)
-
-    hover Clay.& do
-      borderBottom solid 3 nord10'
+    tabLinkStyle
 
   ".active" ? do
     fontColor nord0'
@@ -236,6 +246,32 @@ subNav :: (PostBuild t m, DomBuilder t m) => m ()
 subNav = elClass "nav" "subnav" $ do
   elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
   elAttr "a" ("href" =: "#") $ text "Subnav link 2"
+
+tabsStyle :: Css
+tabsStyle = ".tabs" ? do
+  flexRowLeft
+  borderBottom solid 1 grey0'
+  paddingLeft (rem 0)
+  lineHeight (rem 2)
+
+  li ? do
+    display block
+    marginLeft (rem 1)
+    marginRight (rem 1)
+    firstOfType Clay.& marginLeft (rem 0)
+    lastOfType Clay.& marginRight (rem 0)
+
+  a ? tabLinkStyle
+
+  ".active" ? do
+    fontColor nord0'
+    borderBottom solid 3 nord10'
+
+tabs :: (PostBuild t m, DomBuilder t m) => m ()
+tabs = elClass "ul" "tabs" $ do
+  el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
+    "Subnav link 1"
+  el "li" $ elAttr "a" ("href" =: "#") $ text "Subnav link 2"
 
 mobileNavStyle :: Css
 mobileNavStyle = do
