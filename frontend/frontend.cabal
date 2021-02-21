@@ -49,18 +49,25 @@ library
     Components.Navigation
     DevelMain
     Nordtheme
+    Servant.Router
 
   build-depends:
+    , bytestring
     , clay
     , common
     , containers
     , data-default
     , foreign-store
+    , http-api-data
+    , http-types
     , process
     , random
     , reflex
     , reflex-dom
+    , reflex-dom-contrib
+    , servant
     , text
+    , uri-bytestring
 
 executable frontend
   import:         common-options

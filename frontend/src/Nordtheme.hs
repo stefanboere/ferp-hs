@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-missing-export-lists #-}
 {-|
   An arctic, north-bluish color palette.
   Created for the clean- and minimal flat design pattern to achieve a optimal focus and readability for code syntax
