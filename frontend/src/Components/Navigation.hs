@@ -80,17 +80,16 @@ liahref
 liahref ref activ = el "li" . ahref ref activ
 
 navGroup :: (PostBuild t m, DomBuilder t m) => m () -> m () -> m ()
-navGroup titl cnt = do
-  elClass "section" "nav-group" $ do
-    elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
-    el "div" $ do
-      elAttr "label" ("for" =: "a") $ do
-        el "span" titl
-        icon
-          def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
-          angleIcon
+navGroup titl cnt = elClass "section" "nav-group" $ do
+  elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
+  el "div" $ do
+    elAttr "label" ("for" =: "a") $ do
+      el "span" titl
+      icon
+        def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
+        angleIcon
 
-      el "ul" cnt
+    el "ul" cnt
 
 app
   :: (PostBuild t m, DomBuilder t m)
@@ -184,8 +183,7 @@ commonAppHeaderStyle = do
       cursor pointer
       display none
 
-    ".icon" ? do
-      verticalAlign middle
+    ".icon" ? verticalAlign middle
 
     ".header-actions" ** a # after ? do
       headerSeparatorStyle
@@ -194,8 +192,7 @@ commonAppHeaderStyle = do
     "nav" ? do
       flexDirection row
 
-      a ? do
-        position relative
+      a ? position relative
 
     (star # Clay.not nav ** a) <> label ? headerIconStyle
 
@@ -210,8 +207,7 @@ commonAppHeaderStyle = do
     a # hover ? do
       important $ backgroundColor inherit
 
-    ".icon" ? do
-      marginRight (rem 0.5)
+    ".icon" ? marginRight (rem 0.5)
 
 headerIconStyle :: Css
 headerIconStyle = do
@@ -248,14 +244,13 @@ headerSeparatorStyle = do
 
 appHeader
   :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m () -> m ()
-appHeader HeaderConfig {..} primary actions = do
+appHeader HeaderConfig {..} primary actions =
   elClass "header" "app-header" $ do
-    elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger") $ do
-      icon def { _iconConfig_size = 1.5 } barsIcon
-    elClass "div" "app-logo" $ do
-      elAttr "a" ("href" =: "/") $ do
-        icon def { _iconConfig_size = 2 } ferpIcon
-        dynText _headerConfig_appname
+    elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger")
+      $ icon def { _iconConfig_size = 1.5 } barsIcon
+    elClass "div" "app-logo" $ elAttr "a" ("href" =: "/") $ do
+      icon def { _iconConfig_size = 2 } ferpIcon
+      dynText _headerConfig_appname
 
     when
         (      _headerConfig_navigationPattern
@@ -272,8 +267,7 @@ appHeader HeaderConfig {..} primary actions = do
           `elem` [HeaderSubnav, HeaderSidenav, SubnavSidenav]
           )
         $ elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger")
-        $ do
-            icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
+        $ icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
 
 flexRowLeft :: Css
 flexRowLeft = do
@@ -289,8 +283,7 @@ tabLinkStyle = do
   fontColor nord3'
   padding nil (rem 0.2) nil (rem 0.2)
 
-  hover Clay.& do
-    borderBottom solid 3 nord10'
+  hover Clay.& borderBottom solid 3 nord10'
 
 subNavStyle :: Css
 subNavStyle = ".subnav" ? do
@@ -355,8 +348,7 @@ mobileNavStyle = do
       width (vw 110)
       borderWidth nil
 
-  "#nav-secondary" # checked |+ nav ? do
-    right nil
+  "#nav-secondary" # checked |+ nav ? right nil
 
   ".nav-opener" # checked |+ nav ? do
     display block
@@ -376,8 +368,7 @@ mobileNavStyle = do
       paddingLeft nil
       label ? do
         paddingLeft (rem 0.6)
-        hover Clay.& do
-          backgroundColor grey0'
+        hover Clay.& backgroundColor grey0'
 
       ".angle-icon" ? do
         marginAll (rem 0.2)
@@ -385,11 +376,9 @@ mobileNavStyle = do
         important $ height (rem 1)
 
     a ? do
-      ".active" Clay.& do
-        backgroundColor white0'
+      ".active" Clay.& backgroundColor white0'
 
-      hover Clay.& do
-        backgroundColor grey0'
+      hover Clay.& backgroundColor grey0'
 
 commonNavStyle :: Css
 commonNavStyle = do
@@ -419,8 +408,7 @@ commonNavStyle = do
       marginAll nil
       paddingAll nil
 
-    li ? do
-      display block
+    li ? display block
 
     a ? do
       display block
@@ -437,8 +425,7 @@ commonNavStyle = do
       whiteSpace nowrap
       textOverflow overflowEllipsis
 
-    input # ("type" @= "checkbox") ? do
-      display none
+    input # ("type" @= "checkbox") ? display none
 
     ".nav-group" ? do
       paddingRight nil
@@ -447,8 +434,7 @@ commonNavStyle = do
         marginRight (rem 0.2)
         transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
 
-      label ? do
-        paddingRight (rem 0.6)
+      label ? paddingRight (rem 0.6)
 
       input # checked |+ star ? do
         ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
@@ -469,11 +455,9 @@ sideNavStyle = do
 
     a ? do
       borderRadius (rem 0.15) nil nil (rem 0.15)
-      hover Clay.& do
-        background nord6'
+      hover Clay.& background nord6'
 
-      ".active" Clay.& do
-        background nord4'
+      ".active" Clay.& background nord4'
 
     ".nav-group" ? do
       a ? do
