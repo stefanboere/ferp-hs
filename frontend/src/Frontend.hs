@@ -5,7 +5,7 @@ module Frontend
   )
 where
 
-import           Clay
+import           Clay                    hiding ( icon )
 import           Data.Default
 import           Data.Text                      ( Text
                                                 , pack
@@ -15,9 +15,7 @@ import           Data.Text.Lazy                 ( toStrict )
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput )
 
-import           Components.Navigation
-import           Components.Button
-import           Components.Input
+import           Components
 
 instance Default Text where
   def = mempty
@@ -44,7 +42,7 @@ data Torispherical = Torispherical
 main :: IO ()
 main =
   mainWidgetWithCss (encodeUtf8 . toStrict $ renderWith compact [] css)
-    $ app HeaderConfig { _headerConfig_appname = constDyn "Ferp-hs" }
+    $ withHeader
     $ el "form"
     $ do
         wall_thickness <- numberInput
@@ -90,6 +88,21 @@ main =
                 <*> material
                 <*> memo
         dynText $ fmap (pack . show) dynTori
+
+withHeader :: (PostBuild t m, DomBuilder t m) => m () -> m ()
+withHeader = app cfg sideNav (pure ()) actions
+
+ where
+  cfg = HeaderConfig { _headerConfig_appname           = constDyn "Ferp-hs"
+                     , _headerConfig_navigationPattern = Sidenav
+                     }
+  actions = do
+    ahref "#" (constDyn False) $ icon def cogIcon
+
+  sideNav = do
+    ahref "#" (constDyn False) $ text "Torispherical"
+    navGroup (text "Input elements") $ do
+      ahref "#" (constDyn False) $ text "Basic"
 
 css :: Css
 css = do

@@ -2,17 +2,23 @@
 {-# LANGUAGE RecordWildCards #-}
 module Components.Navigation
   ( HeaderConfig(..)
+  , NavigationPattern(..)
   , app
   , appStyle
+  , tabs
+  -- * Helpers
+  , ahref
+  , liahref
+  , navGroup
   )
 where
 
 import           Prelude                 hiding ( rem
                                                 , (**)
                                                 )
-
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
+import           Control.Monad                  ( when )
 import           Data.Default
 import           Data.Text                      ( Text
                                                 , pack
@@ -62,14 +68,52 @@ appStyle = do
 tshow :: String -> Text
 tshow = pack . show
 
+ahref :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Bool -> m a -> m a
+ahref ref activ = elDynAttr
+  "a"
+  ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty)
+  <$> activ
+  )
 
-app :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m ()
-app cfg page = do
-  appHeader cfg
-  secondaryNavigation sideNav
-  elClass "article" "main-content" $ do
-    tabs
-    page
+liahref
+  :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Bool -> m a -> m a
+liahref ref activ = el "li" . ahref ref activ
+
+navGroup :: (PostBuild t m, DomBuilder t m) => m () -> m () -> m ()
+navGroup titl cnt = do
+  elClass "section" "nav-group" $ do
+    elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
+    el "div" $ do
+      elAttr "label" ("for" =: "a") $ do
+        el "span" titl
+        icon
+          def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
+          angleIcon
+
+      el "ul" cnt
+
+app
+  :: (PostBuild t m, DomBuilder t m)
+  => HeaderConfig t
+  -> m ()
+  -> m ()
+  -> m ()
+  -> m ()
+  -> m ()
+app cfg primary secondary actions page = do
+  appHeader cfg primary actions
+
+  case _headerConfig_navigationPattern cfg of
+    Header        -> pure ()
+    Subnav        -> primaryNavigation (subNav primary)
+    Sidenav       -> primaryNavigation (sideNav primary)
+    HeaderSubnav  -> secondaryNavigation (subNav secondary)
+    HeaderSidenav -> secondaryNavigation (sideNav secondary)
+    SubnavSidenav -> do
+      primaryNavigation (subNav primary)
+      secondaryNavigation (sideNav secondary)
+
+  elClass "article" "main-content" page
 
 navigationCheckbox :: (PostBuild t m, DomBuilder t m) => Text -> m ()
 navigationCheckbox idStr = elAttr
@@ -83,13 +127,26 @@ primaryNavigation x = navigationCheckbox "nav-primary" >> x
 secondaryNavigation :: (PostBuild t m, DomBuilder t m) => m () -> m ()
 secondaryNavigation x = navigationCheckbox "nav-secondary" >> x
 
-newtype HeaderConfig t = HeaderConfig
+data NavigationPattern = Header -- ^ Menu items in the main header
+                       | Subnav  -- ^ A bar below the main header
+                       | Sidenav -- ^ A menu on the left
+                       | HeaderSubnav -- ^ The header and a bar below the header.
+                       | HeaderSidenav -- ^ The header and a menu on the left
+                       | SubnavSidenav  -- ^ A bar below the header and a menu on the left
+                       deriving (Eq, Show)
+
+instance Default NavigationPattern where
+  def = HeaderSubnav
+
+data HeaderConfig t = HeaderConfig
   { _headerConfig_appname :: Dynamic t Text
+  , _headerConfig_navigationPattern :: NavigationPattern
   }
 
 instance Reflex t => Default (HeaderConfig t) where
-  def = HeaderConfig { _headerConfig_appname = constDyn "" }
-
+  def = HeaderConfig { _headerConfig_appname           = constDyn ""
+                     , _headerConfig_navigationPattern = def
+                     }
 
 mobileHeaderStyle :: Css
 mobileHeaderStyle = do
@@ -168,6 +225,10 @@ headerIconStyle = do
   padding nil (rem 1.2) nil (rem 1.2)
   position relative
 
+  ".icon" ? do
+    important $ width (rem 1.5)
+    important $ height (rem 1.5)
+
   hover Clay.& do
     background nord2'
     fontColor nord6'
@@ -185,8 +246,9 @@ headerSeparatorStyle = do
 
 
 
-appHeader :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m ()
-appHeader HeaderConfig {..} = do
+appHeader
+  :: (PostBuild t m, DomBuilder t m) => HeaderConfig t -> m () -> m () -> m ()
+appHeader HeaderConfig {..} primary actions = do
   elClass "header" "app-header" $ do
     elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger") $ do
       icon def { _iconConfig_size = 1.5 } barsIcon
@@ -195,20 +257,23 @@ appHeader HeaderConfig {..} = do
         icon def { _iconConfig_size = 2 } ferpIcon
         dynText _headerConfig_appname
 
-    primaryNavigation $ elClass "nav" "main-nav" $ do
-      elAttr "a" ("href" =: "#") $ do
-        icon def { _iconConfig_size = 1.5 } userIcon
-        text "Home"
+    when
+        (      _headerConfig_navigationPattern
+        `elem` [Header, HeaderSubnav, HeaderSidenav]
+        )
+      $ primaryNavigation
+      $ elClass "nav" "main-nav" primary
 
     elClass "div" "header-actions" $ do
-      elAttr "a" ("href" =: "#") $ do
-        icon def { _iconConfig_size = 1.5 } userIcon
+      actions
 
-      elAttr "a" ("href" =: "#") $ do
-        icon def { _iconConfig_size = 1.5 } cogIcon
-
-      elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger") $ do
-        icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
+      when
+          (      _headerConfig_navigationPattern
+          `elem` [HeaderSubnav, HeaderSidenav, SubnavSidenav]
+          )
+        $ elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger")
+        $ do
+            icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
 
 flexRowLeft :: Css
 flexRowLeft = do
@@ -244,10 +309,8 @@ subNavStyle = ".subnav" ? do
     fontColor nord0'
     borderBottom solid 3 nord10'
 
-subNav :: (PostBuild t m, DomBuilder t m) => m ()
-subNav = elClass "nav" "subnav" $ do
-  elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
-  elAttr "a" ("href" =: "#") $ text "Subnav link 2"
+subNav :: (DomBuilder t m) => m () -> m ()
+subNav = elClass "nav" "subnav"
 
 tabsStyle :: Css
 tabsStyle = ".tabs" ? do
@@ -269,11 +332,8 @@ tabsStyle = ".tabs" ? do
     fontColor nord0'
     borderBottom solid 3 nord10'
 
-tabs :: (PostBuild t m, DomBuilder t m) => m ()
-tabs = elClass "ul" "tabs" $ do
-  el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
-    "Subnav link 1"
-  el "li" $ elAttr "a" ("href" =: "#") $ text "Subnav link 2"
+tabs :: DomBuilder t m => m () -> m ()
+tabs = elClass "ul" "tabs"
 
 mobileNavStyle :: Css
 mobileNavStyle = do
@@ -422,27 +482,12 @@ sideNavStyle = do
         lineHeight (rem 1.5)
 
       label ? do
+        justifyContent flexStart
         lineHeight (rem 1.5)
         marginLeft (rem (-0.8))
         ".angle-icon" ? order (-1)
 
-sideNav :: (PostBuild t m, DomBuilder t m) => m ()
-sideNav = elClass "nav" "sidenav" $ do
-  elAttr "a" ("href" =: "#" <> "class" =: "active") $ text "Subnav link 1"
-  elAttr "a" ("href" =: "#") $ text "Subnav link 1 very long link idnee"
 
-  elClass "section" "nav-group" $ do
-    elAttr "input" ("id" =: "a" <> "type" =: "checkbox") blank
-    el "div" $ do
-      elAttr "label" ("for" =: "a") $ do
-        el "span" $ text "Collapsible Nav element"
-        icon
-          def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
-          angleIcon
-
-      el "ul" $ do
-        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 1"
-        el "li" $ elAttr "a" ("href" =: "#") $ text "Link 2"
-        el "li" $ elAttr "a" ("href" =: "#" <> "class" =: "active") $ text
-          "Link 2 very long link indeed"
+sideNav :: DomBuilder t m => m () -> m ()
+sideNav = elClass "nav" "sidenav"
 
