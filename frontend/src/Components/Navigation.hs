@@ -38,6 +38,7 @@ import           Nordtheme
 
 appStyle :: Css
 appStyle = do
+  typographyStyle
   commonAppHeaderStyle
   commonNavStyle
   tabsStyle
@@ -66,6 +67,43 @@ appStyle = do
     "grid-template-columns" -: "12rem auto"
     "grid-template-rows" -: "min-content min-content auto"
     boxSizing borderBox
+
+typographyStyle :: Css
+typographyStyle = do
+  ".main-content" ** h1 # firstOfType ? do
+    marginTop nil
+    marginBottom (rem 1)
+
+  (h1 <> h2 <> h3 <> h4 <> h5 <> h6) ? do
+    marginTop (rem (3 / 2))
+    marginBottom nil
+
+  h1 ? do
+    fontWeight (weight 300)
+    fontSize (rem 2.2)
+    marginBottom (rem (2 / 3))
+
+  h2 ? do
+    fontWeight (weight 300)
+    fontSize (rem (7 / 4))
+
+  h3 ? do
+    fontWeight (weight 300)
+    fontSize (rem (11 / 8))
+
+  h4 ? do
+    fontWeight (weight 350)
+    fontSize (rem (9 / 8))
+
+  h5 ? do
+    fontWeight (weight 400)
+    fontSize (rem 1)
+
+  h6 ? do
+    fontWeight (weight 500)
+    fontSize (rem (7 / 8))
+
+  body ? do
     background white0'
     fontColor nord3'
     fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
