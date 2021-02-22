@@ -72,7 +72,7 @@ typographyStyle :: Css
 typographyStyle = do
   ".main-content" ** h1 # firstOfType ? do
     marginTop nil
-    marginBottom (rem 1)
+    marginBottom (rem (1 / 2))
 
   (h1 <> h2 <> h3 <> h4 <> h5 <> h6) ? do
     marginTop (rem (3 / 2))
@@ -398,6 +398,8 @@ tabsStyle = ".tabs" ? do
   borderBottom solid 1 grey0'
   paddingLeft (rem 0)
   lineHeight (rem 2)
+  marginTop (rem (1 / 2))
+  marginBottom (rem (1 / 2))
 
   li ? do
     display block
@@ -405,15 +407,18 @@ tabsStyle = ".tabs" ? do
     marginRight (rem 1)
     firstOfType Clay.& marginLeft (rem 0)
     lastOfType Clay.& marginRight (rem 0)
-
-  a ? tabLinkStyle
+    tabLinkStyle
+    cursor pointer
 
   ".active" ? do
     fontColor nord0'
     borderBottom solid 3 nord10'
 
-tabs :: DomBuilder t m => m () -> m ()
-tabs = elClass "ul" "tabs"
+tabs
+  :: (Ord k, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => Map k (Text, m ())
+  -> m ()
+tabs = tabDisplay "tabs" "active"
 
 mobileNavStyle :: Css
 mobileNavStyle = do
