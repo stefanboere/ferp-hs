@@ -103,6 +103,33 @@ typographyStyle = do
     fontWeight (weight 500)
     fontSize (rem (7 / 8))
 
+  ".p2" <> ".form_header" <> ".stackview_header" <> ".treeview_header" ? do
+    fontWeight (weight 500)
+    fontSize (rem (13 / 16))
+
+  ".p3"
+    <> ".alert"
+    <> tbody
+    <> ".tooltip"
+    <> form
+    <> ".stackview"
+    <> ".treeview"
+    ?  fontSize (rem (13 / 16))
+
+  ".p4" <> (form ** label) <> Clay.button <> th <> ".dropdown_header" ? do
+    fontWeight (weight 600)
+    fontSize (rem (12 / 16))
+
+  ".p5" <> tfoot <> ".chart" ? fontSize (rem (12 / 16))
+
+  ".p6" <> Clay.button # ".compactsize" ? do
+    fontWeight (weight 600)
+    fontSize (rem (11 / 16))
+
+  ".p7" <> ".tag" ? fontSize (rem (11 / 16))
+
+  ".p8" <> ".badge" ? fontSize (rem (10 / 16))
+
   body ? do
     background white0'
     fontColor nord3'

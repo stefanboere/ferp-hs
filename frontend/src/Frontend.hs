@@ -73,6 +73,7 @@ css = do
   appStyle
   inputStyle
   buttonStyle
+  tableStyle
 
 withHeader
   :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
@@ -189,12 +190,14 @@ formTest = el "form" $ do
 type MyApi = "input" :> "basic" :> View
         :<|> "input" :> "button" :> View
         :<|> "container" :> "tab" :> View
+        :<|> "container" :> "table" :> View
 
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, inputButtonLink, containerTabLink :: Link
-inputBasicLink :<|> inputButtonLink :<|> containerTabLink = allLinks myApi
+inputBasicLink, inputButtonLink, containerTabLink, containerTableLink :: Link
+inputBasicLink :<|> inputButtonLink :<|> containerTabLink :<|> containerTableLink
+  = allLinks myApi
 
 sideNav
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -206,8 +209,11 @@ sideNav dynUri = leftmost <$> sequence
     [ safelink dynUri inputBasicLink $ text "Basic"
     , safelink dynUri inputButtonLink $ text "Button"
     ]
-  , safelinkGroup (text "Containers")
-                  [safelink dynUri containerTabLink $ text "Tab"]
+  , safelinkGroup
+    (text "Containers")
+    [ safelink dynUri containerTabLink $ text "Tab"
+    , safelink dynUri containerTableLink $ text "Table"
+    ]
   ]
 
 containerTab
@@ -223,8 +229,22 @@ containerTab = do
     )
   pure never
 
+containerTable
+  :: (MonadFix m, PostBuild t m, MonadHold t m, DomBuilder t m)
+  => m (Event t URI)
+containerTable = do
+  el "h1" $ text "Table"
+  _ <- tableDyn
+    [ ("First" , \_ r -> dynText (fst <$> r))
+    , ("Second", \_ r -> dynText (snd <$> r))
+    ]
+    (constDyn
+      (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
+    )
+  pure never
+
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
-handler = inputBasic :<|> inputButton :<|> containerTab
+handler = inputBasic :<|> inputButton :<|> containerTab :<|> containerTable
  where
   inputBasic  = formTest >> pure never
   inputButton = text "TBD" >> pure never

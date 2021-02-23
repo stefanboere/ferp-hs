@@ -47,6 +47,7 @@ library
     Components.Input.Basic
     Components.Input.Numeric
     Components.Navigation
+    Components.Table
     DevelMain
     Nordtheme
     Servant.Router
