@@ -7,6 +7,7 @@ module Components
   , module Components.Input
   , module Components.Navigation
   , module Components.Table
+  , module Components.Tag
   )
 where
 
@@ -18,3 +19,4 @@ import           Components.Icon
 import           Components.Input
 import           Components.Navigation
 import           Components.Table
+import           Components.Tag

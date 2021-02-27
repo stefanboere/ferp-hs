@@ -50,6 +50,7 @@ library
     Components.Input.Numeric
     Components.Navigation
     Components.Table
+    Components.Tag
     DevelMain
     Nordtheme
     Servant.Router

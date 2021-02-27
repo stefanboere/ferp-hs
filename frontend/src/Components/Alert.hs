@@ -87,6 +87,8 @@ alertStyle = do
 
     ".spacer" ? flexGrow 1
 
+
+  (".alert-app-level" <> ".badge") ? do
     ".success" & do
       backgroundColor (statusColor Success)
       fontColor nord6'
@@ -129,6 +131,10 @@ alertStyle = do
         paddingTop nil
         paddingBottom nil
 
+    ".alert-message" ? do
+      flexGrow 1
+
+  (".alert" <> ".tag") ? do
     ".success" & do
       borderColor (statusColor Success)
       backgroundColor $ lighten (8 / 10) nord14'
@@ -144,9 +150,6 @@ alertStyle = do
     ".info" & do
       borderColor (statusColor Info)
       backgroundColor $ lighten (9 / 10) (statusColor Info)
-
-    ".alert-message" ? do
-      flexGrow 1
 
   ".alert-message" ? do
     paddingLeft (rem (1 / 2))

@@ -72,6 +72,7 @@ css = do
   accordionStyle
   tableStyle
   alertStyle
+  tagStyle
 
 withHeader
   :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
@@ -158,6 +159,7 @@ formTest = el "form" $ do
 type MyApi = "input" :> "basic" :> View
         :<|> "input" :> "button" :> View
         :<|> "core" :> "alert" :> View
+        :<|> "core" :> "tag" :> View
         :<|> "container" :> "accordion" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
@@ -165,9 +167,9 @@ type MyApi = "input" :> "basic" :> View
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, inputButtonLink, coreAlertLink, containerAccordionLink, containerTabLink, containerTableLink
+inputBasicLink, inputButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerTabLink, containerTableLink
   :: Link
-inputBasicLink :<|> inputButtonLink :<|> coreAlertLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink :<|> inputButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -175,8 +177,11 @@ sideNav
   => Dynamic t URI
   -> m (Event t ())
 sideNav dynUri = leftmost <$> sequence
-  [ safelinkGroup (text "Core components")
-                  [safelink dynUri coreAlertLink $ text "Alert"]
+  [ safelinkGroup
+    (text "Core components")
+    [ safelink dynUri coreAlertLink $ text "Alert"
+    , safelink dynUri coreTagLink $ text "Tag"
+    ]
   , safelinkGroup
     (text "Input elements")
     [ safelink dynUri inputBasicLink $ text "Basic"
@@ -244,6 +249,68 @@ coreAlert = do
 
   pure never
 
+coreTag
+  :: (MonadHold t m, MonadFix m, DomBuilder t m, PostBuild t m)
+  => m (Event t URI)
+coreTag = do
+  el "h1" $ text "Tag"
+  el "p" $ text "Labels show concise metadata in a compact format."
+
+  mapM_ (tagEl def { _tagConfig_color = TagPurple })
+        ["Fruit", "Meat", "Drink", "Vegetable"]
+
+  el "p" $ text "They can have different colors"
+  mapM_
+    (\(c, lbl) -> tagEl def { _tagConfig_color = c } lbl)
+    [ (TagGrey               , "Grey (default)")
+    , (TagPurple             , "Purple")
+    , (TagOrange             , "Orange")
+    , (TagLightGreen         , "Frost 1")
+    , (TagCyan               , "Frost 2")
+    , (TagLightBlue          , "Frost 3")
+    , (TagStatusColor Success, "Success")
+    , (TagStatusColor Info   , "Info")
+    , (TagStatusColor Warning, "Warning")
+    , (TagStatusColor Danger , "Danger")
+    ]
+
+  el "h2" $ text "Badges"
+  el "p" $ text "Badges show a numerical value within another element"
+  mapM_
+    (uncurry badge)
+    [ (TagGrey               , forceInt <$> 0)
+    , (TagPurple             , 1)
+    , (TagOrange             , 2)
+    , (TagLightGreen         , 3)
+    , (TagCyan               , 4)
+    , (TagLightBlue          , 5)
+    , (TagStatusColor Success, 1)
+    , (TagStatusColor Info   , 22)
+    , (TagStatusColor Warning, 64)
+    , (TagStatusColor Danger , 102)
+    ]
+
+  el "h2" $ text "Labels with badges"
+  el "p" $ text "Labels may contain badges. "
+  _ <- tagEl def { _tagConfig_badge = Just 100 } "Development"
+  _ <- tagEl def { _tagConfig_badge = Just 12 } "Test"
+  _ <- tagEl def { _tagConfig_badge = Just 1 } "Acceptance"
+  _ <- tagEl def { _tagConfig_badge = Just 0 } "Production"
+
+  el "h2" $ text "Clickable tags"
+  el "p" $ text "Labels may be clickable or dismissable."
+  clickEv <- tagEl def { _tagConfig_action = Just TagClick } "Clickable"
+  dismissEv <- tagEl def { _tagConfig_action = Just TagDismiss } "Dismissable"
+
+  (countDyn :: Dynamic t Integer) <- count $ leftmost [clickEv, dismissEv]
+  el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
+
+  pure never
+
+ where
+  forceInt :: Integer -> Integer
+  forceInt = id
+
 containerAccordion
   :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 containerAccordion = do
@@ -291,6 +358,7 @@ handler =
   inputBasic
     :<|> inputButton
     :<|> coreAlert
+    :<|> coreTag
     :<|> containerAccordion
     :<|> containerTab
     :<|> containerTable
