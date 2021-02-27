@@ -193,6 +193,28 @@ sideNav dynUri = leftmost <$> sequence
 coreAlert :: (DomBuilder t m, PostBuild t m) => m (Event t URI)
 coreAlert = do
   el "h1" $ text "Alert"
+  el "h2" $ text "App level alerts"
+  el "p"
+    $ text
+        "App level alerts should be placed above the header. They are for global error and warning messages."
+  _ <-
+    alertAppLevel def { _alertConfig_status = Danger }
+                  "Your license is about to expire."
+      $ do
+          _ <- btn def (text "Renew")
+          elAttr "a" ("href" =: "#") (text "Click here")
+  _ <- alertAppLevel
+    def { _alertConfig_status = Warning }
+    "This feature is under development. For more information, visit the documentation or contact Ferp-hs support."
+    (pure ())
+  _ <- alertAppLevel def { _alertConfig_status = Info }
+                     "You can customize your host in the settings panel."
+                     (pure ())
+
+  el "h2" $ text "Standard alerts"
+  el "p"
+    $ text
+        "These standard alerts can be used within the content area or within components, such as a card or modal."
   _ <-
     alert def { _alertConfig_status = Danger }
           "Your license is about to expire."
@@ -212,6 +234,14 @@ coreAlert = do
   _ <- alert def { _alertConfig_status = Success }
              "Your container has been created."
              (pure ())
+
+  el "h2" $ text "Compact alerts"
+  el "p" $ text "If space is limited, the compact variant can be used."
+  _ <- alert
+    def { _alertConfig_status = Success, _alertConfig_size = CompactSize }
+    "Your container has been created."
+    (pure ())
+
   pure never
 
 containerAccordion
