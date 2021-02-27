@@ -1,6 +1,8 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Components.Alert
-  ( alert
+  ( AlertConfig(..)
+  , alert
   , alertStyle
   )
 where
@@ -8,7 +10,10 @@ where
 import           Prelude                 hiding ( rem )
 
 import           Clay                    hiding ( icon )
-import           Data.Text                      ( Text )
+import           Data.Default
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( display
                                                 , button
@@ -19,6 +24,14 @@ import           Components.Button
 import           Components.Class
 import           Components.Icon
 import           Nordtheme
+
+data AlertConfig = AlertConfig
+  { _alertConfig_status :: Status
+  , _alertConfig_size :: ComponentSize
+  }
+
+instance Default AlertConfig where
+  def = AlertConfig { _alertConfig_status = def, _alertConfig_size = def }
 
 alertStyle :: Css
 alertStyle = do
@@ -32,7 +45,6 @@ alertStyle = do
     marginBottom (rem (1 / 5))
     paddingAll (rem (1 / 2))
 
-    ".compact" & paddingAll (rem (1 / 4))
     Clay.span ? flexGrow 1
     ".icon" ? do
       position relative
@@ -65,35 +77,41 @@ alertStyle = do
       top (rem 0.2)
       ".icon" ? top nil
 
+    ".compactsize" & do
+      paddingAll (rem (1 / 4))
+      fontSize (rem (3 / 4))
+      ".alert-message" ? do
+        paddingLeft (rem (1 / 4))
+        paddingRight (rem (1 / 4))
+
+    ".success" & do
+      borderColor (statusColor Success)
+      backgroundColor $ lighten (8 / 10) nord14'
+
+    ".warning" & do
+      borderColor $ darken (2 / 10) (statusColor Warning)
+      backgroundColor $ lighten (8 / 10) (statusColor Warning)
+
+    ".danger" & do
+      borderColor (statusColor Danger)
+      backgroundColor $ lighten (9 / 10) (statusColor Danger)
+
+    ".info" & do
+      borderColor (statusColor Info)
+      backgroundColor $ lighten (9 / 10) (statusColor Info)
+
   ".alert-message" ? do
     paddingLeft (rem (1 / 2))
     paddingRight (rem (1 / 2))
 
-  ".alert-success" ? do
-    borderColor (statusColor Success)
-    backgroundColor $ lighten (8 / 10) nord14'
-
-  ".alert-warning" ? do
-    borderColor $ darken (2 / 10) (statusColor Warning)
-    backgroundColor $ lighten (8 / 10) (statusColor Warning)
-
-  ".alert-danger" ? do
-    borderColor (statusColor Danger)
-    backgroundColor $ lighten (9 / 10) (statusColor Danger)
-
-  ".alert-info" ? do
-    borderColor (statusColor Info)
-    backgroundColor $ lighten (9 / 10) (statusColor Info)
-
-
 alert
   :: (PostBuild t m, DomBuilder t m)
-  => Status
+  => AlertConfig
   -> Dynamic t Text
   -> m a
   -> m (a, Event t ())
-alert status msg actions = elClass "div" ("alert " <> statusClass status) $ do
-  icon def (statusStandardIcon status)
+alert AlertConfig {..} msg actions = elClass "div" classStr $ do
+  icon def (statusStandardIcon _alertConfig_status)
   elClass "span" "alert-message p3" (dynText msg)
   result  <- actions
   closeEv <-
@@ -103,5 +121,10 @@ alert status msg actions = elClass "div" ("alert " <> statusClass status) $ do
             }
       $ icon def timesIcon
   pure (result, closeEv)
-  where statusClass = ("alert-" <>) . Text.toLower . Text.pack . show
-
+ where
+  classStr = Text.toLower $ Text.unwords $ Prelude.filter
+    (Prelude.not . Text.null)
+    [ "alert"
+    , pack . show $ _alertConfig_size
+    , pack . show $ _alertConfig_status
+    ]

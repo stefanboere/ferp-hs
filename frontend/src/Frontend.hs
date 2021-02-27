@@ -193,16 +193,25 @@ sideNav dynUri = leftmost <$> sequence
 coreAlert :: (DomBuilder t m, PostBuild t m) => m (Event t URI)
 coreAlert = do
   el "h1" $ text "Alert"
-  _ <- alert Danger "Your license is about to expire." $ do
-    btn def (text "Renew")
-    elAttr "a" ("href" =: "#") (text "Click here")
-  _ <- alert Danger "The host CPU is running low." (pure ())
+  _ <-
+    alert def { _alertConfig_status = Danger }
+          "Your license is about to expire."
+      $ do
+          _ <- btn def (text "Renew")
+          elAttr "a" ("href" =: "#") (text "Click here")
+  _ <- alert def { _alertConfig_status = Danger }
+             "The host CPU is running low."
+             (pure ())
   _ <- alert
-    Warning
+    def { _alertConfig_status = Warning }
     "This feature is under development. For more information, visit the documentation or contact Ferp-hs support."
     (pure ())
-  _ <- alert Info "You can customize your host in the settings panel." (pure ())
-  _ <- alert Success "Your container has been created." (pure ())
+  _ <- alert def { _alertConfig_status = Info }
+             "You can customize your host in the settings panel."
+             (pure ())
+  _ <- alert def { _alertConfig_status = Success }
+             "Your container has been created."
+             (pure ())
   pure never
 
 containerAccordion
