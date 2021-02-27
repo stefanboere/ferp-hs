@@ -66,6 +66,7 @@ library
     , reflex
     , reflex-dom
     , reflex-dom-contrib
+    , reflex-dom-pandoc
     , servant
     , text
     , uri-bytestring

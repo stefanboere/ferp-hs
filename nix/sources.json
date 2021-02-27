@@ -46,5 +46,29 @@
         "type": "tarball",
         "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/c7e3896e35ceea480a7484ec1709be7bdda8849d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "reflex-dom-contrib": {
+        "branch": "master",
+        "description": null,
+        "homepage": null,
+        "owner": "reflex-frp",
+        "repo": "reflex-dom-contrib",
+        "rev": "09d1223a3eadda768a6701410b4532fda8c7033d",
+        "sha256": "1qr2z4y2savwhalwyrljjs8aip7sxhsvhl21a02chd5dj45fa7q2",
+        "type": "tarball",
+        "url": "https://github.com/reflex-frp/reflex-dom-contrib/archive/09d1223a3eadda768a6701410b4532fda8c7033d.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "reflex-dom-pandoc": {
+        "branch": "master",
+        "description": "Render Pandoc documents in reflex-dom",
+        "homepage": "",
+        "owner": "srid",
+        "repo": "reflex-dom-pandoc",
+        "rev": "26272d4a9ecab6e4d4af5e601ebf6e2bb8edef0d",
+        "sha256": "10kmiif0yq9w6s37i6mlakm412dn5jksbxnmwjvy3bvm3idkh6k0",
+        "type": "tarball",
+        "url": "https://github.com/srid/reflex-dom-pandoc/archive/26272d4a9ecab6e4d4af5e601ebf6e2bb8edef0d.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
