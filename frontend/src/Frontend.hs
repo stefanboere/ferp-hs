@@ -16,12 +16,9 @@ import           Clay                    hiding ( icon
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
-import qualified Data.ByteString.Char8         as B
-                                                ( pack )
 import           Data.Default
 import           Data.Either                    ( fromRight )
 import           Data.Maybe                     ( fromMaybe )
-import           Data.Monoid                    ( Any(..) )
 import           Data.Proxy
 import           Data.Text                      ( Text
                                                 , pack
@@ -37,7 +34,6 @@ import           Reflex.Dom.Contrib.Router
                                          hiding ( URI )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
-import qualified Servant.Links                 as L
 import           Servant.Router
 
 import           Components
@@ -91,36 +87,6 @@ withHeader x = do
     _ <- ahref "#" (constDyn False) $ icon def cogIcon
     pure ()
 
-
-safelink
-  :: (DomBuilder t m, PostBuild t m)
-  => Dynamic t URI
-  -> Link
-  -> m ()
-  -> m (Dynamic t Bool, Event t ())
-safelink dynLoc lnk cnt = do
-  closeEv <- ahref frag isActiveDyn cnt
-  pure (isActiveDyn, closeEv)
- where
-  isActiveDyn = (frag' ==) . uriPath <$> dynLoc
-  frag'       = "/" <> B.pack (L.uriPath uri)
-  uri         = linkURI lnk
-  frag        = "#/" <> pack (show uri)
-
--- | A group of links which automatically opens if one child is active
-safelinkGroup
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
-  => m ()
-  -> [m (Dynamic t Bool, Event t ())]
-  -> m (Event t ())
-safelinkGroup lbl childs = do
-  rec closeEvs <- navGroup (leftmost [initActive, updated anyActive]) lbl
-        $ sequence childs
-
-      postBuild <- getPostBuild
-      let anyActive  = fmap getAny $ mconcat $ fmap (fmap Any . fst) closeEvs
-      let initActive = tagPromptlyDyn anyActive postBuild
-  pure $ leftmost $ fmap snd closeEvs
 
 mainPage :: forall t m . MonadWidget t m => m (Dynamic t URI)
 mainPage = do
