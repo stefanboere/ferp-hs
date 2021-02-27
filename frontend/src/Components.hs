@@ -1,5 +1,6 @@
 module Components
-  ( module Components.Button
+  ( module Components.Accordion
+  , module Components.Button
   , module Components.Class
   , module Components.Icon
   , module Components.Input
@@ -8,6 +9,7 @@ module Components
   )
 where
 
+import           Components.Accordion
 import           Components.Button
 import           Components.Class
 import           Components.Icon

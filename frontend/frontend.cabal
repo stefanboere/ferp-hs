@@ -40,6 +40,7 @@ library
   exposed-modules: Frontend
   other-modules:
     Components
+    Components.Accordion
     Components.Button
     Components.Class
     Components.Icon

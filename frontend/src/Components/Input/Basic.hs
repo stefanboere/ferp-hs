@@ -10,6 +10,7 @@ module Components.Input.Basic
   , numberInput'
   , toggleInput
   , checkboxInput
+  , checkboxInputSimple
   , inputStyle
   , InputConfig(..)
   , textInput
@@ -626,6 +627,20 @@ checkboxInput cfg = elClass "div" "inlineabs" $ do
 
   statusMessageElement (_inputConfig_status cfg)
   pure result
+
+checkboxInputSimple
+  :: DomBuilder t m => Event t Bool -> Map AttributeName Text -> m ()
+checkboxInputSimple setOpen attrs = do
+  _ <-
+    inputElement
+    $            def
+    Reflex.Dom.& inputElementConfig_setChecked
+    .~           setOpen
+    Reflex.Dom.& inputElementConfig_elementConfig
+    .            elementConfig_initialAttributes
+    .~           attrs
+    <>           ("type" =: "checkbox")
+  pure ()
 
 class HasLabel a where
   toLabel :: a -> Text

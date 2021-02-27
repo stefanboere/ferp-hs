@@ -69,6 +69,7 @@ css = do
   appStyle
   inputStyle
   buttonStyle
+  accordionStyle
   tableStyle
 
 withHeader
@@ -155,14 +156,16 @@ formTest = el "form" $ do
 -- brittany-disable-next-binding
 type MyApi = "input" :> "basic" :> View
         :<|> "input" :> "button" :> View
+        :<|> "container" :> "accordion" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
 
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, inputButtonLink, containerTabLink, containerTableLink :: Link
-inputBasicLink :<|> inputButtonLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink, inputButtonLink, containerAccordionLink, containerTabLink, containerTableLink
+  :: Link
+inputBasicLink :<|> inputButtonLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -177,10 +180,26 @@ sideNav dynUri = leftmost <$> sequence
     ]
   , safelinkGroup
     (text "Containers")
-    [ safelink dynUri containerTabLink $ text "Tab"
+    [ safelink dynUri containerAccordionLink $ text "Accordion"
+    , safelink dynUri containerTabLink $ text "Tab"
     , safelink dynUri containerTableLink $ text "Table"
     ]
   ]
+
+containerAccordion
+  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerAccordion = do
+  el "h1" $ text "Accordion"
+  accordion never
+            "Header for panel #1"
+            (text "This is the content for accordion panel #1")
+  accordion never
+            "Header for panel #2"
+            (text "This is the content for accordion panel #2")
+  accordion never
+            "Header for panel #3"
+            (text "This is the content for accordion panel #3")
+  pure never
 
 containerTab
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -210,7 +229,12 @@ containerTable = do
   pure never
 
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
-handler = inputBasic :<|> inputButton :<|> containerTab :<|> containerTable
+handler =
+  inputBasic
+    :<|> inputButton
+    :<|> containerAccordion
+    :<|> containerTab
+    :<|> containerTable
  where
   inputBasic  = formTest >> pure never
   inputButton = text "TBD" >> pure never

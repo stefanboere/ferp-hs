@@ -44,7 +44,9 @@ import           URI.ByteString                 ( URI
                                                 )
 
 import           Components.Class
-import           Components.Input.Basic         ( randomId )
+import           Components.Input.Basic         ( randomId
+                                                , checkboxInputSimple
+                                                )
 import           Components.Icon
 import           Nordtheme
 
@@ -184,7 +186,7 @@ navGroup
   -> m a
 navGroup setOpen titl cnt = elClass "section" "nav-group" $ do
   idStr <- randomId
-  checkboxInput setOpen $ "id" =: idStr
+  checkboxInputSimple setOpen $ "id" =: idStr
   el "div" $ do
     elAttr "label" ("for" =: idStr) $ do
       el "span" titl
@@ -247,23 +249,9 @@ app cfg primary secondary actions page = do
 
   elClass "article" "main-content" page
 
-checkboxInput
-  :: DomBuilder t m => Event t Bool -> Map AttributeName Text -> m ()
-checkboxInput setOpen attrs = do
-  _ <-
-    inputElement
-    $            def
-    Reflex.Dom.& inputElementConfig_setChecked
-    .~           setOpen
-    Reflex.Dom.& inputElementConfig_elementConfig
-    .            elementConfig_initialAttributes
-    .~           attrs
-    <>           ("type" =: "checkbox")
-  pure ()
-
 navigationCheckbox :: (DomBuilder t m) => Text -> Event t Bool -> m ()
 navigationCheckbox idStr setOpen =
-  checkboxInput setOpen $ "id" =: idStr <> "class" =: "nav-opener"
+  checkboxInputSimple setOpen $ "id" =: idStr <> "class" =: "nav-opener"
 
 primaryNavigation
   :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()
