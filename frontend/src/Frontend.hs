@@ -71,6 +71,7 @@ css = do
   buttonStyle
   accordionStyle
   tableStyle
+  alertStyle
 
 withHeader
   :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
@@ -156,6 +157,7 @@ formTest = el "form" $ do
 -- brittany-disable-next-binding
 type MyApi = "input" :> "basic" :> View
         :<|> "input" :> "button" :> View
+        :<|> "core" :> "alert" :> View
         :<|> "container" :> "accordion" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
@@ -163,9 +165,9 @@ type MyApi = "input" :> "basic" :> View
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, inputButtonLink, containerAccordionLink, containerTabLink, containerTableLink
+inputBasicLink, inputButtonLink, coreAlertLink, containerAccordionLink, containerTabLink, containerTableLink
   :: Link
-inputBasicLink :<|> inputButtonLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink :<|> inputButtonLink :<|> coreAlertLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -173,7 +175,9 @@ sideNav
   => Dynamic t URI
   -> m (Event t ())
 sideNav dynUri = leftmost <$> sequence
-  [ safelinkGroup
+  [ safelinkGroup (text "Core components")
+                  [safelink dynUri coreAlertLink $ text "Alert"]
+  , safelinkGroup
     (text "Input elements")
     [ safelink dynUri inputBasicLink $ text "Basic"
     , safelink dynUri inputButtonLink $ text "Button"
@@ -185,6 +189,21 @@ sideNav dynUri = leftmost <$> sequence
     , safelink dynUri containerTableLink $ text "Table"
     ]
   ]
+
+coreAlert :: (DomBuilder t m, PostBuild t m) => m (Event t URI)
+coreAlert = do
+  el "h1" $ text "Alert"
+  _ <- alert Danger "Your license is about to expire." $ do
+    btn def (text "Renew")
+    elAttr "a" ("href" =: "#") (text "Click here")
+  _ <- alert Danger "The host CPU is running low." (pure ())
+  _ <- alert
+    Warning
+    "This feature is under development. For more information, visit the documentation or contact Ferp-hs support."
+    (pure ())
+  _ <- alert Info "You can customize your host in the settings panel." (pure ())
+  _ <- alert Success "Your container has been created." (pure ())
+  pure never
 
 containerAccordion
   :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
@@ -232,6 +251,7 @@ handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
 handler =
   inputBasic
     :<|> inputButton
+    :<|> coreAlert
     :<|> containerAccordion
     :<|> containerTab
     :<|> containerTable

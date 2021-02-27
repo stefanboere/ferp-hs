@@ -41,6 +41,7 @@ library
   other-modules:
     Components
     Components.Accordion
+    Components.Alert
     Components.Button
     Components.Class
     Components.Icon

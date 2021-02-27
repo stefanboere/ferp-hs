@@ -13,7 +13,9 @@ import           Prelude                 hiding ( rem )
 import           Clay                    hiding ( (&) )
 import qualified Clay                           ( (&) )
 import           Data.Default
-import           Data.Text                      ( pack )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import qualified Data.Text                     as Text
 import           Reflex
 import           Reflex.Dom              hiding ( textInput
@@ -36,23 +38,26 @@ data ButtonConfig t = ButtonConfig
   { _buttonConfig_priority :: ButtonPriority
   , _buttonConfig_size :: ComponentSize
   , _buttonConfig_disabled :: Dynamic t Bool
+  , _buttonConfig_class :: Text
   }
 
 instance Reflex t => Default (ButtonConfig t) where
   def = ButtonConfig { _buttonConfig_priority = def
                      , _buttonConfig_size     = def
                      , _buttonConfig_disabled = constDyn False
+                     , _buttonConfig_class    = ""
                      }
 
 buttonStyle :: Css
 buttonStyle = Clay.button ? do
   Clay.display inlineBlock
-  height (px 34)
+  height (rem (3 / 2))
+  backgroundColor inherit
   borderWidth nil
   borderRadiusAll (px 3)
-  paddingRight (px 12)
-  paddingLeft (px 12)
-  marginRight (px 12)
+  paddingRight (rem (3 / 4))
+  paddingLeft (rem (3 / 4))
+  marginRight (rem (3 / 4))
   marginTop (px 6)
   marginBottom (px 6)
   cursor pointer
@@ -62,8 +67,7 @@ buttonStyle = Clay.button ? do
   textTransform uppercase
   verticalAlign middle
 
-  ".compactsize" Clay.& do
-    height (rem 1.5)
+  ".compactsize" Clay.& height (rem 1.5)
 
   ".info" Clay.& do
     background nord7'
@@ -87,11 +91,9 @@ buttonStyle = Clay.button ? do
 
   ".secondary" Clay.& do
     border solid 1 nord3'
-    background white0'
     hoverSecondary
 
   ".tertiary" Clay.& do
-    background white0'
     borderWidth nil
     hoverSecondary
 
@@ -108,8 +110,12 @@ btn ButtonConfig {..} lbl = do
   (e, _) <- elAttr' "button" ("type" =: "button" <> "class" =: classStr) lbl
   pure $ domEvent Click e
  where
-  classStr = Text.toLower $ Text.unwords
-    [pack . show $ _buttonConfig_size, pack $ prioClass _buttonConfig_priority]
+  classStr = Text.toLower $ Text.unwords $ Prelude.filter
+    (Prelude.not . Text.null)
+    [ pack . show $ _buttonConfig_size
+    , pack $ prioClass _buttonConfig_priority
+    , _buttonConfig_class
+    ]
   prioClass (ButtonPrimary x) = show x
   prioClass ButtonSecondary   = "secondary"
   prioClass ButtonTertiary    = "tertiary"

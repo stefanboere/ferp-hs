@@ -1,5 +1,6 @@
 module Components
   ( module Components.Accordion
+  , module Components.Alert
   , module Components.Button
   , module Components.Class
   , module Components.Icon
@@ -10,6 +11,7 @@ module Components
 where
 
 import           Components.Accordion
+import           Components.Alert
 import           Components.Button
 import           Components.Class
 import           Components.Icon
