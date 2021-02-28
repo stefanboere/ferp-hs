@@ -257,7 +257,7 @@ coreProgress
   :: (MonadHold t m, DomBuilder t m, PostBuild t m) => m (Event t URI)
 coreProgress = do
   el "h1" $ text "Progress"
-  el "h2" $ text "Progess bars"
+  el "h2" $ text "Progress bars"
   el "p"
     $ text
         "Progress bars are to indicate 'This wil take a while', where 'a while' is more than 10 seconds."
@@ -267,6 +267,14 @@ coreProgress = do
   progressBar mempty (constDyn Nothing)
   el "p" $ text "Optionally a label can be placed on the right"
   progressBarLabel mempty (constDyn (Just 0.5))
+
+  el "h2" $ text "Spinners"
+  el "p"
+    $ text "For 1-10 seconds or when space is limited, a spinner can be used."
+  spinner Inline "Loading ..."
+  spinner Large  "Loading ..."
+  spinner Medium "Loading ..."
+  spinner Small  "Loading ..."
 
   pure never
 

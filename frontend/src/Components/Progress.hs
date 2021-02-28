@@ -3,15 +3,16 @@ module Components.Progress
   ( progressStyle
   , progressBar
   , progressBarLabel
+  , SpinnerSize(..)
+  , spinner
   )
 where
 
 import           Prelude                 hiding ( rem )
 
 import           Clay
-import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.Default
 import           Data.Map                       ( Map )
-import qualified Data.Map                      as Map
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( display
@@ -19,13 +20,17 @@ import           Reflex.Dom              hiding ( display
                                                 )
 
 import           Components.Class
-import           Components.Input.Basic         ( randomId )
 import           Nordtheme
 
 progressStyle :: Css
 progressStyle = do
   keyframesFromTo "clr-progress-looper" (left (pct (-100))) (left (pct 100))
   progressBarStyle
+
+  keyframesFromTo "spin"
+                  (transforms [rotate (deg 0)])
+                  (transforms [rotate (deg 360)])
+  spinnerStyle
 
   ".progress" ? do
     display flex
@@ -107,3 +112,54 @@ progressBarLabel
 progressBarLabel otherAttrs val = elClass "div" "progress" $ do
   progressBar otherAttrs val
   el "span" $ dynText (percentageLabel <$> val)
+
+data SpinnerSize = Inline
+                 | Small
+                 | Medium
+                 | Large
+                 deriving (Eq, Ord, Show)
+
+instance Default SpinnerSize where
+  def = Inline
+
+spinnerStyle :: Css
+spinnerStyle = do
+  ".spinner" ? do
+    display inlineBlock
+    verticalAlign textBottom
+    Clay.not ".spinner-inline" & do
+      visibility hidden
+      fontSize (px 1)
+      letterSpacing (px (-1))
+
+    before & do
+      marginRight (rem (1 / 2))
+      visibility visible
+      display inlineBlock
+      content (stringContent "")
+      width (rem 1)
+      height (rem 1)
+      position relative
+      borderRadiusAll (pct 50)
+      border solid (px 2) nord4'
+      borderBottomColor nord10'
+      animation "spin" 1 linear 0 infinite normal none
+
+  ".spinner-large" # before ? do
+    width (rem 4)
+    height (rem 4)
+    borderWidth (px 5)
+
+  ".spinner-medium" # before ? do
+    width (rem 2)
+    height (rem 2)
+    borderWidth (px 3)
+
+  ".spinner-inline" # before ? do
+    top (rem 0.25)
+
+spinner :: DomBuilder t m => SpinnerSize -> Text -> m ()
+spinner sz loadingMsg =
+  elClass "span" ("spinner spinner-" <> Text.toLower (Text.pack (show sz)))
+    $ text loadingMsg
+
