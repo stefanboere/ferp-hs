@@ -43,6 +43,7 @@ library
     Components.Accordion
     Components.Alert
     Components.Button
+    Components.Card
     Components.Class
     Components.Icon
     Components.Input

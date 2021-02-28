@@ -2,6 +2,7 @@ module Components
   ( module Components.Accordion
   , module Components.Alert
   , module Components.Button
+  , module Components.Card
   , module Components.Class
   , module Components.Icon
   , module Components.Input
@@ -14,6 +15,7 @@ where
 import           Components.Accordion
 import           Components.Alert
 import           Components.Button
+import           Components.Card
 import           Components.Class
 import           Components.Icon
 import           Components.Input

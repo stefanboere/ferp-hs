@@ -70,6 +70,7 @@ css = do
   inputStyle
   buttonStyle
   accordionStyle
+  cardStyle
   tableStyle
   alertStyle
   tagStyle
@@ -161,15 +162,16 @@ type MyApi = "input" :> "basic" :> View
         :<|> "core" :> "alert" :> View
         :<|> "core" :> "tag" :> View
         :<|> "container" :> "accordion" :> View
+        :<|> "container" :> "card" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
 
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, coreButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerTabLink, containerTableLink
+inputBasicLink, coreButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerCardLink, containerTabLink, containerTableLink
   :: Link
-inputBasicLink :<|> coreButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink :<|> coreButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerCardLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -188,6 +190,7 @@ sideNav dynUri = leftmost <$> sequence
   , safelinkGroup
     (text "Containers")
     [ safelink dynUri containerAccordionLink $ text "Accordion"
+    , safelink dynUri containerCardLink $ text "Card"
     , safelink dynUri containerTabLink $ text "Tab"
     , safelink dynUri containerTableLink $ text "Table"
     ]
@@ -320,6 +323,22 @@ containerAccordion = do
             (text "This is the content for accordion panel #3")
   pure never
 
+containerCard :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerCard = do
+  el "h1" $ text "Card"
+  _ <- card $ do
+    cardHeader (text "Header")
+
+    cardContent $ do
+      el "h4" $ text "Block"
+      text "Card content"
+
+    cardFooter $ do
+      x <- cardAction "Footer action 1"
+      y <- cardAction "Footer action 2"
+      pure (x, y)
+  pure never
+
 containerTab
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => m (Event t URI)
@@ -447,6 +466,7 @@ handler =
     :<|> coreAlert
     :<|> coreTag
     :<|> containerAccordion
+    :<|> containerCard
     :<|> containerTab
     :<|> containerTable
   where inputBasic = formTest >> pure never
