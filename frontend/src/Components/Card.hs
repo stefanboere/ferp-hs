@@ -4,6 +4,7 @@ module Components.Card
   , clickableCard
   , cardStyle
   , cardHeader
+  , cardImg
   , cardFooter
   , cardContent
   , cardAction
@@ -22,19 +23,41 @@ import           Components.Button
 import           Components.Class
 import           Nordtheme
 
-
 cardStyle :: Css
-cardStyle = ".card" ? do
+cardStyle = cardStyle' <> clickableCardStyle <> gridStyle
+
+gridStyle :: Css
+gridStyle = do
+  ".grid" ? do
+    display grid
+    alignItems flexStart
+    "grid-gap" -: "1rem"
+    "grid-template-columns" -: "repeat(auto-fit, minmax(15rem, 1fr))"
+
+cardStyle' :: Css
+cardStyle' = ".card" ? do
   border solid (px 1) grey0'
   borderRadiusAll (px 3)
   backgroundColor white
+  marginTop (rem (3 / 2))
   boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil (rem (1 / 8)) nil
+  overflow hidden
 
-  star # Clay.not ".card-footer" <? do
+  star # Clay.not ".card-nopadding" <? do
     paddingAll (rem (3 / 4))
-    borderBottom solid (px 1) grey0'
+    borderTop solid (px 1) grey0'
 
-    lastChild & borderBottomWidth nil
+    firstChild & borderTopWidth nil
+
+  ".card-footer" ? borderTop solid (px 1) grey0'
+
+  ".card-img" |+ star ? borderTopWidth nil
+
+  ".card-img" Clay.** img ? do
+    maxWidth (pct 100)
+    width (pct 100)
+    height auto
+    display block
 
   ".card-header" ? marginTop nil
 
@@ -42,23 +65,38 @@ cardStyle = ".card" ? do
     marginTop nil
     marginBottom (rem (1 / 2))
 
+clickableCardStyle :: Css
+clickableCardStyle = ".card-clickable" ? do
+  display block
+  textDecoration none
+  color inherit
+  transitionDuration 0.1
+  transitionTimingFunction ease
+
+  hover & do
+    transform $ translateY (rem (-1 / 8))
+    borderColor hoverColor
+    boxShadow . pure $ bsColor hoverColor $ shadowWithBlur nil (rem (1 / 8)) nil
+  where hoverColor = rgb 115 151 186
 
 card :: DomBuilder t m => m a -> m a
 card = elClass "div" "card"
 
-clickableCard :: DomBuilder t m => m () -> m (Event t ())
-clickableCard cnt = do
-  cnt
-  pure never
+clickableCard :: DomBuilder t m => Text -> m a -> m a
+clickableCard href' =
+  elAttr "a" ("class" =: "card card-clickable" <> "href" =: href')
 
 cardHeader :: DomBuilder t m => m a -> m a
 cardHeader = elClass "h3" "card-header"
+
+cardImg :: DomBuilder t m => m a -> m a
+cardImg = elClass "div" "card-img card-nopadding"
 
 cardContent :: DomBuilder t m => m a -> m a
 cardContent = elClass "div" "card-content"
 
 cardFooter :: DomBuilder t m => m a -> m a
-cardFooter = elClass "div" "card-footer"
+cardFooter = elClass "div" "card-footer card-nopadding"
 
 cardAction
   :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m (Event t ())

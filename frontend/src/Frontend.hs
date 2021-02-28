@@ -337,6 +337,28 @@ containerCard = do
       x <- cardAction "Footer action 1"
       y <- cardAction "Footer action 2"
       pure (x, y)
+
+  elClass "div" "grid" $ do
+    clickableCard "#" $ do
+      cardImg $ elAttr
+        "img"
+        ("src" =: "https://via.placeholder.com/350x150?text=Image")
+        blank
+      cardContent $ text "..."
+
+    clickableCard "#" $ do
+      cardContent $ text "..."
+      cardImg $ elAttr
+        "img"
+        ("src" =: "https://via.placeholder.com/350x150?text=Image")
+        blank
+
+    clickableCard "#" $ do
+      cardImg $ elAttr
+        "img"
+        ("src" =: "https://via.placeholder.com/350x150?text=Image")
+        blank
+
   pure never
 
 containerTab
