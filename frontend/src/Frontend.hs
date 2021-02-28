@@ -392,7 +392,30 @@ coreButton = do
   el "p" $ text "WIP"
 
   el "h2" $ text "Button Group"
-  el "p" $ text "WIP"
+  btnGroup $ mapM_
+    (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
+    [ (ButtonPrimary Info, "Add")
+    , (ButtonPrimary Info, "Edit")
+    , (ButtonPrimary Info, "Delete")
+    ]
+  btnGroup $ mapM_
+    (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
+    [ (ButtonSecondary, "Add")
+    , (ButtonSecondary, "Edit")
+    , (ButtonSecondary, "Delete")
+    ]
+  btnGroup $ mapM_
+    (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
+    [ (ButtonTertiary, "Add")
+    , (ButtonTertiary, "Edit")
+    , (ButtonTertiary, "Delete")
+    ]
+  btnGroup $ mapM_
+    (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
+    [ (ButtonPrimary Success, "Success")
+    , (ButtonPrimary Warning, "Warning")
+    , (ButtonPrimary Danger , "Danger")
+    ]
 
   el "h2" $ text "Dropdown"
   el "p" $ text "WIP"

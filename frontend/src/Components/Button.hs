@@ -5,6 +5,7 @@ module Components.Button
   , ButtonPriority(..)
   , buttonStyle
   , btn
+  , btnGroup
   )
 where
 
@@ -47,7 +48,10 @@ instance Reflex t => Default (ButtonConfig t) where
                      }
 
 buttonStyle :: Css
-buttonStyle = Clay.button ? do
+buttonStyle = buttonStyle' <> btnGroupStyle
+
+buttonStyle' :: Css
+buttonStyle' = Clay.button ? do
   Clay.display inlineFlex
   alignItems center
   height (rem (3 / 2))
@@ -112,7 +116,6 @@ buttonStyle = Clay.button ? do
     color (rgb 115 151 186)
     "fill" -: showColor (rgb 115 151 186)
 
-
 btn :: DomBuilder t m => ButtonConfig t -> m a -> m (Event t ())
 btn ButtonConfig {..} lbl = do
   (e, _) <- elAttr' "button" ("type" =: "button" <> "class" =: classStr) lbl
@@ -125,5 +128,31 @@ btn ButtonConfig {..} lbl = do
   prioClass ButtonSecondary   = "secondary"
   prioClass ButtonTertiary    = "tertiary"
 
+btnGroupStyle :: Css
+btnGroupStyle = ".button-group" ? do
+  Clay.display inlineBlock
+  marginRight (rem (3 / 4))
 
+  Clay.button # firstChild <? do
+    borderTopLeftRadius (px 3) (px 3)
+    borderBottomLeftRadius (px 3) (px 3)
 
+  Clay.button # lastChild <? do
+    borderTopRightRadius (px 3) (px 3)
+    borderBottomRightRadius (px 3) (px 3)
+
+  Clay.button <? do
+    marginRight nil
+    borderRadiusAll nil
+
+  ".primary" <? do
+    marginRight (px 1)
+
+  ".secondary" <? do
+    marginRight (px (-1))
+
+  ".secondary" # hover |+ star ? do
+    borderLeftColor (rgb 115 151 186)
+
+btnGroup :: DomBuilder t m => m () -> m ()
+btnGroup = elClass "div" "button-group"
