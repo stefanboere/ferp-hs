@@ -26,7 +26,6 @@ accordionStyle = ".accordion" ? do
   borderBottomWidth nil
 
   ".angle-icon" ? do
-    "fill" -: showColor nord3'
     marginRight (rem 0.5)
     transforms [translateY (rem 0.25), rotate (deg 90)]
 
