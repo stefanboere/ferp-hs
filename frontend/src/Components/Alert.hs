@@ -202,7 +202,6 @@ alertContent status msg = do
 closeBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
 closeBtn =
   btn def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_size     = CompactSize
           , _buttonConfig_class    = "button-close"
           }
     $ icon def timesIcon

@@ -148,6 +148,7 @@ typographyStyle = do
   body ? do
     background white0'
     fontColor nord3'
+    "fill" -: showColor nord3'
     fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
 
 tshow :: String -> Text
@@ -543,7 +544,6 @@ commonNavStyle = do
     overflowY auto
 
     ".icon" ? do
-      "fill" -: showColor nord3'
       paddingRight (rem 0.6)
 
     a ? do

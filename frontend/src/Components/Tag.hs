@@ -6,6 +6,7 @@ module Components.Tag
   , tagStyle
   , tagEl
   , badge
+  , badge'
   )
 where
 
@@ -68,7 +69,6 @@ tagStyle' = ".tag" ? do
       backgroundColor nord6'
 
   ".icon" ? do
-    "fill" -: showColor nord3'
     position relative
     top (rem (1 / 4))
 
@@ -93,7 +93,7 @@ tagEl cfg lbl = do
     dynText lbl
     when (_tagConfig_action cfg == Just TagDismiss) $ icon def timesIcon
     maybe (pure ()) (badge (_tagConfig_color cfg)) $ _tagConfig_badge cfg
-  text " "
+  text "\8202"
   pure $ domEvent Click e
 
  where
@@ -134,6 +134,11 @@ badgeStyle = ".badge" ? do
   ".taglightblue" & do
     fontColor nord6'
     backgroundColor nord9'
+
+-- | Badge with numeric type specialized to integer
+badge'
+  :: (PostBuild t m, DomBuilder t m) => TagColor -> Dynamic t Integer -> m ()
+badge' = badge
 
 badge
   :: (PostBuild t m, DomBuilder t m, Integral a, Show a)

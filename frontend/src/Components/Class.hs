@@ -8,12 +8,15 @@ module Components.Class
   , paddingAll
   , marginAll
   , absoluteBlock
+  , spantext
   )
 where
 
 
 import           Clay
 import           Data.Default
+import           Data.Text                      ( Text )
+import           Reflex.Dom
 
 import           Nordtheme
 
@@ -54,3 +57,6 @@ absoluteBlock = do
   content (stringContent "")
   Clay.display block
   position absolute
+
+spantext :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m ()
+spantext = el "span" . dynText

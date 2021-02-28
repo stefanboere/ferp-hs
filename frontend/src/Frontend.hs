@@ -157,7 +157,7 @@ formTest = el "form" $ do
 
 -- brittany-disable-next-binding
 type MyApi = "input" :> "basic" :> View
-        :<|> "input" :> "button" :> View
+        :<|> "core" :> "button" :> View
         :<|> "core" :> "alert" :> View
         :<|> "core" :> "tag" :> View
         :<|> "container" :> "accordion" :> View
@@ -167,9 +167,9 @@ type MyApi = "input" :> "basic" :> View
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, inputButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerTabLink, containerTableLink
+inputBasicLink, coreButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerTabLink, containerTableLink
   :: Link
-inputBasicLink :<|> inputButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink :<|> coreButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -180,13 +180,11 @@ sideNav dynUri = leftmost <$> sequence
   [ safelinkGroup
     (text "Core components")
     [ safelink dynUri coreAlertLink $ text "Alert"
+    , safelink dynUri coreButtonLink $ text "Button"
     , safelink dynUri coreTagLink $ text "Tag"
     ]
-  , safelinkGroup
-    (text "Input elements")
-    [ safelink dynUri inputBasicLink $ text "Basic"
-    , safelink dynUri inputButtonLink $ text "Button"
-    ]
+  , safelinkGroup (text "Input elements")
+                  [safelink dynUri inputBasicLink $ text "Basic"]
   , safelinkGroup
     (text "Containers")
     [ safelink dynUri containerAccordionLink $ text "Accordion"
@@ -277,8 +275,8 @@ coreTag = do
   el "h2" $ text "Badges"
   el "p" $ text "Badges show a numerical value within another element"
   mapM_
-    (uncurry badge)
-    [ (TagGrey               , forceInt <$> 0)
+    (uncurry badge')
+    [ (TagGrey               , 0)
     , (TagPurple             , 1)
     , (TagOrange             , 2)
     , (TagLightGreen         , 3)
@@ -306,10 +304,6 @@ coreTag = do
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
 
   pure never
-
- where
-  forceInt :: Integer -> Integer
-  forceInt = id
 
 containerAccordion
   :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
@@ -353,18 +347,86 @@ containerTable = do
     )
   pure never
 
+coreButton
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => m (Event t URI)
+coreButton = do
+  el "h1" $ text "Button"
+  el "p"
+    $ text
+        "Primary buttons are used for the primary action. \
+       \  Secondary buttons are used for actions which complement the primary action or to reduce visual noise. \
+       \  Tertiary buttons are used in special occasions, and can also be used inline."
+  btn1Ev <- btn def (text "Primary button")
+  btn2Ev <- btn def { _buttonConfig_priority = ButtonSecondary }
+                (text "Secondary button")
+  btn3Ev <- btn def { _buttonConfig_priority = ButtonTertiary }
+                (text "Tertiary button")
+
+  el "p"
+    $ text
+        "The primary buttons also come in the success, warning and danger variant."
+  btn1SEv <- btn def { _buttonConfig_priority = ButtonPrimary Success }
+                 (text "Success")
+  btn1WEv <- btn def { _buttonConfig_priority = ButtonPrimary Warning }
+                 (text "Warning")
+  btn1DEv <- btn def { _buttonConfig_priority = ButtonPrimary Danger }
+                 (text "Danger")
+
+  el "p" $ text "Icons and badges can be used"
+  btnIcon2 <- btn def { _buttonConfig_priority = ButtonSecondary }
+                  (icon def timesIcon >> spantext "Cancel")
+  btnIcon1     <- btn def (icon def successStandardIcon >> spantext "Ok")
+
+  btnIconOnly3 <- btn def { _buttonConfig_priority = ButtonTertiary }
+                      (icon def timesIcon)
+  btnIconOnly2 <- btn def { _buttonConfig_priority = ButtonSecondary }
+                      (icon def timesIcon)
+  btnIconOnly1 <- btn def (icon def successStandardIcon)
+
+  btnBadge2    <- btn def { _buttonConfig_priority = ButtonSecondary }
+                      (spantext "Archive items" >> badge' def 10)
+  btnBadge1 <- btn def (spantext "Mark as read" >> badge' def 100)
+
+  el "h2" $ text "Interaction"
+  el "p" $ text "WIP"
+
+  el "h2" $ text "Button Group"
+  el "p" $ text "WIP"
+
+  el "h2" $ text "Dropdown"
+  el "p" $ text "WIP"
+
+  (countDyn :: Dynamic t Integer) <- count $ leftmost
+    [ btn1Ev
+    , btn2Ev
+    , btn3Ev
+    , btn1SEv
+    , btn1WEv
+    , btn1DEv
+    , btnIcon2
+    , btnIcon1
+    , btnBadge2
+    , btnBadge1
+    , btnIconOnly1
+    , btnIconOnly2
+    , btnIconOnly3
+    ]
+  el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
+
+
+  pure never
+
 handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
 handler =
   inputBasic
-    :<|> inputButton
+    :<|> coreButton
     :<|> coreAlert
     :<|> coreTag
     :<|> containerAccordion
     :<|> containerTab
     :<|> containerTable
- where
-  inputBasic  = formTest >> pure never
-  inputButton = text "TBD" >> pure never
+  where inputBasic = formTest >> pure never
 
 
 
