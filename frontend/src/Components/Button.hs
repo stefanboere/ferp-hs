@@ -115,6 +115,7 @@ buttonStyle' = Clay.button ? do
     borderColor (rgb 115 151 186)
     color (rgb 115 151 186)
     "fill" -: showColor (rgb 115 151 186)
+    ".badge" ? backgroundColor (rgb 115 151 186)
 
 btn :: DomBuilder t m => ButtonConfig t -> m a -> m (Event t ())
 btn ButtonConfig {..} lbl = do

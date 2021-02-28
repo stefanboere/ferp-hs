@@ -7,6 +7,7 @@ module Components
   , module Components.Icon
   , module Components.Input
   , module Components.Navigation
+  , module Components.Progress
   , module Components.Table
   , module Components.Tag
   )
@@ -20,5 +21,6 @@ import           Components.Class
 import           Components.Icon
 import           Components.Input
 import           Components.Navigation
+import           Components.Progress
 import           Components.Table
 import           Components.Tag

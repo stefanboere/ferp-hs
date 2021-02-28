@@ -74,6 +74,7 @@ css = do
   tableStyle
   alertStyle
   tagStyle
+  progressStyle
 
 withHeader
   :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
@@ -160,6 +161,7 @@ formTest = el "form" $ do
 type MyApi = "input" :> "basic" :> View
         :<|> "core" :> "button" :> View
         :<|> "core" :> "alert" :> View
+        :<|> "core" :> "progress" :> View
         :<|> "core" :> "tag" :> View
         :<|> "container" :> "accordion" :> View
         :<|> "container" :> "card" :> View
@@ -169,9 +171,9 @@ type MyApi = "input" :> "basic" :> View
 myApi :: Proxy MyApi
 myApi = Proxy
 
-inputBasicLink, coreButtonLink, coreAlertLink, coreTagLink, containerAccordionLink, containerCardLink, containerTabLink, containerTableLink
+inputBasicLink, coreButtonLink, coreAlertLink, coreProgressLink, coreTagLink, containerAccordionLink, containerCardLink, containerTabLink, containerTableLink
   :: Link
-inputBasicLink :<|> coreButtonLink :<|> coreAlertLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerCardLink :<|> containerTabLink :<|> containerTableLink
+inputBasicLink :<|> coreButtonLink :<|> coreAlertLink :<|> coreProgressLink :<|> coreTagLink :<|> containerAccordionLink :<|> containerCardLink :<|> containerTabLink :<|> containerTableLink
   = allLinks myApi
 
 sideNav
@@ -183,6 +185,7 @@ sideNav dynUri = leftmost <$> sequence
     (text "Core components")
     [ safelink dynUri coreAlertLink $ text "Alert"
     , safelink dynUri coreButtonLink $ text "Button"
+    , safelink dynUri coreProgressLink $ text "Progress"
     , safelink dynUri coreTagLink $ text "Tag"
     ]
   , safelinkGroup (text "Input elements")
@@ -247,6 +250,23 @@ coreAlert = do
     def { _alertConfig_status = Success, _alertConfig_size = CompactSize }
     "Your container has been created."
     (pure ())
+
+  pure never
+
+coreProgress
+  :: (MonadHold t m, DomBuilder t m, PostBuild t m) => m (Event t URI)
+coreProgress = do
+  el "h1" $ text "Progress"
+  el "h2" $ text "Progess bars"
+  el "p"
+    $ text
+        "Progress bars are to indicate 'This wil take a while', where 'a while' is more than 10 seconds."
+  progressBar mempty (constDyn (Just 0.5))
+  el "p"
+    $ text "When there is no estimate, an indeterminate progress can be shown"
+  progressBar mempty (constDyn Nothing)
+  el "p" $ text "Optionally a label can be placed on the right"
+  progressBarLabel mempty (constDyn (Just 0.5))
 
   pure never
 
@@ -501,6 +521,7 @@ handler =
   inputBasic
     :<|> coreButton
     :<|> coreAlert
+    :<|> coreProgress
     :<|> coreTag
     :<|> containerAccordion
     :<|> containerCard

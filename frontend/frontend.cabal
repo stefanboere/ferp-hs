@@ -50,6 +50,7 @@ library
     Components.Input.Basic
     Components.Input.Numeric
     Components.Navigation
+    Components.Progress
     Components.Table
     Components.Tag
     DevelMain
