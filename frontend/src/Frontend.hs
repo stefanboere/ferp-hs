@@ -330,8 +330,22 @@ containerCard = do
     cardHeader (text "Header")
 
     cardContent $ do
+      _ <- alert
+        def { _alertConfig_size = CompactSize, _alertConfig_status = Warning }
+        "Use small alerts in a card."
+        (pure ())
       el "h4" $ text "Block"
       text "Card content"
+
+    cardContent $ el "ul" $ do
+      el "li" $ text "Ullamco Laboris"
+      el "li" $ do
+        text "Nisi Ut Aliquip"
+        el "ul" $ do
+          el "li" $ text "Exercitation"
+          el "li" $ text "Laboris"
+          el "li" $ text "Commodo"
+      el "li" $ text "Consequat"
 
     cardFooter $ do
       x <- cardAction "Footer action 1"
@@ -358,6 +372,7 @@ containerCard = do
         "img"
         ("src" =: "https://via.placeholder.com/350x150?text=Image")
         blank
+
 
   pure never
 

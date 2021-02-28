@@ -42,6 +42,7 @@ cardStyle' = ".card" ? do
   marginTop (rem (3 / 2))
   boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil (rem (1 / 8)) nil
   overflow hidden
+  fontSize (rem (7 / 8))
 
   star # Clay.not ".card-nopadding" <? do
     paddingAll (rem (3 / 4))
@@ -49,7 +50,11 @@ cardStyle' = ".card" ? do
 
     firstChild & borderTopWidth nil
 
-  ".card-footer" ? borderTop solid (px 1) grey0'
+  ".card-footer" ? do
+    borderTop solid (px 1) grey0'
+    (".primary" <> ".secondary") ? do
+      marginTop (rem (3 / 4))
+      marginBottom (rem (3 / 4))
 
   ".card-img" |+ star ? borderTopWidth nil
 
@@ -64,6 +69,10 @@ cardStyle' = ".card" ? do
   ".card-content" <? (h1 <> h2 <> h3 <> h4 <> h5 <> h5) # firstOfType ? do
     marginTop nil
     marginBottom (rem (1 / 2))
+
+  ".card-content" <? ul ? do
+    marginAll nil
+    paddingLeft (rem (3 / 2))
 
 clickableCardStyle :: Css
 clickableCardStyle = ".card-clickable" ? do
