@@ -20,6 +20,7 @@ module Components.Icon
   , ellipsisVerticalIcon
   , errorStandardIcon
   , exclamationCircleIcon
+  , checkIcon
   , infoStandardIcon
   , searchIcon
   , statusStandardIcon
@@ -174,6 +175,12 @@ exclamationCircleIcon = svg $ do
   path
     "M18,20.07a1.3,1.3,0,0,1-1.3-1.3v-6a1.3,1.3,0,1,1,2.6,0v6A1.3,1.3,0,0,1,18,20.07Z"
   circle (17.95, 23.02) 1.5
+
+checkIcon :: (PostBuild t m, DomBuilder t m) => m ()
+checkIcon =
+  svg
+    $ path
+        "M13.72,27.69,3.29,17.27a1,1,0,0,1,1.41-1.41l9,9L31.29,7.29a1,1,0,0,1,1.41,1.41Z"
 
 angleIcon :: (PostBuild t m, DomBuilder t m) => m ()
 angleIcon = svg $ do

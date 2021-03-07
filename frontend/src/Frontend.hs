@@ -473,7 +473,24 @@ coreButton = do
   btnBadge1 <- btn def (spantext "Mark as read" >> badge' def 100)
 
   el "h2" $ text "Interaction"
-  el "p" $ text "WIP"
+  btnState1 <- btn
+    ButtonConfig { _buttonConfig_priority = def
+                 , _buttonConfig_state    = constDyn ActionSuccess
+                 , _buttonConfig_class    = ""
+                 }
+    (icon def timesIcon >> spantext "Save")
+  btnState2 <- btn
+    ButtonConfig { _buttonConfig_priority = ButtonSecondary
+                 , _buttonConfig_state    = constDyn ActionError
+                 , _buttonConfig_class    = ""
+                 }
+    (icon def timesIcon >> spantext "Save")
+  btnState3 <- btn
+    ButtonConfig { _buttonConfig_priority = ButtonSecondary
+                 , _buttonConfig_state    = constDyn ActionDisabled
+                 , _buttonConfig_class    = ""
+                 }
+    (icon def timesIcon >> spantext "Save" >> badge' def 10)
 
   el "h2" $ text "Button Group"
   btnGroup $ mapM_
@@ -518,6 +535,9 @@ coreButton = do
     , btnIconOnly1
     , btnIconOnly2
     , btnIconOnly3
+    , btnState1
+    , btnState2
+    , btnState3
     ]
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
 
