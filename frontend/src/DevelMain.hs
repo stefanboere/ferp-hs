@@ -20,6 +20,7 @@
 
 module DevelMain
   ( update
+  , updateAndRefreshBrowser
   , shutdown
   )
 where
@@ -54,9 +55,9 @@ import           System.Process                 ( readProcess
                                                 )
 import           Frontend                       ( main )
 
-update :: IO ()
-update = do
-  update'
+updateAndRefreshBrowser :: IO ()
+updateAndRefreshBrowser = do
+  update
   refreshBrowserPage
 
 refreshBrowserPage :: IO ()
@@ -77,8 +78,8 @@ refreshBrowserPage = do
 -- | Start or restart the server.
 -- newStore is from foreign-store.
 -- A Store holds onto some data across ghci reloads
-update' :: IO ()
-update' = do
+update :: IO ()
+update = do
   mtidStore <- lookupStore tidStoreNum
   case mtidStore of
     -- no server running
