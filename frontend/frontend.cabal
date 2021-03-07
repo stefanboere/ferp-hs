@@ -54,6 +54,9 @@ library
     Components.Table
     Components.Tag
     DevelMain
+    Frontend.Container
+    Frontend.Core
+    Frontend.Input
     Nordtheme
     Servant.Router
 
