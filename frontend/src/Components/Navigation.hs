@@ -133,7 +133,7 @@ typographyStyle = do
 
   ".p4" <> (form ** label) <> Clay.button <> th <> ".dropdown_header" ? do
     fontWeight (weight 600)
-    fontSize (rem (12 / 16))
+    fontSize (rem (13 / 16))
 
   ".p5" <> tfoot <> ".chart" ? fontSize (rem (12 / 16))
 

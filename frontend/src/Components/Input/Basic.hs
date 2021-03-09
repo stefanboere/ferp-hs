@@ -10,9 +10,11 @@ module Components.Input.Basic
   , numberInput'
   , toggleInput
   , checkboxInput
+  , checkboxesInput
   , checkboxInputSimple
   , inputStyle
   , InputConfig(..)
+  , inputConfig
   , textInput
   , textInput'
   , InputStatus(..)
@@ -38,9 +40,12 @@ import           Clay                    hiding ( (&)
                                                 , max
                                                 , not
                                                 , selectElement
+                                                , empty
                                                 )
 import qualified Clay                           ( (&) )
+import qualified Clay.Media                    as Media
 import           Clay.Stylesheet                ( key )
+import           Control.Applicative            ( Alternative(empty) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
@@ -90,14 +95,17 @@ data InputEl t a = InputEl
   , _inputEl_hasFocus :: Dynamic t Bool
   }
 
+inputConfig :: Reflex t => a -> InputConfig t a
+inputConfig initval = InputConfig { _inputConfig_initialValue     = initval
+                                  , _inputConfig_setValue         = never
+                                  , _inputConfig_label            = constDyn ""
+                                  , _inputConfig_status           = def
+                                  , _inputConfig_attributes       = def
+                                  , _inputConfig_modifyAttributes = never
+                                  }
+
 instance (Default a, Reflex t) => Default (InputConfig t a) where
-  def = InputConfig { _inputConfig_initialValue     = def
-                    , _inputConfig_setValue         = never
-                    , _inputConfig_label            = constDyn ""
-                    , _inputConfig_status           = def
-                    , _inputConfig_attributes       = def
-                    , _inputConfig_modifyAttributes = never
-                    }
+  def = inputConfig def
 
 instance Reflex t => Functor (InputConfig t) where
   fmap f cfg = cfg
@@ -125,7 +133,7 @@ inputStyle = do
   toggleStyle
   radioStyle
   ".absolute" ? position absolute
-  ".inlineabs" ? do
+  ".input" ? do
     Clay.display inlineBlock
     verticalAlign vAlignTop
 
@@ -306,21 +314,52 @@ rangeElementStyle = input # ("type" @= "range") ? do
 
 formStyle :: Css
 formStyle = do
+  query Clay.all [Media.maxWidth 768] (mobileFormStyle form)
+
   label ? do
     fontWeight bold
     lineHeight (rem 1.5)
 
+  form |> label ? do
+    "grid-column" -: "1 / 2"
+
+  form |> (input <> ".input") ? do
+    "grid-column" -: "2 / 3"
+
   form ? do
     Clay.display grid
-    key "grid-column-gap"       (rem 2)
-    key "grid-row-gap"          (rem 0.25)
-    key "grid-template-columns" (pct 25, pct 75)
+    maxWidth (rem 30)
+    key "grid-column-gap" (rem 2)
+    key "grid-row-gap"    (rem 0.25)
+    "grid-template-columns" -: "10rem 1fr"
 
-    ".helptext" ? fontSize (rem 0.75)
+  ".helptext" ? fontSize (rem 0.75)
 
-    ".helptext" # ".has-error" ? fontColor nord11'
+  ".helptext" # ".has-error" ? fontColor nord11'
 
-    ".helptext" # ".has-success" ? fontColor green1'
+  ".helptext" # ".has-success" ? fontColor green1'
+
+  ".statusmessage" ? do
+    Clay.display flex
+    alignItems center
+    ".icon" ? position relative
+
+  mobileFormStyle (form # ".vertical")
+
+mobileFormStyle :: Selector -> Css
+mobileFormStyle formSel = do
+  formSel ? do
+    "grid-template-columns" -: "1fr"
+    key "grid-row-gap" (rem 0)
+
+  formSel |> label ? do
+    marginTop (rem 1)
+    lineHeight (rem 1)
+    "grid-column" -: "1 / -1"
+
+  formSel |> (input <> ".input") ? do
+    "grid-column" -: "1 / -1"
+
 
 -- | Class to be added when the input is in a certain state
 colorCls :: InputStatus -> Text
@@ -432,7 +471,7 @@ textInput'
 textInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
-  elAttr "div" ("style" =: "display:inline-block") $ do
+  elClass "div" "input" $ do
     n <-
       inputElement
       $  def
@@ -596,18 +635,65 @@ checkboxInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t Bool
   -> m (Dynamic t Bool)
-checkboxInput cfg = elClass "div" "inlineabs" $ do
-  modAttrEv <- statusModAttrEv' cfg
-  idStr     <- randomId
+checkboxInput cfg = fmap (not . null) <$> checkboxesInput'
+  (\() -> _inputConfig_label cfg)
+  mempty
+  ((\v -> [ () | v ]) <$> cfg)
 
-  result    <- el "div" $ do
-    n <-
+checkboxesInput
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , Eq a
+     , HasLabel a
+     , Enum a
+     , Bounded a
+     , Foldable f
+     , Alternative f
+     , Monoid (f a)
+     )
+  => InputConfig t (f a)
+  -> m (Dynamic t (f a))
+checkboxesInput cfg = labeled cfg (checkboxesInput' (constDyn . toLabel))
+
+checkboxesInput'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , Enum a
+     , Bounded a
+     , Eq a
+     , Foldable f
+     , Alternative f
+     , Monoid (f a)
+     )
+  => (a -> Dynamic t Text)
+  -> Text
+  -> InputConfig t (f a)
+  -> m (Dynamic t (f a))
+checkboxesInput' toLbl idStr' cfg =
+  elAttr "div" ("class" =: "input" <> "id" =: idStr') $ do
+    modAttrEv <- statusModAttrEv' cfg
+
+    result    <- mapM (mkCheckbox modAttrEv)
+                      (allPossible (_inputConfig_initialValue cfg))
+
+    elClass "div" "statusmessage" $ do
+      statusMessageIcon (_inputConfig_status cfg)
+
+      statusMessageElement (_inputConfig_status cfg)
+
+    pure (mconcat result)
+ where
+  mkCheckbox modAttrEv x = el "div" $ do
+    idStr <- randomId
+    n     <-
       inputElement
       $  def
       &  inputElementConfig_initialChecked
-      .~ _inputConfig_initialValue cfg
+      .~ (x `elem` _inputConfig_initialValue cfg)
       &  inputElementConfig_setChecked
-      .~ _inputConfig_setValue cfg
+      .~ ((x `elem`) <$> _inputConfig_setValue cfg)
       &  inputElementConfig_elementConfig
       .  elementConfig_initialAttributes
       .~ _inputConfig_attributes cfg
@@ -619,14 +705,10 @@ checkboxInput cfg = elClass "div" "inlineabs" $ do
       .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
     elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label")
-      $ dynText (_inputConfig_label cfg)
+      $ dynText (toLbl x)
 
-    statusMessageIcon (_inputConfig_status cfg)
+    pure $ fmap (\v -> if v then pure x else empty) (_inputElement_checked n)
 
-    pure (_inputElement_checked n)
-
-  statusMessageElement (_inputConfig_status cfg)
-  pure result
 
 checkboxInputSimple
   :: DomBuilder t m => Event t Bool -> Map AttributeName Text -> m ()
@@ -659,7 +741,7 @@ selectInput'
 selectInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
-  elAttr "div" ("style" =: "display:inline-block") $ do
+  elClass "div" "input" $ do
     n <- selectElement
       (  def
       &  selectElementConfig_initialValue
@@ -692,7 +774,7 @@ selectInput' idStr cfg = do
 
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
 
-allPossible :: (Enum a, Bounded a) => Maybe a -> [a]
+allPossible :: (Enum a, Bounded a) => f a -> [a]
 allPossible _ = [minBound .. maxBound]
 
 showNum :: Enum a => Maybe a -> Text
@@ -734,7 +816,7 @@ radioInput'
 radioInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
-  elAttr "div" ("style" =: "display:inline-block") $ do
+  elClass "div" "input" $ do
     rec ns <- mapM (mkOption modAttrEv checkEv)
                    (allPossible (_inputConfig_initialValue cfg))
         let checkEv = leftmost (fmap updated ns)
@@ -779,7 +861,7 @@ textAreaInput'
 textAreaInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
-  elAttr "div" ("style" =: "display:inline-block") $ do
+  elClass "div" "input" $ do
     n <- textAreaElement
       (  def
       &  textAreaElementConfig_initialValue

@@ -31,12 +31,13 @@ import           Components
 
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View
+           :<|> "input" :> "checkbox" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink :: Link
-inputBasicLink = allLinks inputApi
+inputBasicLink, inputCheckboxLink :: Link
+inputBasicLink :<|> inputCheckboxLink = allLinks inputApi
 
 inputLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -44,10 +45,12 @@ inputLinks
   -> m (Event t ())
 inputLinks dynUri = safelinkGroup
   (text "Input elements")
-  [safelink dynUri inputBasicLink $ text "Basic"]
+  [ safelink dynUri inputBasicLink $ text "Basic"
+  , safelink dynUri inputCheckboxLink $ text "Checkbox"
+  ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
-inputHandler = formTest >> pure never
+inputHandler = (formTest >> pure never) :<|> checkboxHandler
 
 instance Default Text where
   def = mempty
@@ -118,3 +121,22 @@ formTest = el "form" $ do
           <*> material
           <*> memo
   dynText $ fmap (pack . show) dynTori
+
+
+checkboxHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+checkboxHandler = do
+  el "h1" $ text "Checkbox"
+
+  el "form" $ do
+    _ <- checkboxInput (inputConfig False)
+      { _inputConfig_label = constDyn "I agree to the terms"
+      }
+
+    cb2 <- checkboxesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Material"
+      , _inputConfig_status = constDyn $ InputError "Error"
+      }
+
+    dynText $ fmap (pack . show) cb2
+
+  pure never
