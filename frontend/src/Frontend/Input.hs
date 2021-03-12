@@ -15,6 +15,7 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
+import qualified Data.Map                      as Map
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -33,13 +34,15 @@ import           Components
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "checkbox" :> View
+           :<|> "input" :> "datalist" :> View
            :<|> "input" :> "file" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputFileLink :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputFileLink = allLinks inputApi
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink :: Link
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink =
+  allLinks inputApi
 
 inputLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -49,11 +52,16 @@ inputLinks dynUri = safelinkGroup
   (text "Input elements")
   [ safelink dynUri inputBasicLink $ text "Basic"
   , safelink dynUri inputCheckboxLink $ text "Checkbox"
+  , safelink dynUri inputDatalist $ text "Datalist"
   , safelink dynUri inputFileLink $ text "File"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
-inputHandler = (formTest >> pure never) :<|> checkboxHandler :<|> fileHandler
+inputHandler =
+  (formTest >> pure never)
+    :<|> checkboxHandler
+    :<|> datalistHandler
+    :<|> fileHandler
 
 instance Default Text where
   def = mempty
@@ -164,6 +172,45 @@ checkboxHandler = do
 
   pure never
 
+datalistHandler
+  :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => m (Event t URI)
+datalistHandler = do
+  el "h1" $ text "Datalist"
+
+  el "form" $ do
+    _ <- datalistInput flavors def { _inputConfig_label = "Ice Cream Flavor" }
+    _ <- datalistInput
+      flavors
+      def
+        { _inputConfig_label  = constDyn "Ice Cream Flavor"
+        , _inputConfig_status = constDyn
+          $ InputNeutral (Just "Pick your favorite ice cream flavor")
+        }
+    _ <- datalistInput
+      flavors
+      def { _inputConfig_label  = constDyn "Disabled"
+          , _inputConfig_status = constDyn InputDisabled
+          }
+    _ <- datalistInput
+      flavors
+      def
+        { _inputConfig_label  = constDyn "Error"
+        , _inputConfig_status = constDyn $ InputError "Unknown ice cream flavor"
+        }
+    _ <- datalistInput
+      flavors
+      def { _inputConfig_label  = constDyn "Success"
+          , _inputConfig_status = constDyn $ InputSuccess "Changes saved"
+          }
+    pure ()
+
+  pure never
+
+ where
+  flavors = constDyn $ Map.fromList $ zip
+    [(1 :: Integer) ..]
+    ["Cherry", "Mint chip", "Vanilla", "Lemon"]
 
 fileHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 fileHandler = do

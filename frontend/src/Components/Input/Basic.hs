@@ -33,6 +33,8 @@ module Components.Input.Basic
   , radioInput'
   , fileInput
   , fileInput'
+  , datalistInput
+  , datalistInput'
   )
 where
 
@@ -144,6 +146,9 @@ inputStyle = do
     Clay.display inlineBlock
     verticalAlign vAlignTop
 
+  datalist ? Clay.display none
+  input # "::-webkit-calendar-picker-indicator" ? Clay.display none
+
 toggleStyle :: Css
 toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
   marginLeft (rem (1 / 2))
@@ -199,8 +204,7 @@ checkboxStyle = do
     cursor pointer
     marginRight (rem 0.8)
 
-    disabled Clay.& do
-      cursor notAllowed
+    disabled Clay.& cursor notAllowed
 
     before Clay.& do
       absoluteBlock
@@ -284,7 +288,7 @@ selectElementStyle = do
     "-webkit-appearance" -: "none"
     "-moz-appearance" -: "none"
 
-  Clay.select |+ ".select-icon" ? do
+  (input <> Clay.select) |+ ".select-icon" ? do
     Clay.display inlineBlock
     transform (translate (rem (-1.5)) (rem (-0.7)))
     pointerEvents none
@@ -336,10 +340,9 @@ rangeElementStyle = input # ("type" @= "range") ? do
 fileUploadStyle :: Css
 fileUploadStyle = label # ".file-upload-label" ? do
   marginTop nil
-  marginBottom (rem (1 / 4))
+  marginBottom nil
   marginRight (rem (1 / 4))
-  input # ("type" @= "file") ? do
-    Clay.display none
+  input # ("type" @= "file") ? Clay.display none
 
   ".disabled" Clay.& do
     cursor notAllowed
@@ -369,7 +372,9 @@ formStyle = do
     key "grid-row-gap"    (rem 0.25)
     "grid-template-columns" -: "10rem 1fr"
 
-  ".helptext" ? fontSize (rem 0.75)
+  ".helptext" ? do
+    fontSize (rem 0.75)
+    marginTop (rem (1 / 4))
 
   ".helptext" # ".has-error" ? fontColor nord11'
 
@@ -497,14 +502,15 @@ textInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t Text
   -> m (InputEl t Text)
-textInput cfg = labeled cfg textInput'
+textInput cfg = labeled cfg (textInput' (pure ()))
 
 textInput'
   :: (PostBuild t m, DomBuilder t m)
-  => Text
+  => m ()
+  -> Text
   -> InputConfig t Text
   -> m (InputEl t Text)
-textInput' idStr cfg = do
+textInput' after' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
@@ -523,6 +529,8 @@ textInput' idStr cfg = do
       &  inputElementConfig_elementConfig
       .  elementConfig_modifyAttributes
       .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+
+    after'
 
     statusMessageIcon (_inputConfig_status cfg)
 
@@ -610,6 +618,7 @@ numberRangeInput' isReg nc idStr cfg = do
 
   rec
     n <- textInput'
+      (pure ())
       idStr
       cfg
         { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
@@ -812,7 +821,7 @@ selectInput' idStr cfg = do
       )
       (mapM_ mkOption (allPossible (_inputConfig_initialValue cfg)))
 
-    elClass "div" "select-icon" arrowElement
+    selectIcon
 
     statusMessageIcon (_inputConfig_status cfg)
 
@@ -822,10 +831,14 @@ selectInput' idStr cfg = do
                    , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
                    }
  where
+  mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
+
+selectIcon :: (PostBuild t m, DomBuilder t m) => m ()
+selectIcon = elClass "div" "select-icon" arrowElement
+ where
   arrowElement =
     icon def { _iconConfig_direction = constDyn DirDown } angleIcon
 
-  mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
 
 allPossible :: (Enum a, Bounded a) => f a -> [a]
 allPossible _ = [minBound .. maxBound]
@@ -1007,3 +1020,42 @@ fileInput' idStr cfg = do
   dynClass x = "file-upload-label secondary"
     <> if x == InputDisabled then " disabled" else mempty
 
+datalistInput
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , MonadHold t m
+     , MonadIO m
+     , Ord k
+     , Show k
+     )
+  => Dynamic t (Map k Text)
+  -> InputConfig t Text
+  -> m (Dynamic t Text)
+datalistInput options cfg =
+  _inputEl_value <$> labeled cfg (`datalistInput'` options)
+
+datalistInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k, Show k)
+  => Text
+  -> Dynamic t (Map k Text)
+  -> InputConfig t Text
+  -> m (InputEl t Text)
+datalistInput' idStr options cfg = textInput'
+  after'
+  idStr
+  cfg
+    { _inputConfig_attributes = _inputConfig_attributes cfg
+                                <> "list"
+                                =: listIdStr
+    }
+ where
+  listIdStr = idStr <> "-datalist"
+  after'    = do
+    selectIcon
+
+    _ <- elAttr "datalist" ("id" =: listIdStr) $ listWithKey options mkOption
+
+    pure ()
+
+  mkOption k v = elAttr "option" ("value" =: pack (show k)) (dynText v)
