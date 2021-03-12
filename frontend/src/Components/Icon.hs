@@ -79,6 +79,10 @@ icon IconConfig {..} = elDynAttr
       <> rem'
       <> "rem;height:"
       <> rem'
+      <> "rem;min-width:"
+      <> rem'
+      <> "rem;min-height:"
+      <> rem'
       <> "rem;"
       <> styleStatus status
       <> styleDirection direction

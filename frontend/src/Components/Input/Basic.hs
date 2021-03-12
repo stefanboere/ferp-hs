@@ -146,9 +146,16 @@ inputStyle = do
   datalistStyle
   inputGroupStyle
   ".absolute" ? position absolute
+
+  ".flex-row" ? do
+    Clay.display flex
+    flexDirection row
+
   ".input" ? do
-    Clay.display inlineBlock
+    Clay.display flex
+    flexDirection column
     verticalAlign vAlignTop
+    flexGrow 1
 
 datalistStyle :: Css
 datalistStyle = do
@@ -268,6 +275,7 @@ inputElementStyle = (input <> Clay.select <> textarea) ? do
   paddingAll (rem 0.25)
   borderColor grey0'
   outlineWidth 0
+  flexGrow 1
 
   focus Clay.& do
     borderBottomWidth 2
@@ -289,15 +297,14 @@ selectElementStyle = do
   Clay.select ? do
     paddingRight (rem (3 / 2))
     cursor pointer
-    width (pct 100)
-    maxWidth (px 185)
+    flexGrow 1
     "appearance" -: "none"
     "-webkit-appearance" -: "none"
     "-moz-appearance" -: "none"
 
   (input <> Clay.select) |+ ".select-icon" ? do
     Clay.display inlineBlock
-    transform (translate (rem (-1.5)) (rem (-0.7)))
+    transform (translate (rem (-1.0)) (rem 0.2))
     pointerEvents none
     ".icon" ? position absolute
 
@@ -465,15 +472,10 @@ statusMessageIcon = dyn_ . fmap mkIcon
  where
   cfg = def { _iconConfig_size = 1.5 }
   mkIcon (InputError _) = icon
-    cfg { _iconConfig_status = constDyn $ Just Danger
-        , _iconConfig_class  = Just "absolute"
-        }
+    cfg { _iconConfig_status = constDyn $ Just Danger }
     exclamationCircleIcon
-  mkIcon (InputSuccess _) = icon
-    cfg { _iconConfig_status = constDyn $ Just Success
-        , _iconConfig_class  = Just "absolute"
-        }
-    checkCircleIcon
+  mkIcon (InputSuccess _) =
+    icon cfg { _iconConfig_status = constDyn $ Just Success } checkCircleIcon
   mkIcon _ = blank
 
 statusMessageElement
@@ -489,12 +491,6 @@ statusMessageElement status = do
   message (InputSuccess x       ) = x
   message (InputNeutral (Just x)) = x
   message _                       = ""
-
-statusMessageIconElement
-  :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
-statusMessageIconElement status = do
-  statusMessageIcon status
-  statusMessageElement status
 
 -- | Creates a label with a random for string, which is returned
 labelFor
@@ -530,25 +526,29 @@ textInput' after' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
-    n <-
-      inputElement
-      $  def
-      &  inputElementConfig_initialValue
-      .~ _inputConfig_initialValue cfg
-      &  inputElementConfig_setValue
-      .~ _inputConfig_setValue cfg
-      &  inputElementConfig_elementConfig
-      .  elementConfig_initialAttributes
-      .~ _inputConfig_attributes cfg
-      <> "id"
-      =: idStr
-      &  inputElementConfig_elementConfig
-      .  elementConfig_modifyAttributes
-      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+    n <- elClass "div" "flex-row" $ do
+      n' <-
+        inputElement
+        $  def
+        &  inputElementConfig_initialValue
+        .~ _inputConfig_initialValue cfg
+        &  inputElementConfig_setValue
+        .~ _inputConfig_setValue cfg
+        &  inputElementConfig_elementConfig
+        .  elementConfig_initialAttributes
+        .~ _inputConfig_attributes cfg
+        <> "id"
+        =: idStr
+        &  inputElementConfig_elementConfig
+        .  elementConfig_modifyAttributes
+        .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
-    after'
+      after'
 
-    statusMessageIconElement (_inputConfig_status cfg)
+      statusMessageIcon (_inputConfig_status cfg)
+      pure n'
+
+    statusMessageElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value    = _inputElement_value n
                    , _inputEl_hasFocus = _inputElement_hasFocus n
@@ -754,8 +754,9 @@ checkboxesInputLbl' toLbl idStr' cfg =
     result    <- mapM (mkCheckbox modAttrEv)
                       (allPossible (_inputConfig_initialValue cfg))
 
-    elClass "div" "statusmessage"
-      $ statusMessageIconElement (_inputConfig_status cfg)
+    elClass "div" "statusmessage" $ do
+      statusMessageIcon (_inputConfig_status cfg)
+      statusMessageElement (_inputConfig_status cfg)
 
     pure (mconcat result)
  where
@@ -816,26 +817,30 @@ selectInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
-    n <- selectElement
-      (  def
-      &  selectElementConfig_initialValue
-      .~ showNum (_inputConfig_initialValue cfg)
-      &  selectElementConfig_setValue
-      .~ fmap showNum (_inputConfig_setValue cfg)
-      &  selectElementConfig_elementConfig
-      .  elementConfig_initialAttributes
-      .~ _inputConfig_attributes cfg
-      <> "id"
-      =: idStr
-      &  selectElementConfig_elementConfig
-      .  elementConfig_modifyAttributes
-      .~ modAttrEv
-      )
-      (mapM_ mkOption (allPossible (_inputConfig_initialValue cfg)))
+    n <- elClass "div" "flex-row" $ do
+      n' <- selectElement
+        (  def
+        &  selectElementConfig_initialValue
+        .~ showNum (_inputConfig_initialValue cfg)
+        &  selectElementConfig_setValue
+        .~ fmap showNum (_inputConfig_setValue cfg)
+        &  selectElementConfig_elementConfig
+        .  elementConfig_initialAttributes
+        .~ _inputConfig_attributes cfg
+        <> "id"
+        =: idStr
+        &  selectElementConfig_elementConfig
+        .  elementConfig_modifyAttributes
+        .~ modAttrEv
+        )
+        (mapM_ mkOption (allPossible (_inputConfig_initialValue cfg)))
 
-    selectIcon
+      selectIcon
 
-    statusMessageIconElement (_inputConfig_status cfg)
+      statusMessageIcon (_inputConfig_status cfg)
+      pure n'
+
+    statusMessageElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value = parseEnum <$> _selectElement_value (fst n)
                    , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
@@ -899,7 +904,10 @@ radioInput' idStr cfg = do
 
     result <- holdDyn (_inputConfig_initialValue cfg) checkEv
 
-    statusMessageIconElement (_inputConfig_status cfg)
+    elClass "div" "flex-row" $ do
+      statusMessageIcon (_inputConfig_status cfg)
+
+      statusMessageElement (_inputConfig_status cfg)
 
     pure result
 
@@ -936,23 +944,27 @@ textAreaInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
-    n <- textAreaElement
-      (  def
-      &  textAreaElementConfig_initialValue
-      .~ _inputConfig_initialValue cfg
-      &  textAreaElementConfig_setValue
-      .~ _inputConfig_setValue cfg
-      &  textAreaElementConfig_elementConfig
-      .  elementConfig_initialAttributes
-      .~ _inputConfig_attributes cfg
-      <> "id"
-      =: idStr
-      &  textAreaElementConfig_elementConfig
-      .  elementConfig_modifyAttributes
-      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
-      )
+    n <- elClass "div" "flex-row" $ do
+      n' <- textAreaElement
+        (  def
+        &  textAreaElementConfig_initialValue
+        .~ _inputConfig_initialValue cfg
+        &  textAreaElementConfig_setValue
+        .~ _inputConfig_setValue cfg
+        &  textAreaElementConfig_elementConfig
+        .  elementConfig_initialAttributes
+        .~ _inputConfig_attributes cfg
+        <> "id"
+        =: idStr
+        &  textAreaElementConfig_elementConfig
+        .  elementConfig_modifyAttributes
+        .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+        )
 
-    statusMessageIconElement (_inputConfig_status cfg)
+      statusMessageIcon (_inputConfig_status cfg)
+      pure n'
+
+    statusMessageElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value    = _textAreaElement_value n
                    , _inputEl_hasFocus = _textAreaElement_hasFocus n
@@ -1015,7 +1027,10 @@ fileInput' idStr cfg = do
         .  elementConfig_modifyAttributes
         .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
-    statusMessageIconElement (_inputConfig_status cfg)
+    elClass "div" "statusmessage" $ do
+      statusMessageIcon (_inputConfig_status cfg)
+
+      statusMessageElement (_inputConfig_status cfg)
 
     pure $ _inputElement_files n
 
@@ -1087,9 +1102,14 @@ inputGroup' idStr cfg cnt = do
     (mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg])
 
   elDynAttr "div" (Map.mapKeys unNamespace <$> dynAttr) $ do
-    result <- cnt
+    result <- elClass "div" "flex-row" $ do
+      result' <- cnt
 
-    statusMessageIconElement (_inputConfig_status cfg)
+      statusMessageIcon (_inputConfig_status cfg)
+
+      pure result'
+
+    statusMessageElement (_inputConfig_status cfg)
 
     pure result
 

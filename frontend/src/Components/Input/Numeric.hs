@@ -49,31 +49,32 @@ overridableNumberInput
   => Event t a
   -> InputConfig t (Overridable a)
   -> m (Dynamic t (Maybe (Overridable a)))
-overridableNumberInput setCalc cfg = labeled cfg $ \idStr _ -> el "div" $ do
-  rec
-    dynMVal <- numberInput'
-      def { _numberInputConfig_precision = Just 3 }
-      idStr
-      (fmap overridableValue cfg)
-        { _inputConfig_status   = numStatus
-                                  <$> _inputConfig_status cfg
-                                  <*> dynOverridden
-        , _inputConfig_setValue = leftmost
-          [ overridableValue <$> _inputConfig_setValue cfg
-          , attachPromptlyDynWith const calc
-            $ ffilter not (updated dynOverridden)
-          , gate (not <$> current dynOverridden) setCalc
-          ]
+overridableNumberInput setCalc cfg = labeled cfg $ \idStr _ ->
+  elClass "div" "flex-row" $ do
+    rec
+      dynMVal <- numberInput'
+        def { _numberInputConfig_precision = Just 3 }
+        idStr
+        (fmap overridableValue cfg)
+          { _inputConfig_status   = numStatus
+                                    <$> _inputConfig_status cfg
+                                    <*> dynOverridden
+          , _inputConfig_setValue = leftmost
+            [ overridableValue <$> _inputConfig_setValue cfg
+            , attachPromptlyDynWith const calc
+              $ ffilter not (updated dynOverridden)
+            , gate (not <$> current dynOverridden) setCalc
+            ]
+          }
+      dynOverridden <- toggleInput (fmap isOverridden cfg)
+        { _inputConfig_label  = constDyn "Override"
+        , _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
         }
-    dynOverridden <- toggleInput (fmap isOverridden cfg)
-      { _inputConfig_label  = constDyn "Override"
-      , _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
-      }
-    calc <- holdDyn
-      (ovr_calculation $ _inputConfig_initialValue cfg)
-      (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])
+      calc <- holdDyn
+        (ovr_calculation $ _inputConfig_initialValue cfg)
+        (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])
 
-  pure $ overridable <$> calc <*> dynOverridden <*> dynMVal
+    pure $ overridable <$> calc <*> dynOverridden <*> dynMVal
  where
   overridable :: a -> Bool -> Maybe a -> Maybe (Overridable a)
   overridable _ True  Nothing    = Nothing
