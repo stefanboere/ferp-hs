@@ -31,6 +31,8 @@ module Components.Input.Basic
   , rangeInput'
   , radioInput
   , radioInput'
+  , fileInput
+  , fileInput'
   )
 where
 
@@ -60,10 +62,13 @@ import           Data.Text                      ( Text
                                                 , unpack
                                                 )
 import qualified Data.Text                     as Text
+import qualified GHCJS.DOM.Types               as DOM
+                                                ( File )
 import           Numeric                        ( showFFloatAlt )
 import           Reflex
 import           Reflex.Dom              hiding ( textInput
                                                 , rangeInput
+                                                , fileInput
                                                 )
 import           Text.Read                      ( readMaybe )
 import           Text.Printf                    ( printf )
@@ -133,6 +138,7 @@ inputStyle = do
   checkboxStyle
   toggleStyle
   radioStyle
+  fileUploadStyle
   ".absolute" ? position absolute
   ".input" ? do
     Clay.display inlineBlock
@@ -326,6 +332,21 @@ rangeElementStyle = input # ("type" @= "range") ? do
     cursor pointer
 
     disabledStyle
+
+fileUploadStyle :: Css
+fileUploadStyle = label # ".file-upload-label" ? do
+  marginTop nil
+  marginBottom (rem (1 / 4))
+  marginRight (rem (1 / 4))
+  input # ("type" @= "file") ? do
+    Clay.display none
+
+  ".disabled" Clay.& do
+    cursor notAllowed
+    borderColor grey0'
+    fontColor grey0'
+    "fill" -: showColor grey0'
+
 
 formStyle :: Css
 formStyle = do
@@ -945,3 +966,44 @@ rangeInput'
   -> InputConfig t a
   -> m (Dynamic t (Maybe a))
 rangeInput' = numberRangeInput' False
+
+fileInput
+  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  => InputConfig t ()
+  -> m (Dynamic t [DOM.File])
+fileInput cfg = labeled cfg fileInput'
+
+fileInput'
+  :: (PostBuild t m, DomBuilder t m)
+  => Text
+  -> InputConfig t ()
+  -> m (Dynamic t [DOM.File])
+fileInput' idStr cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+
+  elClass "div" "input" $ do
+    n <- elDynClass "label" (dynClass <$> _inputConfig_status cfg) $ do
+      icon def folderIcon
+      el "span" (text "Browse")
+      inputElement
+        $  def
+        &  inputElementConfig_elementConfig
+        .  elementConfig_initialAttributes
+        .~ (_inputConfig_attributes cfg <> initAttrs)
+        <> "id"
+        =: idStr
+        &  inputElementConfig_elementConfig
+        .  elementConfig_modifyAttributes
+        .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+
+    statusMessageIcon (_inputConfig_status cfg)
+
+    statusMessageElement (_inputConfig_status cfg)
+
+    pure $ _inputElement_files n
+
+ where
+  initAttrs = "type" =: "file"
+  dynClass x = "file-upload-label secondary"
+    <> if x == InputDisabled then " disabled" else mempty
+

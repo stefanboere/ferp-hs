@@ -67,7 +67,7 @@ buttonStyle :: Css
 buttonStyle = buttonStyle' <> btnGroupStyle
 
 buttonStyle' :: Css
-buttonStyle' = Clay.button ? do
+buttonStyle' = (Clay.button <> ".file-upload-label") ? do
   Clay.display inlineFlex
   alignItems center
   height (rem (3 / 2))

@@ -21,6 +21,7 @@ import           Data.Text                      ( Text
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
+                                                , fileInput
                                                 , Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
@@ -32,12 +33,13 @@ import           Components
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "checkbox" :> View
+           :<|> "input" :> "file" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink :: Link
-inputBasicLink :<|> inputCheckboxLink = allLinks inputApi
+inputBasicLink, inputCheckboxLink, inputFileLink :: Link
+inputBasicLink :<|> inputCheckboxLink :<|> inputFileLink = allLinks inputApi
 
 inputLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -47,10 +49,11 @@ inputLinks dynUri = safelinkGroup
   (text "Input elements")
   [ safelink dynUri inputBasicLink $ text "Basic"
   , safelink dynUri inputCheckboxLink $ text "Checkbox"
+  , safelink dynUri inputFileLink $ text "File"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
-inputHandler = (formTest >> pure never) :<|> checkboxHandler
+inputHandler = (formTest >> pure never) :<|> checkboxHandler :<|> fileHandler
 
 instance Default Text where
   def = mempty
@@ -160,3 +163,32 @@ checkboxHandler = do
     pure ()
 
   pure never
+
+
+fileHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+fileHandler = do
+  el "h1" $ text "File"
+
+  el "form" $ do
+    _ <- fileInput def { _inputConfig_label = constDyn "Attachment" }
+    _ <- fileInput def
+      { _inputConfig_label  = constDyn "Attachment"
+      , _inputConfig_status = constDyn
+                                $ InputNeutral (Just "Max file size: 128 MB")
+      }
+    _ <- fileInput def { _inputConfig_label  = constDyn "Disabled"
+                       , _inputConfig_status = constDyn InputDisabled
+                       }
+    _ <- fileInput def
+      { _inputConfig_label  = constDyn "Error"
+      , _inputConfig_status = constDyn $ InputError "Exceed file size limit"
+      }
+    _ <- fileInput def
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "File accepted"
+      }
+
+    pure ()
+
+  pure never
+

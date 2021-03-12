@@ -67,6 +67,7 @@ library
     , containers
     , data-default
     , foreign-store
+    , ghcjs-dom
     , http-api-data
     , http-types
     , process

@@ -28,6 +28,7 @@ module Components.Icon
   , timesIcon
   , userIcon
   , warningStandardIcon
+  , folderIcon
   )
 where
 
@@ -239,3 +240,8 @@ userIcon = svg $ do
     "M18,17a7,7,0,1,0-7-7A7,7,0,0,0,18,17ZM18,5a5,5,0,1,1-5,5A5,5,0,0,1,18,5Z"
   path
     "M30.47,24.37a17.16,17.16,0,0,0-24.93,0A2,2,0,0,0,5,25.74V31a2,2,0,0,0,2,2H29a2,2,0,0,0,2-2V25.74A2,2,0,0,0,30.47,24.37ZM29,31H7V25.73a15.17,15.17,0,0,1,22,0h0Z"
+
+folderIcon :: (PostBuild t m, DomBuilder t m) => m ()
+folderIcon = svg $ do
+  path
+    "M30,9H16.42L14.11,5.82A2,2,0,0,0,12.49,5H6A2,2,0,0,0,4,7V29a2,2,0,0,0,2,2H30a2,2,0,0,0,2-2V11A2,2,0,0,0,30,9Zm0,20H6V13h7.31a2,2,0,0,0,2-2H6V7h6.49l2.61,3.59a1,1,0,0,0,.81.41H30Z"
