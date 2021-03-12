@@ -151,6 +151,11 @@ typographyStyle = do
     "fill" -: showColor nord3'
     fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
 
+  ul ? do
+    marginLeft nil
+    marginRight nil
+    paddingLeft (rem (3 / 2))
+
 tshow :: String -> Text
 tshow = pack . show
 

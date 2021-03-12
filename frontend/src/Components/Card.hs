@@ -71,8 +71,9 @@ cardStyle' = ".card" ? do
     marginBottom (rem (1 / 2))
 
   ".card-content" <? ul ? do
-    marginAll nil
-    paddingLeft (rem (3 / 2))
+    marginTop nil
+    marginBottom nil
+
 
 clickableCardStyle :: Css
 clickableCardStyle = ".card-clickable" ? do
