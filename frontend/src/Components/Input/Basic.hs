@@ -368,6 +368,12 @@ inputGroupStyle :: Css
 inputGroupStyle = ".input-group" ? do
   label ? Clay.display none
 
+  ".has-error" Clay.& do
+    (Clay.select <> textarea <> input) ? borderColor nord11'
+
+  ".has-success" Clay.& do
+    (Clay.select <> textarea <> input) ? borderColor green1'
+
 formStyle :: Css
 formStyle = do
   query Clay.all [Media.maxWidth 768] (mobileFormStyle form)
