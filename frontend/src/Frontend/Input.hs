@@ -132,11 +132,31 @@ checkboxHandler = do
       { _inputConfig_label = constDyn "I agree to the terms"
       }
 
-    cb2 <- checkboxesInput (inputConfig [M14307])
+    _ <- checkboxesInput (inputConfig [M14307])
       { _inputConfig_label  = constDyn "Material"
       , _inputConfig_status = constDyn $ InputError "Error"
       }
 
-    dynText $ fmap (pack . show) cb2
+    _ <- checkboxesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Disabled"
+      , _inputConfig_status = constDyn InputDisabled
+      }
+
+    _ <- checkboxesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "Success message"
+      }
+    pure ()
+
+  elClass "form" "vertical" $ do
+    _ <- checkboxesInputLbl
+      (\() -> "I agree")
+      (inputConfig [()]) { _inputConfig_label = constDyn "Terms and conditions"
+                         }
+
+    _ <- checkboxesInput (inputConfig [M14307])
+      { _inputConfig_label = constDyn "Vertical layout"
+      }
+    pure ()
 
   pure never

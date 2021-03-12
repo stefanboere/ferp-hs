@@ -11,6 +11,7 @@ module Components.Input.Basic
   , toggleInput
   , checkboxInput
   , checkboxesInput
+  , checkboxesInputLbl
   , checkboxInputSimple
   , inputStyle
   , InputConfig(..)
@@ -180,10 +181,20 @@ checkboxStyle = do
     cursor pointer
     fontWeight normal
 
+  (input # ("type" @= "checkbox") <> input # ("type" @= "radio"))
+    #  disabled
+    |+ label
+    ?  do
+         fontColor grey0'
+         cursor notAllowed
+
   (input # ("type" @= "checkbox") <> input # ("type" @= "radio")) ? do
     position relative
     cursor pointer
     marginRight (rem 0.8)
+
+    disabled Clay.& do
+      cursor notAllowed
 
     before Clay.& do
       absoluteBlock
@@ -192,11 +203,15 @@ checkboxStyle = do
       borderRadiusAll (px 3)
       border solid 1 grey0'
       backgroundColor white0'
+      ".has-error" Clay.& borderColor nord11'
 
     checked Clay.& do
       before Clay.& do
         borderColor nord10'
         backgroundColor nord10'
+        disabled Clay.& do
+          borderColor grey0'
+          backgroundColor grey0'
 
       after Clay.& do
         absoluteBlock
@@ -635,7 +650,7 @@ checkboxInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => InputConfig t Bool
   -> m (Dynamic t Bool)
-checkboxInput cfg = fmap (not . null) <$> checkboxesInput'
+checkboxInput cfg = fmap (not . null) <$> checkboxesInputLbl'
   (\() -> _inputConfig_label cfg)
   mempty
   ((\v -> [ () | v ]) <$> cfg)
@@ -654,9 +669,26 @@ checkboxesInput
      )
   => InputConfig t (f a)
   -> m (Dynamic t (f a))
-checkboxesInput cfg = labeled cfg (checkboxesInput' (constDyn . toLabel))
+checkboxesInput = checkboxesInputLbl (constDyn . toLabel)
 
-checkboxesInput'
+-- | Same as 'checkboxesInput' but with a custom label provider
+checkboxesInputLbl
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , Eq a
+     , Enum a
+     , Bounded a
+     , Foldable f
+     , Alternative f
+     , Monoid (f a)
+     )
+  => (a -> Dynamic t Text)
+  -> InputConfig t (f a)
+  -> m (Dynamic t (f a))
+checkboxesInputLbl toLbl cfg = labeled cfg (checkboxesInputLbl' toLbl)
+
+checkboxesInputLbl'
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
@@ -671,7 +703,7 @@ checkboxesInput'
   -> Text
   -> InputConfig t (f a)
   -> m (Dynamic t (f a))
-checkboxesInput' toLbl idStr' cfg =
+checkboxesInputLbl' toLbl idStr' cfg =
   elAttr "div" ("class" =: "input" <> "id" =: idStr') $ do
     modAttrEv <- statusModAttrEv' cfg
 
