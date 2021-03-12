@@ -35,6 +35,8 @@ module Components.Input.Basic
   , fileInput'
   , datalistInput
   , datalistInput'
+  , inputGroup
+  , inputGroup'
   )
 where
 
@@ -141,11 +143,15 @@ inputStyle = do
   toggleStyle
   radioStyle
   fileUploadStyle
+  datalistStyle
+  inputGroupStyle
   ".absolute" ? position absolute
   ".input" ? do
     Clay.display inlineBlock
     verticalAlign vAlignTop
 
+datalistStyle :: Css
+datalistStyle = do
   datalist ? Clay.display none
   input # "::-webkit-calendar-picker-indicator" ? Clay.display none
 
@@ -281,6 +287,7 @@ inputElementStyle = (input <> Clay.select <> textarea) ? do
 selectElementStyle :: Css
 selectElementStyle = do
   Clay.select ? do
+    paddingRight (rem (3 / 2))
     cursor pointer
     width (pct 100)
     maxWidth (px 185)
@@ -350,6 +357,9 @@ fileUploadStyle = label # ".file-upload-label" ? do
     fontColor grey0'
     "fill" -: showColor grey0'
 
+inputGroupStyle :: Css
+inputGroupStyle = ".input-group" ? do
+  label ? Clay.display none
 
 formStyle :: Css
 formStyle = do
@@ -480,6 +490,12 @@ statusMessageElement status = do
   message (InputNeutral (Just x)) = x
   message _                       = ""
 
+statusMessageIconElement
+  :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
+statusMessageIconElement status = do
+  statusMessageIcon status
+  statusMessageElement status
+
 -- | Creates a label with a random for string, which is returned
 labelFor
   :: (PostBuild t m, DomBuilder t m, MonadIO m) => Dynamic t Text -> m Text
@@ -532,9 +548,7 @@ textInput' after' idStr cfg = do
 
     after'
 
-    statusMessageIcon (_inputConfig_status cfg)
-
-    statusMessageElement (_inputConfig_status cfg)
+    statusMessageIconElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value    = _inputElement_value n
                    , _inputEl_hasFocus = _inputElement_hasFocus n
@@ -740,10 +754,8 @@ checkboxesInputLbl' toLbl idStr' cfg =
     result    <- mapM (mkCheckbox modAttrEv)
                       (allPossible (_inputConfig_initialValue cfg))
 
-    elClass "div" "statusmessage" $ do
-      statusMessageIcon (_inputConfig_status cfg)
-
-      statusMessageElement (_inputConfig_status cfg)
+    elClass "div" "statusmessage"
+      $ statusMessageIconElement (_inputConfig_status cfg)
 
     pure (mconcat result)
  where
@@ -823,9 +835,7 @@ selectInput' idStr cfg = do
 
     selectIcon
 
-    statusMessageIcon (_inputConfig_status cfg)
-
-    statusMessageElement (_inputConfig_status cfg)
+    statusMessageIconElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value = parseEnum <$> _selectElement_value (fst n)
                    , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
@@ -889,9 +899,7 @@ radioInput' idStr cfg = do
 
     result <- holdDyn (_inputConfig_initialValue cfg) checkEv
 
-    statusMessageIcon (_inputConfig_status cfg)
-
-    statusMessageElement (_inputConfig_status cfg)
+    statusMessageIconElement (_inputConfig_status cfg)
 
     pure result
 
@@ -944,9 +952,7 @@ textAreaInput' idStr cfg = do
       .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
       )
 
-    statusMessageIcon (_inputConfig_status cfg)
-
-    statusMessageElement (_inputConfig_status cfg)
+    statusMessageIconElement (_inputConfig_status cfg)
 
     pure $ InputEl { _inputEl_value    = _textAreaElement_value n
                    , _inputEl_hasFocus = _textAreaElement_hasFocus n
@@ -1009,9 +1015,7 @@ fileInput' idStr cfg = do
         .  elementConfig_modifyAttributes
         .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
 
-    statusMessageIcon (_inputConfig_status cfg)
-
-    statusMessageElement (_inputConfig_status cfg)
+    statusMessageIconElement (_inputConfig_status cfg)
 
     pure $ _inputElement_files n
 
@@ -1059,3 +1063,44 @@ datalistInput' idStr options cfg = textInput'
     pure ()
 
   mkOption k v = elAttr "option" ("value" =: pack (show k)) (dynText v)
+
+inputGroup
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m, MonadIO m)
+  => InputConfig t ()
+  -> m a
+  -> m a
+inputGroup cfg cnt = labeled cfg (\idStr _ -> inputGroup' idStr cfg cnt)
+
+inputGroup'
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => Text
+  -> InputConfig t ()
+  -> m a
+  -> m a
+inputGroup' idStr cfg cnt = do
+  modAttrEv <- statusModAttrEv (Just "input input-group")
+                               (_inputConfig_status cfg)
+
+  dynAttr <- foldDyn
+    updateAttrs
+    (_inputConfig_attributes cfg <> initAttrs)
+    (mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg])
+
+  elDynAttr "div" (Map.mapKeys unNamespace <$> dynAttr) $ do
+    result <- cnt
+
+    statusMessageIconElement (_inputConfig_status cfg)
+
+    pure result
+
+ where
+  initAttrs = "class" =: "input input-group" <> "id" =: idStr
+
+  unNamespace (AttributeName _ x) = x
+
+  updateAttrs updates m = Map.foldrWithKey go m updates
+   where
+    go :: Ord k => k -> Maybe a -> Map k a -> Map k a
+    go k ma = Map.alter (const ma) k
+
+

@@ -23,6 +23,7 @@ import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
                                                 , fileInput
+                                                , textInput
                                                 , Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
@@ -36,13 +37,15 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "checkbox" :> View
            :<|> "input" :> "datalist" :> View
            :<|> "input" :> "file" :> View
+           :<|> "input" :> "group" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink =
-  allLinks inputApi
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink
+  :: Link
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink
+  = allLinks inputApi
 
 inputLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -54,6 +57,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputCheckboxLink $ text "Checkbox"
   , safelink dynUri inputDatalist $ text "Datalist"
   , safelink dynUri inputFileLink $ text "File"
+  , safelink dynUri inputGroupLink $ text "Group"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -62,6 +66,7 @@ inputHandler =
     :<|> checkboxHandler
     :<|> datalistHandler
     :<|> fileHandler
+    :<|> groupHandler
 
 instance Default Text where
   def = mempty
@@ -238,4 +243,69 @@ fileHandler = do
     pure ()
 
   pure never
+
+groupHandler
+  :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => m (Event t URI)
+groupHandler = do
+  el "h1" $ text "Input Group"
+
+  el "form" $ do
+    inputGroup def { _inputConfig_label = "Domain" } content
+    inputGroup
+      def
+        { _inputConfig_label  = "Domain"
+        , _inputConfig_status = constDyn
+                                  $ InputNeutral (Just "Choose a domain name")
+        }
+      content
+    inputGroup
+      def { _inputConfig_label  = "Disabled"
+          , _inputConfig_status = constDyn InputDisabled
+          }
+      content
+    inputGroup
+      def { _inputConfig_label  = "Error"
+          , _inputConfig_status = constDyn $ InputError "Unreachable domain"
+          }
+      content
+    inputGroup
+      def { _inputConfig_label  = "Success"
+          , _inputConfig_status = constDyn $ InputSuccess "Domain ready"
+          }
+      content
+
+  pure never
+
+ where
+  content = do
+    _ <- selectInput (inputConfig (Just Http)) { _inputConfig_label = constDyn
+                                                 "Protocol"
+                                               }
+    _ <- textInput (inputConfig "") { _inputConfig_label = constDyn "Domain" }
+    _ <- selectInput (inputConfig (Just Dev)) { _inputConfig_label = constDyn
+                                                "Toplevel"
+                                              }
+    pure ()
+
+
+data Protocol = Http | Https deriving (Eq, Show, Enum, Bounded)
+
+instance Default Protocol where
+  def = Http
+
+instance HasLabel Protocol where
+  toLabel Http  = "http://"
+  toLabel Https = "https://"
+
+data ToplevelDomain = Dev | Com | Org deriving (Eq, Show, Enum, Bounded)
+
+instance Default ToplevelDomain where
+  def = Dev
+
+instance HasLabel ToplevelDomain where
+  toLabel Dev = ".dev"
+  toLabel Com = ".com"
+  toLabel Org = ".org"
+
 
