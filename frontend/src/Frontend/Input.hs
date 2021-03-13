@@ -39,13 +39,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "file" :> View
            :<|> "input" :> "group" :> View
            :<|> "input" :> "password" :> View
+           :<|> "input" :> "radio" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink
   = allLinks inputApi
 
 inputLinks
@@ -60,6 +61,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputFileLink $ text "File"
   , safelink dynUri inputGroupLink $ text "Input Group"
   , safelink dynUri inputPasswordLink $ text "Password"
+  , safelink dynUri inputRadioLink $ text "Radio"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -70,6 +72,7 @@ inputHandler =
     :<|> fileHandler
     :<|> groupHandler
     :<|> passwordHandler
+    :<|> radioHandler
 
 instance Default Text where
   def = mempty
@@ -342,3 +345,46 @@ passwordHandler = do
     pure ()
 
   pure never
+
+radioHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+radioHandler = do
+  el "h1" $ text "Radio"
+
+  el "form" $ do
+    r1 <- radioInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Select material"
+      , _inputConfig_status = constDyn
+        $ InputNeutral (Just "Select the material to be used")
+      }
+    r2 <- radioInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Error"
+      , _inputConfig_status = constDyn $ InputError "Error"
+      }
+
+    r3 <- radioInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Disabled"
+      , _inputConfig_status = constDyn InputDisabled
+      }
+
+    r4 <- radioInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "Success message"
+      }
+    display r1
+    text ", "
+    display r2
+    text ", "
+    display r3
+    text ", "
+    display r4
+    pure ()
+
+  el "p" $ do
+    text "The radio component is currently broken due to "
+    elAttr "a"
+           ("href" =: "https://github.com/reflex-frp/reflex-dom/issues/412")
+           (text "https://github.com/reflex-frp/reflex-dom/issues/412")
+    text "."
+
+  pure never
+

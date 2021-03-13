@@ -62,6 +62,8 @@ import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
+                                                , listToMaybe
+                                                , maybeToList
                                                 )
 import           Data.Text                      ( Text
                                                 , pack
@@ -258,8 +260,6 @@ checkboxStyle = do
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do
-  marginLeft (rem 0.5)
-  marginRight (rem 0.5)
 
   before Clay.& do
     borderRadiusAll (pct 50)
@@ -732,6 +732,23 @@ checkboxesInput
   -> m (Dynamic t (f a))
 checkboxesInput = checkboxesInputLbl (constDyn . toLabel)
 
+checkboxesInput'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , Eq a
+     , HasLabel a
+     , Enum a
+     , Bounded a
+     , Foldable f
+     , Alternative f
+     , Monoid (f a)
+     )
+  => Text
+  -> InputConfig t (f a)
+  -> m (Dynamic t (f a))
+checkboxesInput' = checkboxesInputLbl' (constDyn . toLabel)
+
 -- | Same as 'checkboxesInput' but with a custom label provider
 checkboxesInputLbl
   :: ( PostBuild t m
@@ -886,8 +903,6 @@ radioInput
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , MonadFix m
-     , MonadHold t m
      , Eq a
      , HasLabel a
      , Enum a
@@ -901,8 +916,6 @@ radioInput'
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , MonadFix m
-     , MonadHold t m
      , Eq a
      , HasLabel a
      , Enum a
@@ -911,40 +924,12 @@ radioInput'
   => Text
   -> InputConfig t (Maybe a)
   -> m (Dynamic t (Maybe a))
-radioInput' idStr cfg = do
-  modAttrEv <- statusModAttrEv' cfg
-
-  elClass "div" "input" $ do
-    rec ns <- mapM (mkOption modAttrEv checkEv)
-                   (allPossible (_inputConfig_initialValue cfg))
-        let checkEv = leftmost (fmap updated ns)
-
-    result <- holdDyn (_inputConfig_initialValue cfg) checkEv
-
-    elClass "div" "flex-row" $ do
-      statusMessageIcon (_inputConfig_status cfg)
-
-      statusMessageElement (_inputConfig_status cfg)
-
-    pure result
-
- where
-  initAttrs = "type" =: "radio" <> "name" =: idStr
-
-  attach' x = fmap (\selected' -> if selected' then Just x else Nothing)
-
-  mkOption modAttrEv setOtherEv x = attach' x <$> checkboxInput cfg
-    { _inputConfig_attributes       = _inputConfig_attributes cfg <> initAttrs
-    , _inputConfig_modifyAttributes = mergeWith
-                                        (<>)
-                                        [ _inputConfig_modifyAttributes cfg
-                                        , modAttrEv
-                                        ]
-    , _inputConfig_label            = constDyn (toLabel x)
-    , _inputConfig_initialValue     = _inputConfig_initialValue cfg == Just x
-    , _inputConfig_setValue         = (== Just x)
-      <$> leftmost [_inputConfig_setValue cfg, setOtherEv]
+radioInput' idStr cfg = fmap listToMaybe <$> checkboxesInput'
+  idStr
+  (fmap maybeToList cfg)
+    { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
     }
+  where initAttrs = "type" =: "radio" <> "name" =: idStr
 
 textAreaInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
