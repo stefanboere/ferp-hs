@@ -178,6 +178,28 @@ checkboxHandler = do
       }
     pure ()
 
+  el "h2" $ text "Toggle"
+  el "form" $ do
+    _ <- toggleInput (inputConfig False) { _inputConfig_label = constDyn
+                                           "Turn it on"
+                                         }
+    _ <- togglesInput (inputConfig [M14307]) { _inputConfig_label = constDyn
+                                               "Material"
+                                             }
+    _ <- togglesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Material"
+      , _inputConfig_status = constDyn $ InputError "Error"
+      }
+    _ <- togglesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Disabled"
+      , _inputConfig_status = constDyn InputDisabled
+      }
+    _ <- togglesInput (inputConfig [M14307])
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "Success message"
+      }
+    pure ()
+
   pure never
 
 datalistHandler

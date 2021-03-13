@@ -9,6 +9,7 @@ module Components.Input.Basic
   ( numberInput
   , numberInput'
   , toggleInput
+  , togglesInput
   , checkboxInput
   , checkboxesInput
   , checkboxesInputLbl
@@ -215,7 +216,7 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
   marginRight (rem 1.5)
 
   before Clay.& do
-    left (rem (-0.3))
+    left (rem (-0.25))
     width (rem 2.2)
     height (rem 1.1)
     backgroundColor nord3'
@@ -224,10 +225,14 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
     transitionDuration 0.1
     transitionTimingFunction easeIn
 
+    disabled Clay.& backgroundColor grey0'
+
     checked Clay.& do
       backgroundColor nord10'
       transitionDuration 0.1
       transitionTimingFunction easeIn
+
+      disabled Clay.& backgroundColor (lighten 0.5 nord10')
 
   after Clay.& do
     absoluteBlock
@@ -737,6 +742,27 @@ toggleInput cfg = do
   let initAttrs = "class" =: "toggle"
 
   checkboxInput cfg
+    { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
+    }
+
+togglesInput
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , Eq a
+     , HasLabel a
+     , Enum a
+     , Bounded a
+     , Foldable f
+     , Alternative f
+     , Monoid (f a)
+     )
+  => InputConfig t (f a)
+  -> m (Dynamic t (f a))
+togglesInput cfg = do
+  let initAttrs = "class" =: "toggle"
+
+  checkboxesInput cfg
     { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
     }
 
