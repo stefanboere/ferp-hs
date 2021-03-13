@@ -16,9 +16,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import qualified Data.Map                      as Map
-import           Data.Text                      ( Text
-                                                , pack
-                                                )
+import           Data.Text                      ( Text )
 import           Data.Time
 import           URI.ByteString
 import           Reflex
@@ -75,7 +73,7 @@ inputLinks dynUri = safelinkGroup
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
 inputHandler =
-  (formTest >> pure never)
+  basicHandler
     :<|> checkboxHandler
     :<|> datalistHandler
     :<|> fileHandler
@@ -99,63 +97,49 @@ instance HasLabel Material where
   toLabel M14404 = "1.4404"
   toLabel M14307 = "1.4307"
 
-data Torispherical = Torispherical
-  { ts_wall_thickness         :: Maybe Double
-  , ts_outside_diameter       :: Maybe Double
-  , ts_straight_flange_height :: Maybe Double
-  , ts_crown_radius           :: Maybe (Overridable Double)
-  , ts_knuckle_radius         :: Maybe (Overridable Double)
-  , ts_material               :: Maybe Material
-  , ts_memo                   :: Text
-  } deriving (Eq, Show)
-
-formTest
+basicHandler
   :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
-  => m ()
-formTest = el "form" $ do
-  wall_thickness <- numberInput
-    def { _numberInputConfig_precision = Just 3
-        , _numberInputConfig_minValue  = constDyn (Just 0)
-        }
-    def { _inputConfig_label        = constDyn "Wall thickness"
-        , _inputConfig_initialValue = 0 :: Double
-        }
-  outside_diameter <- numberInput
-    def { _numberInputConfig_precision = Just 3 }
-    def { _inputConfig_label        = constDyn "Outside diameter"
-        , _inputConfig_initialValue = 0 :: Double
-        }
-  straight_flange_height <- numberInput
-    def { _numberInputConfig_precision = Just 3 }
-    def { _inputConfig_label        = constDyn "Straight flange height"
-        , _inputConfig_initialValue = 0 :: Double
-        }
-  crown_radius <- overridableNumberInput
-    (fmapMaybe Prelude.id $ updated outside_diameter)
-    def { _inputConfig_label        = constDyn "Crown radius"
-        , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
-        }
-  knuckle_radius <- overridableNumberInput
-    (fmapMaybe (fmap (/ 10)) $ updated outside_diameter)
-    def { _inputConfig_label        = constDyn "Knuckle radius"
-        , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
-        }
-  material <- selectInput def { _inputConfig_label        = constDyn "Material"
-                              , _inputConfig_initialValue = Nothing
-                              }
-  memo <- textAreaInput def { _inputConfig_label        = constDyn "Memo"
-                            , _inputConfig_initialValue = mempty
-                            }
-  let dynTori =
-        Torispherical
-          <$> wall_thickness
-          <*> outside_diameter
-          <*> straight_flange_height
-          <*> crown_radius
-          <*> knuckle_radius
-          <*> material
-          <*> memo
-  dynText $ fmap (pack . show) dynTori
+  => m (Event t URI)
+basicHandler = do
+  el "h1" $ text "Basic"
+
+  el "form" $ do
+    _ <- textInput def { _inputConfig_label        = constDyn "Text input"
+                       , _inputConfig_initialValue = "Hello world"
+                       }
+    n1 <- numberInput
+      def { _numberInputConfig_precision = Just 3 }
+      def { _inputConfig_label        = constDyn "Numeric input"
+          , _inputConfig_initialValue = 0 :: Double
+          }
+    _ <- overridableNumberInput
+      (fmapMaybe Prelude.id $ updated n1)
+      def { _inputConfig_label        = constDyn "Overridable input"
+          , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
+          }
+    _ <- textInput def { _inputConfig_label      = constDyn "Color"
+                       , _inputConfig_attributes = "type" =: "color"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Email"
+                       , _inputConfig_attributes = "type" =: "email"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Image"
+                       , _inputConfig_attributes = "type" =: "image"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Search"
+                       , _inputConfig_attributes = "type" =: "search"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Submit"
+                       , _inputConfig_attributes = "type" =: "submit"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Tel"
+                       , _inputConfig_attributes = "type" =: "tel"
+                       }
+    _ <- textInput def { _inputConfig_label      = constDyn "Url"
+                       , _inputConfig_attributes = "type" =: "url"
+                       }
+    pure ()
+  pure never
 
 
 checkboxHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
