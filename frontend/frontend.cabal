@@ -78,6 +78,7 @@ library
     , reflex-dom-pandoc
     , servant
     , text
+    , time
     , uri-bytestring
 
 executable frontend

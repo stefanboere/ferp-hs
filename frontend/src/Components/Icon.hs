@@ -31,6 +31,8 @@ module Components.Icon
   , folderIcon
   , eyeIcon
   , eyeHideIcon
+  , clockIcon
+  , calendarIcon
   )
 where
 
@@ -132,6 +134,27 @@ circle (cx, cy) r = elSvg
   )
   blank
 
+rect
+  :: (PostBuild t m, DomBuilder t m)
+  => Double
+  -> Double
+  -> Double
+  -> Double
+  -> m ()
+rect x y width height = elSvg
+  "rect"
+  (constDyn
+    (  "x"
+    =: pack (show x)
+    <> "y"
+    =: pack (show y)
+    <> "width"
+    =: pack (show width)
+    <> "height"
+    =: pack (show height)
+    )
+  )
+  blank
 
 errorStandardIcon :: (PostBuild t m, DomBuilder t m) => m ()
 errorStandardIcon = svg $ do
@@ -268,3 +291,30 @@ eyeHideIcon = svg $ do
   path
     "M4.87,5.78l4.46,4.46a19.52,19.52,0,0,0-6.69,7.29L2.38,18l.26.48c3.37,6.23,9.28,10,15.82,10a16.93,16.93,0,0,0,7.37-1.69l5,5,1.75-1.5-26-26Zm9.75,9.75,6.65,6.65a4.81,4.81,0,0,1-2.5.72A4.87,4.87,0,0,1,13.9,18,4.81,4.81,0,0,1,14.62,15.53Zm-1.45-1.45a6.85,6.85,0,0,0,9.55,9.55l1.6,1.6a14.91,14.91,0,0,1-5.86,1.2c-5.63,0-10.75-3.14-13.8-8.43a17.29,17.29,0,0,1,6.12-6.3Z"
 
+clockIcon :: (PostBuild t m, DomBuilder t m) => m ()
+clockIcon = svg $ do
+  path
+    "M18,2A16,16,0,1,0,34,18,16,16,0,0,0,18,2Zm0,30A14,14,0,1,1,32,18,14,14,0,0,1,18,32Z"
+  path "M18.92,18.4V10.75a1,1,0,0,0-2,0v8.72l5.9,4a1,1,0,1,0,1.11-1.66Z"
+  path
+    "M8,17.94A9.94,9.94,0,0,1,23.41,9.59l.85-1.36a11.55,11.55,0,1,0-8.53,21L16,27.7A10,10,0,0,1,8,17.94Z"
+
+calendarIcon :: (PostBuild t m, DomBuilder t m) => m ()
+calendarIcon = svg $ do
+  path
+    "M32.25,6H29V8h3V30H4V8H7V6H3.75A1.78,1.78,0,0,0,2,7.81V30.19A1.78,1.78,0,0,0,3.75,32h28.5A1.78,1.78,0,0,0,34,30.19V7.81A1.78,1.78,0,0,0,32.25,6Z"
+  rect 8  14 2 2
+  rect 14 14 2 2
+  rect 20 14 2 2
+  rect 26 14 2 2
+  rect 8  19 2 2
+  rect 14 19 2 2
+  rect 20 19 2 2
+  rect 26 19 2 2
+  rect 8  24 2 2
+  rect 14 24 2 2
+  rect 20 24 2 2
+  rect 26 24 2 2
+  path "M10,10a1,1,0,0,0,1-1V3A1,1,0,0,0,9,3V9A1,1,0,0,0,10,10Z"
+  path "M26,10a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V9A1,1,0,0,0,26,10Z"
+  rect 13 6 10 2

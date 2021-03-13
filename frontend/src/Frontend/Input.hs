@@ -19,6 +19,7 @@ import qualified Data.Map                      as Map
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
+import           Data.Time
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -43,13 +44,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "range" :> View
            :<|> "input" :> "select" :> View
            :<|> "input" :> "textarea" :> View
+           :<|> "input" :> "time" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink, inputTimeLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink :<|> inputTimeLink
   = allLinks inputApi
 
 inputLinks
@@ -68,6 +70,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputRangeLink $ text "Range"
   , safelink dynUri inputSelectLink $ text "Select"
   , safelink dynUri inputTextareaLink $ text "Textarea"
+  , safelink dynUri inputTimeLink $ text "Time"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -82,6 +85,7 @@ inputHandler =
     :<|> rangeHandler
     :<|> selectHandler
     :<|> textareaHandler
+    :<|> timeHandler
 
 instance Default Text where
   def = mempty
@@ -481,6 +485,69 @@ textareaHandler = do
       { _inputConfig_label  = constDyn "Success"
       , _inputConfig_status = constDyn $ InputSuccess "Success message"
       }
+    pure ()
+
+  pure never
+
+timeHandler
+  :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => m (Event t URI)
+timeHandler = do
+  el "h1" $ text "Time"
+
+  el "form" $ do
+    t1 <- timeInput
+      def
+      (inputConfig (Just (TimeOfDay 11 12 14))) { _inputConfig_label = constDyn
+                                                  "Time"
+                                                }
+    _ <- timeInput
+      def
+      def { _inputConfig_label  = constDyn "Error"
+          , _inputConfig_status = constDyn $ InputError "Error"
+          }
+
+    _ <- timeInput
+      def
+      def { _inputConfig_label  = constDyn "Disabled"
+          , _inputConfig_status = constDyn InputDisabled
+          }
+
+    _ <- timeInput
+      def
+      def { _inputConfig_label  = constDyn "Success"
+          , _inputConfig_status = constDyn $ InputSuccess "Success message"
+          }
+    display t1
+    pure ()
+
+  el "h2" $ text "Other date inputs"
+  el "form" $ do
+    d1 <- dateInput
+      def
+      (inputConfig (Just (fromGregorian 2021 03 14)))
+        { _inputConfig_label = constDyn "Day"
+        }
+    dt1 <- localtimeInput
+      def
+      (inputConfig
+          (Just (LocalTime (fromGregorian 2021 03 14) (TimeOfDay 15 30 00)))
+        )
+        { _inputConfig_label = constDyn "Local time"
+        }
+    w1 <- weekInput
+      def
+      (inputConfig (Just (2021, 30))) { _inputConfig_label = constDyn "Week" }
+    m1 <- monthInput
+      def
+      (inputConfig (Just (2021, 03))) { _inputConfig_label = constDyn "Month" }
+    display d1
+    text ", "
+    display dt1
+    text ", "
+    display w1
+    text ", "
+    display m1
     pure ()
 
   pure never

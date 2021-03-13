@@ -39,6 +39,16 @@ module Components.Input.Basic
   , inputGroup'
   , passwordInput
   , passwordInput'
+  , timeInput
+  , timeInput'
+  , dateInput
+  , dateInput'
+  , localtimeInput
+  , localtimeInput'
+  , weekInput
+  , weekInput'
+  , monthInput
+  , monthInput'
   )
 where
 
@@ -54,7 +64,9 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
 import           Clay.Stylesheet                ( key )
-import           Control.Applicative            ( Alternative(empty) )
+import           Control.Applicative            ( Alternative(empty)
+                                                , (<|>)
+                                                )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
@@ -70,6 +82,8 @@ import           Data.Text                      ( Text
                                                 , unpack
                                                 )
 import qualified Data.Text                     as Text
+import           Data.Time
+import           Data.Time.Calendar.WeekDate
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
 import           Numeric                        ( showFFloatAlt )
@@ -108,6 +122,9 @@ data InputEl t a = InputEl
   { _inputEl_value :: Dynamic t a
   , _inputEl_hasFocus :: Dynamic t Bool
   }
+
+instance Reflex t => Functor (InputEl t) where
+  fmap f x = x { _inputEl_value = f <$> _inputEl_value x }
 
 inputConfig :: Reflex t => a -> InputConfig t a
 inputConfig initval = InputConfig { _inputConfig_initialValue     = initval
@@ -149,6 +166,7 @@ inputStyle = do
   fileUploadStyle
   datalistStyle
   inputGroupStyle
+  timeStyle
   ".absolute" ? position absolute
 
   ".flex-row" ? do
@@ -172,6 +190,24 @@ datalistStyle :: Css
 datalistStyle = do
   datalist ? Clay.display none
   input # "::-webkit-calendar-picker-indicator" ? Clay.display none
+
+timeStyle :: Css
+timeStyle =
+  (  input
+    #  ("type" @= "time")
+    <> input
+    #  ("type" @= "password")
+    <> input
+    #  ("type" @= "date")
+    <> input
+    #  ("type" @= "datetime-local")
+    <> input
+    #  ("type" @= "month")
+    <> input
+    #  ("type" @= "week")
+    )
+    ? do
+        paddingRight (rem (3 / 2))
 
 toggleStyle :: Css
 toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
@@ -285,6 +321,8 @@ inputElementStyle = (input <> Clay.select <> textarea) ? do
   borderColor grey0'
   outlineWidth 0
   flexGrow 1
+  fontColor inherit
+  "font" -: "inherit"
 
   focus Clay.& do
     borderBottomWidth 2
@@ -644,13 +682,7 @@ numberRangeInput' isReg nc idStr cfg = do
       | -- Don't update the value when still typing
         otherwise               = InputError "Not a valid number"
 
-  let minMaxDyn =
-        (,)
-          <$> _numberInputConfig_minValue nc
-          <*> _numberInputConfig_maxValue nc
-  postBuildEv <-
-    attachPromptlyDynWith (\x _ -> minMaxAttrs x) minMaxDyn <$> getPostBuild
-  let updatedMinMaxEv = updated (minMaxAttrs <$> minMaxDyn)
+  (minMaxEv, minMaxDyn) <- getMinMaxEv prnt nc
 
   rec
     n <- textInput'
@@ -667,8 +699,7 @@ numberRangeInput' isReg nc idStr cfg = do
         , _inputConfig_modifyAttributes = mergeWith
                                             (<>)
                                             [ _inputConfig_modifyAttributes cfg
-                                            , postBuildEv
-                                            , updatedMinMaxEv
+                                            , minMaxEv
                                             , selectAttrEv
                                             ]
         }
@@ -688,9 +719,6 @@ numberRangeInput' isReg nc idStr cfg = do
     statusDyn <- holdDyn def modAttrEv
   return result
  where
-  minMaxAttrs (b_min, b_max) =
-    "min" =: fmap prnt b_min <> "max" =: fmap prnt b_max
-
   mkOnClick x = "onClick"
     =: if isNothing x || x == Just 0 then Just "this.select()" else Nothing
 
@@ -888,7 +916,7 @@ selectInput' idStr cfg = do
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
 
 selectIcon :: (PostBuild t m, DomBuilder t m) => m ()
-selectIcon = elClass "div" "input-icon nopointer" arrowElement
+selectIcon = inputIcon arrowElement
  where
   arrowElement =
     icon def { _iconConfig_direction = constDyn DirDown } angleIcon
@@ -1168,3 +1196,218 @@ eyeIconEl hide = do
   arrowElement = icon def { _iconConfig_size = 5 / 4 }
                       (if hide then eyeIcon else eyeHideIcon)
 
+
+timeInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m, MonadHold t m)
+  => NumberInputConfig t TimeOfDay
+  -> InputConfig t (Maybe TimeOfDay)
+  -> m (Dynamic t (Maybe TimeOfDay))
+timeInput nc cfg = labeled cfg (timeInput' nc)
+
+timeInput'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , ParseTime a
+     , FormatTime a
+     , Ord a
+     , MonadHold t m
+     )
+  => NumberInputConfig t a
+  -> Text
+  -> InputConfig t (Maybe a)
+  -> m (Dynamic t (Maybe a))
+timeInput' nc = datetimeInput' formatTime' parseTime' "time" clockIcon nc
+ where
+  formatTime' t = pack $ formatTime
+    defaultTimeLocale
+    (if maybe False (< 60) (_numberInputConfig_precision nc) then "%S" else "%R"
+    )
+    t
+
+  parseTime' x' =
+    let x = unpack x'
+    in  parseTimeM True defaultTimeLocale "%S" x
+          <|> parseTimeM True defaultTimeLocale "%R" x
+
+getMinMaxEv
+  :: (PostBuild t m)
+  => (a -> Text)
+  -> NumberInputConfig t a
+  -> m
+       ( Event t (Map AttributeName (Maybe Text))
+       , Dynamic t (Maybe a, Maybe a)
+       )
+getMinMaxEv formatTime' nc = do
+  let minMaxDyn =
+        (,)
+          <$> _numberInputConfig_minValue nc
+          <*> _numberInputConfig_maxValue nc
+  postBuildEv <-
+    attachPromptlyDynWith (\x _ -> minMaxAttrs x) minMaxDyn <$> getPostBuild
+  let updatedMinMaxEv = updated (minMaxAttrs <$> minMaxDyn)
+  pure (mergeWith (<>) [postBuildEv, updatedMinMaxEv], minMaxDyn)
+ where
+  minMaxAttrs (b_min, b_max) =
+    "min" =: fmap formatTime' b_min <> "max" =: fmap formatTime' b_max
+
+datetimeInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, Ord a, MonadHold t m)
+  => (a -> Text)
+  -> (Text -> Maybe a)
+  -> Text
+  -> m ()
+  -> NumberInputConfig t a
+  -> Text
+  -> InputConfig t (Maybe a)
+  -> m (Dynamic t (Maybe a))
+datetimeInput' formatTime' parseTime' typeStr ico nc idStr cfg = do
+
+  (minMaxEv, minMaxDyn) <- getMinMaxEv formatTime' nc
+
+  rec n <- textInput'
+        after'
+        idStr
+        (fmap mFormatTime' cfg)
+          { _inputConfig_status = zipDynWith max
+                                             (_inputConfig_status cfg)
+                                             statusDyn
+          , _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
+          , _inputConfig_modifyAttributes = mergeWith
+                                              (<>)
+                                              [ _inputConfig_modifyAttributes
+                                                cfg
+                                              , minMaxEv
+                                              ]
+          }
+      let result    = parseTime' <$> _inputEl_value n
+          modAttrEv = updated
+            (   styleChange
+            <$> minMaxDyn
+            <*> result
+            <*> _inputEl_hasFocus n
+            <*> _inputEl_value n
+            )
+      statusDyn <- holdDyn def modAttrEv
+  return result
+ where
+  initAttrs = Map.fromList $ mapMaybe
+    (\(x, y) -> (x, ) <$> y)
+    [ ("type", Just typeStr)
+    , ("step", mkStep <$> _numberInputConfig_precision nc)
+    ]
+
+  styleChange (b_min, b_max) (Just x) _ _
+    | maybe False (x >) b_max
+    = InputError $ "Exceeds the maximum " <> formatTime' (fromJust b_max)
+    | maybe False (x <) b_min
+    = InputError $ "Is less than the minimum " <> formatTime' (fromJust b_min)
+    | otherwise
+    = def
+  styleChange _ Nothing hasFocus t
+    | Text.null t || hasFocus = def
+    | -- Don't update the value when still typing
+      otherwise               = InputError $ "Not a valid " <> typeStr
+
+
+  mkStep :: Int -> Text
+  mkStep       = pack . show
+
+  mFormatTime' = maybe mempty formatTime'
+
+  after'       = do
+    _ <- inputIcon ico
+    pure never
+
+
+inputIcon :: (PostBuild t m, DomBuilder t m) => m () -> m ()
+inputIcon ico = elClass "div" "input-icon nopointer" arrowElement
+  where arrowElement = icon def ico
+
+
+dateInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m, MonadHold t m)
+  => NumberInputConfig t Day
+  -> InputConfig t (Maybe Day)
+  -> m (Dynamic t (Maybe Day))
+dateInput nc cfg = labeled cfg (dateInput' nc)
+
+dateInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => NumberInputConfig t Day
+  -> Text
+  -> InputConfig t (Maybe Day)
+  -> m (Dynamic t (Maybe Day))
+dateInput' = datetimeInput' formatTime' parseTime' "date" calendarIcon
+ where
+  formatTime' = pack . formatTime defaultTimeLocale "%F"
+
+  parseTime'  = parseTimeM True defaultTimeLocale "%F" . unpack
+
+localtimeInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m, MonadHold t m)
+  => NumberInputConfig t LocalTime
+  -> InputConfig t (Maybe LocalTime)
+  -> m (Dynamic t (Maybe LocalTime))
+localtimeInput nc cfg = labeled cfg (localtimeInput' nc)
+
+localtimeInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => NumberInputConfig t LocalTime
+  -> Text
+  -> InputConfig t (Maybe LocalTime)
+  -> m (Dynamic t (Maybe LocalTime))
+localtimeInput' = datetimeInput' formatTime'
+                                 parseTime'
+                                 "datetime-local"
+                                 clockIcon
+ where
+  formatTime' = pack . formatTime defaultTimeLocale "%FT%R"
+
+  parseTime'  = parseTimeM True defaultTimeLocale "%FT%R" . unpack
+
+weekInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m, MonadHold t m)
+  => NumberInputConfig t (Integer, Int)
+  -> InputConfig t (Maybe (Integer, Int))
+  -> m (Dynamic t (Maybe (Integer, Int)))
+weekInput nc cfg = labeled cfg (weekInput' nc)
+
+weekInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => NumberInputConfig t (Integer, Int)
+  -> Text
+  -> InputConfig t (Maybe (Integer, Int))
+  -> m (Dynamic t (Maybe (Integer, Int)))
+weekInput' = datetimeInput' formatTime' parseTime' "week" calendarIcon
+ where
+  formatTime' (y, m) =
+    pack $ formatTime defaultTimeLocale "%Y-W%W" (fromWeekDate y m 1)
+
+  parseTime' =
+    fmap ((\(y, w, _) -> (y, w)) . toWeekDate)
+      . parseTimeM True defaultTimeLocale "%Y-W%W"
+      . unpack
+
+monthInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m, MonadHold t m)
+  => NumberInputConfig t (Integer, Int)
+  -> InputConfig t (Maybe (Integer, Int))
+  -> m (Dynamic t (Maybe (Integer, Int)))
+monthInput nc cfg = labeled cfg (monthInput' nc)
+
+monthInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => NumberInputConfig t (Integer, Int)
+  -> Text
+  -> InputConfig t (Maybe (Integer, Int))
+  -> m (Dynamic t (Maybe (Integer, Int)))
+monthInput' = datetimeInput' formatTime' parseTime' "month" calendarIcon
+ where
+  formatTime' (y, m) =
+    pack $ formatTime defaultTimeLocale "%Y-%m" (fromGregorian y m 1)
+
+  parseTime' =
+    fmap ((\(y, m, _) -> (y, m)) . toGregorian)
+      . parseTimeM True defaultTimeLocale "%Y-%m"
+      . unpack
