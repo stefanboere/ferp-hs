@@ -41,13 +41,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "password" :> View
            :<|> "input" :> "radio" :> View
            :<|> "input" :> "range" :> View
+           :<|> "input" :> "select" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink
   = allLinks inputApi
 
 inputLinks
@@ -64,6 +65,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputPasswordLink $ text "Password"
   , safelink dynUri inputRadioLink $ text "Radio"
   , safelink dynUri inputRangeLink $ text "Range"
+  , safelink dynUri inputSelectLink $ text "Select"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -76,6 +78,7 @@ inputHandler =
     :<|> passwordHandler
     :<|> radioHandler
     :<|> rangeHandler
+    :<|> selectHandler
 
 instance Default Text where
   def = mempty
@@ -421,6 +424,34 @@ rangeHandler = do
         { _inputConfig_label  = constDyn "Success"
         , _inputConfig_status = constDyn $ InputSuccess "Changes saved"
         }
+    pure ()
+
+  pure never
+
+selectHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+selectHandler = do
+  el "h1" $ text "Select"
+
+  el "form" $ do
+    _ <- selectInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Select material"
+      , _inputConfig_status = constDyn
+        $ InputNeutral (Just "Select the material to be used")
+      }
+    _ <- selectInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Error"
+      , _inputConfig_status = constDyn $ InputError "Error"
+      }
+
+    _ <- selectInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Disabled"
+      , _inputConfig_status = constDyn InputDisabled
+      }
+
+    _ <- selectInput (inputConfig (Just M14307))
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "Success message"
+      }
     pure ()
 
   pure never
