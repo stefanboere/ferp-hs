@@ -126,8 +126,7 @@ buttonStyle' = (Clay.button <> ".file-upload-label") ? do
     borderWidth nil
     hoverSecondary
 
-  ".spinner" ? do
-    width (rem 1)
+  ".spinner" ? width (rem 1)
 
   ".spinner" # before ? do
     width (rem (3 / 4))
@@ -205,14 +204,11 @@ btnGroupStyle = ".button-group" ? do
     marginRight nil
     borderRadiusAll nil
 
-  ".primary" <? do
-    marginRight (px 1)
+  ".primary" <? marginRight (px 1)
 
-  ".secondary" <? do
-    marginRight (px (-1))
+  ".secondary" <? marginRight (px (-1))
 
-  ".secondary" # hover |+ star ? do
-    borderLeftColor (rgb 115 151 186)
+  ".secondary" # hover |+ star ? borderLeftColor (rgb 115 151 186)
 
 btnGroup :: DomBuilder t m => m () -> m ()
 btnGroup = elClass "div" "button-group"
