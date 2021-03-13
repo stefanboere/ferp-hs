@@ -40,13 +40,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "group" :> View
            :<|> "input" :> "password" :> View
            :<|> "input" :> "radio" :> View
+           :<|> "input" :> "range" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink
   = allLinks inputApi
 
 inputLinks
@@ -62,6 +63,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputGroupLink $ text "Input Group"
   , safelink dynUri inputPasswordLink $ text "Password"
   , safelink dynUri inputRadioLink $ text "Radio"
+  , safelink dynUri inputRangeLink $ text "Range"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -73,6 +75,7 @@ inputHandler =
     :<|> groupHandler
     :<|> passwordHandler
     :<|> radioHandler
+    :<|> rangeHandler
 
 instance Default Text where
   def = mempty
@@ -385,6 +388,40 @@ radioHandler = do
            ("href" =: "https://github.com/reflex-frp/reflex-dom/issues/412")
            (text "https://github.com/reflex-frp/reflex-dom/issues/412")
     text "."
+
+  pure never
+
+rangeHandler
+  :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => m (Event t URI)
+rangeHandler = do
+  el "h1" $ text "Range"
+
+  el "form" $ do
+    _ <- rangeInput
+      def
+      (inputConfig (50 :: Double)) { _inputConfig_label = constDyn "Volume" }
+    _ <- rangeInput
+      def
+      (inputConfig (50 :: Double))
+        { _inputConfig_label  = constDyn "Error"
+        , _inputConfig_status = constDyn $ InputError "System error"
+        }
+
+    _ <- rangeInput
+      def
+      (inputConfig (50 :: Double)) { _inputConfig_label  = constDyn "Disabled"
+                                   , _inputConfig_status = constDyn
+                                     InputDisabled
+                                   }
+
+    _ <- rangeInput
+      def
+      (inputConfig (50 :: Double))
+        { _inputConfig_label  = constDyn "Success"
+        , _inputConfig_status = constDyn $ InputSuccess "Changes saved"
+        }
+    pure ()
 
   pure never
 

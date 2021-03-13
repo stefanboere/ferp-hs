@@ -154,6 +154,7 @@ inputStyle = do
   ".flex-row" ? do
     Clay.display flex
     flexDirection row
+    alignItems center
 
   ".input" ? do
     Clay.display flex
@@ -313,7 +314,7 @@ selectElementStyle = do
 
   (input <> Clay.select) |+ ".input-icon" ? do
     Clay.display inlineBlock
-    transform (translate (rem (-1.2)) (rem 0.2))
+    transform (translate (rem (-1.2)) (rem (-0.5)))
     ".icon" ? position absolute
     cursor pointer
 
@@ -334,7 +335,7 @@ rangeElementStyle = input # ("type" @= "range") ? do
   "-webkit-appearance" -: "none"
   paddingAll nil
   height (Clay.rem 0.2)
-  borderRadiusAll (pct 50)
+  borderRadiusAll (px 3)
   cursor pointer
   background nord10'
   disabledStyle
@@ -344,6 +345,10 @@ rangeElementStyle = input # ("type" @= "range") ? do
     thumb
 
   "::-moz-range-thumb" Clay.& thumb
+
+  focus Clay.& do
+    borderBottomWidth nil
+    marginBottom (px 2)
 
  where
   disabledStyle :: Css
