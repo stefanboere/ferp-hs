@@ -42,13 +42,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "radio" :> View
            :<|> "input" :> "range" :> View
            :<|> "input" :> "select" :> View
+           :<|> "input" :> "textarea" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink
   = allLinks inputApi
 
 inputLinks
@@ -66,6 +67,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputRadioLink $ text "Radio"
   , safelink dynUri inputRangeLink $ text "Range"
   , safelink dynUri inputSelectLink $ text "Select"
+  , safelink dynUri inputTextareaLink $ text "Textarea"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -79,6 +81,7 @@ inputHandler =
     :<|> radioHandler
     :<|> rangeHandler
     :<|> selectHandler
+    :<|> textareaHandler
 
 instance Default Text where
   def = mempty
@@ -456,3 +459,28 @@ selectHandler = do
 
   pure never
 
+textareaHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+textareaHandler = do
+  el "h1" $ text "Textarea"
+
+  el "form" $ do
+    _ <- textAreaInput def
+      { _inputConfig_label  = constDyn "Select material"
+      , _inputConfig_status = constDyn
+        $ InputNeutral (Just "Select the material to be used")
+      }
+    _ <- textAreaInput def { _inputConfig_label  = constDyn "Error"
+                           , _inputConfig_status = constDyn $ InputError "Error"
+                           }
+
+    _ <- textAreaInput def { _inputConfig_label  = constDyn "Disabled"
+                           , _inputConfig_status = constDyn InputDisabled
+                           }
+
+    _ <- textAreaInput def
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "Success message"
+      }
+    pure ()
+
+  pure never

@@ -154,7 +154,6 @@ inputStyle = do
   ".flex-row" ? do
     Clay.display flex
     flexDirection row
-    alignItems center
 
   ".input" ? do
     Clay.display flex
@@ -314,7 +313,7 @@ selectElementStyle = do
 
   (input <> Clay.select) |+ ".input-icon" ? do
     Clay.display inlineBlock
-    transform (translate (rem (-1.2)) (rem (-0.5)))
+    transform (translate (rem (-1.2)) (rem 0.2))
     ".icon" ? position absolute
     cursor pointer
 
@@ -324,7 +323,7 @@ textAreaElementStyle = textarea ? do
   borderWidth 1
   borderRadiusAll (px 3)
   minWidth (rem 20)
-  minHeight (rem 8)
+  minHeight (rem 6)
 
   disabled Clay.& do
     background white0'
@@ -339,6 +338,7 @@ rangeElementStyle = input # ("type" @= "range") ? do
   cursor pointer
   background nord10'
   disabledStyle
+  marginTop (rem (2 / 3))
 
   "::-webkit-slider-thumb" Clay.& do
     "-webkit-appearance" -: "none"
