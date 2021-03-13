@@ -30,16 +30,20 @@ import           Components
 -- brittany-disable-next-binding
 type ContainerApi = "container" :> "accordion" :> View
         :<|> "container" :> "card" :> View
+        :<|> "container" :> "login" :> View
         :<|> "container" :> "modal" :> View
+        :<|> "container" :> "signpost" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
+        :<|> "container" :> "timeline" :> View
+        :<|> "container" :> "treeview" :> View
 
 containerApi :: Proxy ContainerApi
 containerApi = Proxy
 
-containerAccordionLink, containerCardLink, containerModalLink, containerTabLink, containerTableLink
+containerAccordionLink, containerCardLink, containerLoginLink, containerModalLink, containerSignpostLink, containerTabLink, containerTableLink, containerTimelineLink, containerTreeviewLink
   :: Link
-containerAccordionLink :<|> containerCardLink :<|> containerModalLink :<|> containerTabLink :<|> containerTableLink
+containerAccordionLink :<|> containerCardLink :<|> containerLoginLink :<|> containerModalLink :<|> containerSignpostLink :<|> containerTabLink :<|> containerTableLink :<|> containerTimelineLink :<|> containerTreeviewLink
   = allLinks containerApi
 
 containerLinks
@@ -50,18 +54,26 @@ containerLinks dynUri = safelinkGroup
   (text "Containers")
   [ safelink dynUri containerAccordionLink $ text "Accordion"
   , safelink dynUri containerCardLink $ text "Card"
+  , safelink dynUri containerLoginLink $ text "Login"
   , safelink dynUri containerModalLink $ text "Modal"
+  , safelink dynUri containerSignpostLink $ text "Signpost"
   , safelink dynUri containerTabLink $ text "Tab"
   , safelink dynUri containerTableLink $ text "Table"
+  , safelink dynUri containerTimelineLink $ text "Timeline"
+  , safelink dynUri containerTreeviewLink $ text "Treeview"
   ]
 
 containerHandler :: MonadWidget t m => RouteT ContainerApi m (Event t URI)
 containerHandler =
   containerAccordion
     :<|> containerCard
+    :<|> containerLogin
     :<|> containerModal
+    :<|> containerSignpost
     :<|> containerTab
     :<|> containerTable
+    :<|> containerTimeline
+    :<|> containerTreeview
 
 containerAccordion
   :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
@@ -76,6 +88,13 @@ containerAccordion = do
   accordion never
             "Header for panel #3"
             (text "This is the content for accordion panel #3")
+
+  el "h2" $ text "Stackview"
+  text "WIP"
+
+  el "h2" $ text "Stepper"
+  text "WIP"
+
   pure never
 
 containerCard :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
@@ -130,6 +149,13 @@ containerCard = do
 
   pure never
 
+containerLogin :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerLogin = do
+  el "h1" $ text "Login"
+  text "WIP"
+
+  pure never
+
 containerModal
   :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t URI)
@@ -156,6 +182,9 @@ containerModal = do
     ]
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
 
+  el "h2" $ text "Wizard"
+  text "WIP"
+
   pure never
  where
   modalContent = card $ do
@@ -168,6 +197,16 @@ containerModal = do
       okEv     <- btn def (text "Ok")
       pure $ leftmost [x, cancelEv, okEv]
 
+containerSignpost :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerSignpost = do
+  el "h1" $ text "Signpost"
+  text "WIP"
+
+  el "h2" $ text "Tooltip"
+  text "WIP"
+
+  pure never
+
 containerTab
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => m (Event t URI)
@@ -179,6 +218,10 @@ containerTab = do
     <> (2 :: Int)
     =: ("Tab 2", text "Tab 2 content")
     )
+
+  el "h2" $ text "Vertical tab"
+  text "WIP"
+
   pure never
 
 containerTable
@@ -193,5 +236,20 @@ containerTable = do
     (constDyn
       (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
     )
+  el "h2" $ text "Datagrid"
+  text "WIP"
   pure never
 
+containerTimeline :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerTimeline = do
+  el "h1" $ text "Timeline"
+  text "WIP"
+
+  pure never
+
+containerTreeview :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerTreeview = do
+  el "h1" $ text "Treeview"
+  text "WIP"
+
+  pure never

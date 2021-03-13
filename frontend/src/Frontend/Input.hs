@@ -34,6 +34,7 @@ import           Components
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "checkbox" :> View
+           :<|> "input" :> "combobox" :> View
            :<|> "input" :> "datalist" :> View
            :<|> "input" :> "file" :> View
            :<|> "input" :> "group" :> View
@@ -47,9 +48,9 @@ type InputApi = "input" :> "basic" :> View
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink, inputTimeLink
+inputBasicLink, inputCheckboxLink, inputComboBoxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink, inputTimeLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink :<|> inputTimeLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputComboBoxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink :<|> inputTimeLink
   = allLinks inputApi
 
 inputLinks
@@ -60,6 +61,7 @@ inputLinks dynUri = safelinkGroup
   (text "Input elements")
   [ safelink dynUri inputBasicLink $ text "Basic"
   , safelink dynUri inputCheckboxLink $ text "Checkbox"
+  , safelink dynUri inputComboBoxLink $ text "Combobox"
   , safelink dynUri inputDatalist $ text "Datalist"
   , safelink dynUri inputFileLink $ text "File"
   , safelink dynUri inputGroupLink $ text "Input Group"
@@ -75,6 +77,7 @@ inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
 inputHandler =
   basicHandler
     :<|> checkboxHandler
+    :<|> comboboxHandler
     :<|> datalistHandler
     :<|> fileHandler
     :<|> groupHandler
@@ -199,6 +202,13 @@ checkboxHandler = do
       , _inputConfig_status = constDyn $ InputSuccess "Success message"
       }
     pure ()
+
+  pure never
+
+comboboxHandler :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+comboboxHandler = do
+  el "h1" $ text "Combobox"
+  text "WIP"
 
   pure never
 
