@@ -15,6 +15,7 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
+import           Data.Text                      ( pack )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -29,15 +30,16 @@ import           Components
 -- brittany-disable-next-binding
 type ContainerApi = "container" :> "accordion" :> View
         :<|> "container" :> "card" :> View
+        :<|> "container" :> "modal" :> View
         :<|> "container" :> "tab" :> View
         :<|> "container" :> "table" :> View
 
 containerApi :: Proxy ContainerApi
 containerApi = Proxy
 
-containerAccordionLink, containerCardLink, containerTabLink, containerTableLink
+containerAccordionLink, containerCardLink, containerModalLink, containerTabLink, containerTableLink
   :: Link
-containerAccordionLink :<|> containerCardLink :<|> containerTabLink :<|> containerTableLink
+containerAccordionLink :<|> containerCardLink :<|> containerModalLink :<|> containerTabLink :<|> containerTableLink
   = allLinks containerApi
 
 containerLinks
@@ -48,13 +50,18 @@ containerLinks dynUri = safelinkGroup
   (text "Containers")
   [ safelink dynUri containerAccordionLink $ text "Accordion"
   , safelink dynUri containerCardLink $ text "Card"
+  , safelink dynUri containerModalLink $ text "Modal"
   , safelink dynUri containerTabLink $ text "Tab"
   , safelink dynUri containerTableLink $ text "Table"
   ]
 
 containerHandler :: MonadWidget t m => RouteT ContainerApi m (Event t URI)
 containerHandler =
-  containerAccordion :<|> containerCard :<|> containerTab :<|> containerTable
+  containerAccordion
+    :<|> containerCard
+    :<|> containerModal
+    :<|> containerTab
+    :<|> containerTable
 
 containerAccordion
   :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
@@ -122,6 +129,44 @@ containerCard = do
 
 
   pure never
+
+containerModal
+  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
+  => m (Event t URI)
+containerModal = do
+  el "h1" $ text "Modal"
+
+  launchSmallEv <- btn def (text "Small")
+  launchSmallCloseEv <- modal ModalSmall (modalContent <$ launchSmallEv)
+
+  launchMediumEv <- btn def (text "Medium")
+  launchMediumCloseEv <- modal ModalMedium (modalContent <$ launchMediumEv)
+
+  launchLargeEv <- btn def (text "Large")
+  launchLargeCloseEv <- modal ModalLarge (modalContent <$ launchLargeEv)
+
+  launchXLEv <- btn def (text "X-Large")
+  launchXLCloseEv <- modal ModalExtraLarge (modalContent <$ launchXLEv)
+
+  (countDyn :: Dynamic t Integer) <- count $ leftmost
+    [ launchSmallCloseEv
+    , launchMediumCloseEv
+    , launchLargeCloseEv
+    , launchXLCloseEv
+    ]
+  el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
+
+  pure never
+ where
+  modalContent = card $ do
+    x <- cardHeader (text "Header" >> modalCloseBtn)
+
+    cardContent $ el "p" $ text "This is the content of the modal"
+
+    cardFooter $ do
+      cancelEv <- cardAction "Cancel"
+      okEv     <- btn def (text "Ok")
+      pure $ leftmost [x, cancelEv, okEv]
 
 containerTab
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)

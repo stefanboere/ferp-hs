@@ -5,6 +5,7 @@ module Components.Alert
   , alert
   , alertAppLevel
   , alertStyle
+  , closeBtn
   )
 where
 
@@ -166,7 +167,7 @@ alertAppLevel AlertConfig {..} msg actions = elClass "div" classStr $ do
   alertContent _alertConfig_status msg
   result <- actions
   elClass "span" "spacer" blank
-  closeEv <- closeBtn
+  closeEv <- closeBtn def
   pure (result, closeEv)
  where
   classStr = Text.toLower $ Text.unwords $ Prelude.filter
@@ -182,7 +183,7 @@ alert
 alert AlertConfig {..} msg actions = elClass "div" classStr $ do
   alertContent _alertConfig_status msg
   result  <- actions
-  closeEv <- closeBtn
+  closeEv <- closeBtn def
   pure (result, closeEv)
  where
   classStr = Text.toLower $ Text.unwords $ Prelude.filter
@@ -198,10 +199,3 @@ alertContent status msg = do
   icon def (statusStandardIcon status)
   elClass "span" "alert-message p3" (dynText msg)
 
-
-closeBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
-closeBtn =
-  btn def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_class    = "button-close"
-          }
-    $ icon def timesIcon

@@ -7,6 +7,7 @@ module Components.Button
   , buttonStyle
   , btn
   , btnGroup
+  , closeBtn
   )
 where
 
@@ -212,3 +213,10 @@ btnGroupStyle = ".button-group" ? do
 
 btnGroup :: DomBuilder t m => m () -> m ()
 btnGroup = elClass "div" "button-group"
+
+closeBtn :: (PostBuild t m, DomBuilder t m) => IconConfig t -> m (Event t ())
+closeBtn cfg =
+  btn def { _buttonConfig_priority = ButtonTertiary
+          , _buttonConfig_class    = "button-close"
+          }
+    $ icon cfg timesIcon
