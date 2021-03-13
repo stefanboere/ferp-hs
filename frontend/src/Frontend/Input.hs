@@ -38,13 +38,14 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "datalist" :> View
            :<|> "input" :> "file" :> View
            :<|> "input" :> "group" :> View
+           :<|> "input" :> "password" :> View
 
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink
+inputBasicLink, inputCheckboxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink
   = allLinks inputApi
 
 inputLinks
@@ -57,7 +58,8 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputCheckboxLink $ text "Checkbox"
   , safelink dynUri inputDatalist $ text "Datalist"
   , safelink dynUri inputFileLink $ text "File"
-  , safelink dynUri inputGroupLink $ text "Group"
+  , safelink dynUri inputGroupLink $ text "Input Group"
+  , safelink dynUri inputPasswordLink $ text "Password"
   ]
 
 inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
@@ -67,6 +69,7 @@ inputHandler =
     :<|> datalistHandler
     :<|> fileHandler
     :<|> groupHandler
+    :<|> passwordHandler
 
 instance Default Text where
   def = mempty
@@ -308,4 +311,34 @@ instance HasLabel ToplevelDomain where
   toLabel Com = ".com"
   toLabel Org = ".org"
 
+passwordHandler
+  :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => m (Event t URI)
+passwordHandler = do
+  el "h1" $ text "Password"
 
+  el "form" $ do
+    _ <- passwordInput def { _inputConfig_label = constDyn "Password" }
+    _ <- passwordInput def
+      { _inputConfig_label  = constDyn "Password"
+      , _inputConfig_status = constDyn $ InputNeutral
+        (Just
+          "Use 8 or more characters with a mix of letters, numbers & symbols"
+        )
+      }
+    _ <- passwordInput def { _inputConfig_label  = constDyn "Disabled"
+                           , _inputConfig_status = constDyn InputDisabled
+                           }
+    _ <- passwordInput def
+      { _inputConfig_label  = constDyn "Error"
+      , _inputConfig_status = constDyn
+        $ InputError "Use 8 or more characters for your password"
+      }
+    _ <- passwordInput def
+      { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn
+                                $ InputSuccess "Password meets requirements"
+      }
+    pure ()
+
+  pure never

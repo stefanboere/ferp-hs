@@ -37,6 +37,8 @@ module Components.Input.Basic
   , datalistInput'
   , inputGroup
   , inputGroup'
+  , passwordInput
+  , passwordInput'
   )
 where
 
@@ -156,6 +158,13 @@ inputStyle = do
     flexDirection column
     verticalAlign vAlignTop
     flexGrow 1
+
+  ".nopointer" ? do
+    pointerEvents none
+    cursor cursorDefault
+
+  input ? do
+    letterSpacing (rem (1 / 16))
 
 datalistStyle :: Css
 datalistStyle = do
@@ -302,11 +311,11 @@ selectElementStyle = do
     "-webkit-appearance" -: "none"
     "-moz-appearance" -: "none"
 
-  (input <> Clay.select) |+ ".select-icon" ? do
+  (input <> Clay.select) |+ ".input-icon" ? do
     Clay.display inlineBlock
-    transform (translate (rem (-1.0)) (rem 0.2))
-    pointerEvents none
+    transform (translate (rem (-1.2)) (rem 0.2))
     ".icon" ? position absolute
+    cursor pointer
 
 textAreaElementStyle :: Css
 textAreaElementStyle = textarea ? do
@@ -517,14 +526,14 @@ labeled cfg editor = do
   editor idStr cfg
 
 textInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m)
   => InputConfig t Text
   -> m (InputEl t Text)
-textInput cfg = labeled cfg (textInput' (pure ()))
+textInput cfg = labeled cfg (textInput' (pure never))
 
 textInput'
-  :: (PostBuild t m, DomBuilder t m)
-  => m ()
+  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  => m (Event t (Map AttributeName (Maybe Text)))
   -> Text
   -> InputConfig t Text
   -> m (InputEl t Text)
@@ -533,23 +542,25 @@ textInput' after' idStr cfg = do
 
   elClass "div" "input" $ do
     n <- elClass "div" "flex-row" $ do
-      n' <-
-        inputElement
-        $  def
-        &  inputElementConfig_initialValue
-        .~ _inputConfig_initialValue cfg
-        &  inputElementConfig_setValue
-        .~ _inputConfig_setValue cfg
-        &  inputElementConfig_elementConfig
-        .  elementConfig_initialAttributes
-        .~ _inputConfig_attributes cfg
-        <> "id"
-        =: idStr
-        &  inputElementConfig_elementConfig
-        .  elementConfig_modifyAttributes
-        .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+      rec
+        n' <-
+          inputElement
+          $  def
+          &  inputElementConfig_initialValue
+          .~ _inputConfig_initialValue cfg
+          &  inputElementConfig_setValue
+          .~ _inputConfig_setValue cfg
+          &  inputElementConfig_elementConfig
+          .  elementConfig_initialAttributes
+          .~ _inputConfig_attributes cfg
+          <> "id"
+          =: idStr
+          &  inputElementConfig_elementConfig
+          .  elementConfig_modifyAttributes
+          .~ mergeWith (<>)
+                       [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
 
-      after'
+        attrEv <- after'
 
       statusMessageIcon (_inputConfig_status cfg)
       pure n'
@@ -638,7 +649,7 @@ numberRangeInput' isReg nc idStr cfg = do
 
   rec
     n <- textInput'
-      (pure ())
+      (pure never)
       idStr
       cfg
         { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
@@ -855,7 +866,7 @@ selectInput' idStr cfg = do
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
 
 selectIcon :: (PostBuild t m, DomBuilder t m) => m ()
-selectIcon = elClass "div" "select-icon" arrowElement
+selectIcon = elClass "div" "input-icon nopointer" arrowElement
  where
   arrowElement =
     icon def { _iconConfig_direction = constDyn DirDown } angleIcon
@@ -1081,7 +1092,7 @@ datalistInput' idStr options cfg = textInput'
 
     _ <- elAttr "datalist" ("id" =: listIdStr) $ listWithKey options mkOption
 
-    pure ()
+    pure never
 
   mkOption k v = elAttr "option" ("value" =: pack (show k)) (dynText v)
 
@@ -1129,4 +1140,41 @@ inputGroup' idStr cfg cnt = do
     go :: Ord k => k -> Maybe a -> Map k a -> Map k a
     go k ma = Map.alter (const ma) k
 
+
+passwordInput
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, MonadIO m)
+  => InputConfig t Text
+  -> m (Dynamic t Text)
+passwordInput cfg = _inputEl_value <$> labeled cfg passwordInput'
+
+passwordInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => Text
+  -> InputConfig t Text
+  -> m (InputEl t Text)
+passwordInput' idStr cfg = textInput'
+  after'
+  idStr
+  cfg
+    { _inputConfig_attributes = _inputConfig_attributes cfg
+                                <> "type"
+                                =: "password"
+    }
+ where
+  after' = do
+    rec hideDyn    <- toggle True toggleEv
+        toggleEvEv <- dyn (eyeIconEl <$> hideDyn)
+        toggleEv   <- switchHold never toggleEvEv
+    pure $ mkAttrs <$> updated hideDyn
+
+  mkAttrs True  = "type" =: Just "password"
+  mkAttrs False = "type" =: Just "text"
+
+eyeIconEl :: (PostBuild t m, DomBuilder t m) => Bool -> m (Event t ())
+eyeIconEl hide = do
+  (e, _) <- elClass' "div" "input-icon" arrowElement
+  pure $ domEvent Click e
+ where
+  arrowElement = icon def { _iconConfig_size = 5 / 4 }
+                      (if hide then eyeIcon else eyeHideIcon)
 
