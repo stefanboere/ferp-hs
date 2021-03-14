@@ -184,9 +184,6 @@ inputStyle = do
     pointerEvents none
     cursor cursorDefault
 
-  input ? do
-    letterSpacing (rem (1 / 16))
-
 datalistStyle :: Css
 datalistStyle = do
   datalist ? Clay.display none

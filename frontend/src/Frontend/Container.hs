@@ -19,6 +19,7 @@ import           Data.Text                      ( pack )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
+                                                , textInput
                                                 , Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
@@ -76,7 +77,7 @@ containerHandler =
     :<|> containerTreeview
 
 containerAccordion
-  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+  :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 containerAccordion = do
   el "h1" $ text "Accordion"
   accordion never
@@ -90,7 +91,22 @@ containerAccordion = do
             (text "This is the content for accordion panel #3")
 
   el "h2" $ text "Stackview"
-  text "WIP"
+  el "div" $ do
+    _ <- accordionEmpty
+      (stackview "Label 1"
+                 (textInput' (pure never) "" (inputConfig "Content 1"))
+      )
+    _ <- accordion' never (stackview "Label 2" (text "Content 2")) $ do
+      _ <- stackview
+        "Sub-label 1"
+        (textInput' (pure never) "" (inputConfig "Sub-content 1"))
+      stackview "Sub-label 2" (text "Sub-content 2")
+      stackview "Sub-label 3" (text "Sub-content 3")
+    _ <- accordion' never (stackview "Label 3" (text "Content 3")) $ do
+      stackview "Sub-label 1" (text "Sub-content 1")
+      stackview "Sub-label 2" (text "Sub-content 2")
+      stackview "Sub-label 3" (text "Sub-content 3")
+    pure ()
 
   el "h2" $ text "Stepper"
   text "WIP"
