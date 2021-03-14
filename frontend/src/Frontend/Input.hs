@@ -132,9 +132,11 @@ basicHandler = do
     _ <- textInput def { _inputConfig_label      = constDyn "Search"
                        , _inputConfig_attributes = "type" =: "search"
                        }
-    _ <- textInput def { _inputConfig_label      = constDyn "Submit"
-                       , _inputConfig_attributes = "type" =: "submit"
-                       }
+    _ <- textInput (inputConfig "Submit") { _inputConfig_label      = constDyn
+                                            "Submit"
+                                          , _inputConfig_attributes = "type"
+                                            =: "submit"
+                                          }
     _ <- textInput def { _inputConfig_label      = constDyn "Tel"
                        , _inputConfig_attributes = "type" =: "tel"
                        }

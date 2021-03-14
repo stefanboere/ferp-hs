@@ -184,6 +184,12 @@ inputStyle = do
     pointerEvents none
     cursor cursorDefault
 
+  input # ("type" @= "submit") ? do
+    important $ background nord7'
+    justifyContent center
+    hover Clay.& enabled Clay.& do
+      important $ background (rgb 121 184 202)
+
 datalistStyle :: Css
 datalistStyle = do
   datalist ? Clay.display none
