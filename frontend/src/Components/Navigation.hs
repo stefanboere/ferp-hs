@@ -192,7 +192,7 @@ navGroup
   -> m a
 navGroup setOpen titl cnt = elClass "section" "nav-group" $ do
   idStr <- randomId
-  checkboxInputSimple setOpen $ "id" =: idStr
+  checkboxInputSimple False setOpen $ "id" =: idStr
   el "div" $ do
     elAttr "label" ("for" =: idStr) $ do
       el "span" titl
@@ -257,7 +257,7 @@ app cfg primary secondary actions page = do
 
 navigationCheckbox :: (DomBuilder t m) => Text -> Event t Bool -> m ()
 navigationCheckbox idStr setOpen =
-  checkboxInputSimple setOpen $ "id" =: idStr <> "class" =: "nav-opener"
+  checkboxInputSimple False setOpen $ "id" =: idStr <> "class" =: "nav-opener"
 
 primaryNavigation
   :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()

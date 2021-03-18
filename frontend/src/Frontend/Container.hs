@@ -77,7 +77,8 @@ containerHandler =
     :<|> containerTreeview
 
 containerAccordion
-  :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+  :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => m (Event t URI)
 containerAccordion = do
   el "h1" $ text "Accordion"
   accordion never
@@ -92,24 +93,35 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- accordionEmpty
-      (stackview "Label 1"
-                 (textInput' (pure never) "" (inputConfig "Content 1"))
-      )
-    _ <- accordion' never (stackview "Label 2" (text "Content 2")) $ do
-      _ <- stackview
+    _ <- stackviewEmpty "Label 1"
+                        (textInput' (pure never) "" (inputConfig "Content 1"))
+    _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
+      _ <- stackviewRow
         "Sub-label 1"
         (textInput' (pure never) "" (inputConfig "Sub-content 1"))
-      stackview "Sub-label 2" (text "Sub-content 2")
-      stackview "Sub-label 3" (text "Sub-content 3")
-    _ <- accordion' never (stackview "Label 3" (text "Content 3")) $ do
-      stackview "Sub-label 1" (text "Sub-content 1")
-      stackview "Sub-label 2" (text "Sub-content 2")
-      stackview "Sub-label 3" (text "Sub-content 3")
+      stackviewRow "Sub-label 2" (text "Sub-content 2")
+      stackviewRow "Sub-label 3" (text "Sub-content 3")
+    _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do
+      stackviewRow "Sub-label 1" (text "Sub-content 1")
+      stackviewRow "Sub-label 2" (text "Sub-content 2")
+      stackviewRow "Sub-label 3" (text "Sub-content 3")
     pure ()
 
   el "h2" $ text "Stepper"
-  text "WIP"
+
+  postBuildEv <- getPostBuild
+  el "div" $ do
+    (step1Ev, _) <-
+      stepper postBuildEv 1 "Legal name" "Description goes here" $ do
+        btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
+                     (text "Next")
+        pure (AccordionSuccess <$ btnEv, ())
+
+    _ <- stepper step1Ev 2 "Contact information" "Description goes here" $ do
+      btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
+                   (text "Submit")
+      pure (AccordionError <$ btnEv, ())
+    pure ()
 
   pure never
 
