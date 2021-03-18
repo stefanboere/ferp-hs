@@ -104,14 +104,14 @@ stackviewStyle = do
       marginTop (rem (-1 / 4))
     ".helptext" ? marginAll nil
 
-  ".content" |> ".stack-row" # firstOfType ? marginTop (rem (-2))
+  ".content" |> ".stack-row" # firstOfType ? marginTop (rem (-3 / 2))
   ".content" |> ".stack-row" ? do
     padding (rem (1 / 2)) (rem (1 / 2)) (rem (1 / 2)) (rem 2)
     marginLeft (rem (-2))
     marginRight (rem (-2))
     borderBottom solid (px 1) grey0'
   ".content" |> ".stack-row" # lastOfType ? do
-    marginBottom (rem (-2))
+    marginBottom (rem (-3 / 2))
     borderBottomWidth nil
 
   ".stack-view" Clay.** input # checked |+ star Clay.** ".content" ? do
