@@ -31,7 +31,6 @@ import           Components
 -- brittany-disable-next-binding
 type ContainerApi = "container" :> "accordion" :> View
         :<|> "container" :> "card" :> View
-        :<|> "container" :> "login" :> View
         :<|> "container" :> "modal" :> View
         :<|> "container" :> "signpost" :> View
         :<|> "container" :> "tab" :> View
@@ -42,9 +41,9 @@ type ContainerApi = "container" :> "accordion" :> View
 containerApi :: Proxy ContainerApi
 containerApi = Proxy
 
-containerAccordionLink, containerCardLink, containerLoginLink, containerModalLink, containerSignpostLink, containerTabLink, containerTableLink, containerTimelineLink, containerTreeviewLink
+containerAccordionLink, containerCardLink, containerModalLink, containerSignpostLink, containerTabLink, containerTableLink, containerTimelineLink, containerTreeviewLink
   :: Link
-containerAccordionLink :<|> containerCardLink :<|> containerLoginLink :<|> containerModalLink :<|> containerSignpostLink :<|> containerTabLink :<|> containerTableLink :<|> containerTimelineLink :<|> containerTreeviewLink
+containerAccordionLink :<|> containerCardLink :<|> containerModalLink :<|> containerSignpostLink :<|> containerTabLink :<|> containerTableLink :<|> containerTimelineLink :<|> containerTreeviewLink
   = allLinks containerApi
 
 containerLinks
@@ -55,7 +54,6 @@ containerLinks dynUri = safelinkGroup
   (text "Containers")
   [ safelink dynUri containerAccordionLink $ text "Accordion"
   , safelink dynUri containerCardLink $ text "Card"
-  , safelink dynUri containerLoginLink $ text "Login"
   , safelink dynUri containerModalLink $ text "Modal"
   , safelink dynUri containerSignpostLink $ text "Signpost"
   , safelink dynUri containerTabLink $ text "Tab"
@@ -68,7 +66,6 @@ containerHandler :: MonadWidget t m => RouteT ContainerApi m (Event t URI)
 containerHandler =
   containerAccordion
     :<|> containerCard
-    :<|> containerLogin
     :<|> containerModal
     :<|> containerSignpost
     :<|> containerTab
@@ -174,13 +171,6 @@ containerCard = do
       ("src" =: "https://via.placeholder.com/350x150?text=Image")
       blank
 
-
-  pure never
-
-containerLogin :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
-containerLogin = do
-  el "h1" $ text "Login"
-  text "WIP"
 
   pure never
 
