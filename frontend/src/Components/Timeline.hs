@@ -59,7 +59,7 @@ timelineStyle = do
 timelineHorizontalStyle :: Css
 timelineHorizontalStyle = do
   ".timeline-horizontal" ? do
-    "grid-template-columns" -: "repeat(5, minmax(10rem, 1fr))"
+    "grid-template-columns" -: "repeat(auto-fit, minmax(0rem, 1fr))"
     "grid-template-rows" -: "1rem 2rem auto"
 
     ".timeline-header" ? do
