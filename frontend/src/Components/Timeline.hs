@@ -52,6 +52,7 @@ timelineStyle = do
       content (stringContent "")
       display block
       border solid 1 (lighten 0.5 grey0')
+      backgroundColor (lighten 0.5 grey0')
 
     lastChild & before & display none
 
