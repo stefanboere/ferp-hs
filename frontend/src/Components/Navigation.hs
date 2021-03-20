@@ -7,6 +7,7 @@ module Components.Navigation
   , app
   , appStyle
   , tabs
+  , tabsVertical
   -- * Helpers
   , ahref
   , liahref
@@ -57,6 +58,7 @@ appStyle = do
   commonAppHeaderStyle
   commonNavStyle
   tabsStyle
+  verticalTabsStyle
   query Clay.all [Media.maxWidth 768]
     $ mconcat [mobileNavStyle, mobileHeaderStyle]
   query Clay.all [Media.minWidth 768]
@@ -483,6 +485,45 @@ tabs
   => Map k (Text, m ())
   -> m ()
 tabs = tabDisplay "tabs" "active"
+
+verticalTabsStyle :: Css
+verticalTabsStyle = do
+  ".tabs-vertical-container" ? do
+    display flex
+
+  ".tabs-vertical" ? do
+    lineHeight (rem 2)
+    margin nil (rem (3 / 2)) nil nil
+    paddingAll (rem (1 / 4))
+
+    li ** a ? do
+      display block
+      cursor pointer
+      margin nil (rem (3 / 2)) nil nil
+      padding nil (rem (1 / 2)) nil (rem (1 / 2))
+      textDecoration none
+      fontColor nord3'
+      minWidth (rem 10)
+      borderLeft solid 3 white0'
+
+      hover Clay.& do
+        background nord6'
+        borderLeft solid 3 nord10'
+
+    li ? do
+      display block
+
+      ".active" Clay.& a ? do
+        background nord4'
+        fontColor nord0'
+        borderLeft solid 3 nord10'
+
+tabsVertical
+  :: (Ord k, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => Map k (Text, m ())
+  -> m ()
+tabsVertical =
+  elClass "div" "tabs-vertical-container" . tabDisplay "tabs-vertical" "active"
 
 mobileNavStyle :: Css
 mobileNavStyle = do

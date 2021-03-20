@@ -238,7 +238,12 @@ containerTab = do
     )
 
   el "h2" $ text "Vertical tab"
-  text "WIP"
+  tabsVertical
+    (  1
+    =: ("Tab 1", text "Tab 1 content")
+    <> (2 :: Int)
+    =: ("Tab 2", text "Tab 2 content")
+    )
 
   pure never
 
