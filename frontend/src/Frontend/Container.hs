@@ -287,9 +287,32 @@ containerTable = do
 containerTimeline :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
 containerTimeline = do
   el "h1" $ text "Timeline"
-  text "WIP"
+  timeline timelineSteps
+  timelineVertical timelineSteps
 
   pure never
+
+ where
+  timelineSteps = do
+    _ <- timelineStep
+      (constDyn "21:13 am")
+      (constDyn TimelineSuccess)
+      "Buy ingredients"
+      (  el "p" (text "At the local supermarket perhaps")
+      >> btn def { _buttonConfig_priority = ButtonSecondary } (text "Action")
+      )
+    timelineStep (constDyn "21:23")
+                 (constDyn TimelineCurrent)
+                 "Mix ingredients"
+                 (pure ())
+    timelineStep (constDyn "21:43")
+                 (constDyn TimelineError)
+                 "Put it in the oven"
+                 (pure ())
+    timelineStep (constDyn "22:10")
+                 (constDyn TimelineNotStarted)
+                 "Enjoy your cake"
+                 (pure ())
 
 containerTreeview :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
 containerTreeview = do

@@ -53,6 +53,7 @@ css = do
   alertStyle
   tagStyle
   progressStyle
+  timelineStyle
 
 withHeader
   :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)

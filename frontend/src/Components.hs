@@ -10,6 +10,7 @@ module Components
   , module Components.Progress
   , module Components.Table
   , module Components.Tag
+  , module Components.Timeline
   )
 where
 
@@ -24,3 +25,4 @@ import           Components.Navigation
 import           Components.Progress
 import           Components.Table
 import           Components.Tag
+import           Components.Timeline

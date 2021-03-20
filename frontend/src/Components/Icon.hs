@@ -33,6 +33,8 @@ module Components.Icon
   , eyeHideIcon
   , clockIcon
   , calendarIcon
+  , circleIcon
+  , dotCircleIcon
   )
 where
 
@@ -318,3 +320,14 @@ calendarIcon = svg $ do
   path "M10,10a1,1,0,0,0,1-1V3A1,1,0,0,0,9,3V9A1,1,0,0,0,10,10Z"
   path "M26,10a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V9A1,1,0,0,0,26,10Z"
   rect 13 6 10 2
+
+circleIcon :: (PostBuild t m, DomBuilder t m) => m ()
+circleIcon = svg $ do
+  path
+    "M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"
+
+dotCircleIcon :: (PostBuild t m, DomBuilder t m) => m ()
+dotCircleIcon = svg $ do
+  path "M18,11a7,7,0,1,1-7,7,7,7,0,0,1,7-7"
+  path
+    "M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"

@@ -146,13 +146,13 @@ spinnerStyle = do
       animation "spin" 1 linear 0 infinite normal none
 
   ".spinner-large" # before ? do
-    width (rem 4)
-    height (rem 4)
+    width (rem 4 @-@ px 10)
+    height (rem 4 @-@ px 10)
     borderWidth (px 5)
 
   ".spinner-medium" # before ? do
-    width (rem 2)
-    height (rem 2)
+    width (rem 2 @-@ px 6)
+    height (rem 2 @-@ px 6)
     borderWidth (px 3)
 
   ".spinner-inline" # before ? do
