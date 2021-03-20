@@ -112,12 +112,12 @@ containerAccordion = do
       stepper postBuildEv 1 "Legal name" "Description goes here" $ do
         btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
                      (text "Next")
-        pure (AccordionSuccess <$ btnEv, ())
+        pure (StepperSuccess <$ btnEv, ())
 
     _ <- stepper step1Ev 2 "Contact information" "Description goes here" $ do
       btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
                    (text "Submit")
-      pure (AccordionError <$ btnEv, ())
+      pure (StepperError <$ btnEv, ())
     pure ()
 
   pure never
@@ -175,7 +175,7 @@ containerCard = do
   pure never
 
 containerModal
-  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
+  :: (MonadIO m, MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t URI)
 containerModal = do
   el "h1" $ text "Modal"
@@ -201,10 +201,33 @@ containerModal = do
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
 
   el "h2" $ text "Wizard"
-  text "WIP"
+
+  launchWizardMediumEv <- btn def (text "Medium")
+  _ <- modal ModalMedium (wizardContent <$ launchWizardMediumEv)
+
+  launchWizardLargeEv <- btn def (text "Large")
+  _ <- modal ModalLarge (wizardContent <$ launchWizardLargeEv)
+
+  launchWizardXLEv <- btn def (text "X-Large")
+  _ <- modal ModalExtraLarge (wizardContent <$ launchWizardXLEv)
+
 
   pure never
  where
+  wizardContent = wizard "Title" $ do
+    step1 <- wizardPage "Legal name" $ do
+      cardContent $ el "p" $ text "This is the content of the first page"
+
+      (cancelEv, btnEv) <- modalFooter (btn def (text "Next"))
+      pure (constDyn (), StepperSuccess <$ btnEv, cancelEv)
+
+    step2 <- wizardPage "Contact information long title" $ do
+      cardContent $ el "p" $ text "This is the content of the second page"
+
+      (cancelEv, btnEv) <- modalFooter (btn def (text "Submit"))
+      pure (constDyn (), StepperError <$ btnEv, cancelEv)
+    pure $ (,) <$> step1 <*> step2
+
   modalContent = card $ do
     x <- cardHeader (text "Header" >> modalCloseBtn)
 

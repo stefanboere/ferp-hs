@@ -3,7 +3,7 @@
 module Components.Accordion
   ( accordion
   , accordionStyle
-  , AccordionState(..)
+  , StepperState(..)
   , stackview
   , stackviewEmpty
   , stackviewRow
@@ -29,13 +29,13 @@ import           Components.Input
 import           Components.Icon
 import           Nordtheme
 
-data AccordionState = AccordionNeutral
-                    | AccordionSuccess
-                    | AccordionError
+data StepperState = StepperNeutral
+                    | StepperSuccess
+                    | StepperError
                     deriving (Eq, Show)
 
-instance Default AccordionState where
-  def = AccordionNeutral
+instance Default StepperState where
+  def = StepperNeutral
 
 accordionStyle :: Css
 accordionStyle = mconcat [accordionStyle', stackviewStyle, stepperStyle]
@@ -137,12 +137,13 @@ stepperStyle = ".stepper" ? do
     flexDirection column
     justifyContent center
     width (rem (3 / 2))
+    minWidth (rem (3 / 2))
 
 stepper'
   :: (MonadIO m, DomBuilder t m, PostBuild t m)
   => Text
   -> Dynamic t Bool
-  -> Dynamic t AccordionState
+  -> Dynamic t StepperState
   -> Bool
   -> Event t Bool
   -> m b
@@ -164,10 +165,10 @@ stepper' cls disabledDyn state initOpen setOpen titl cnt =
   mkCheckbox _     True  = pure ()
   mkCheckbox idStr False = checkboxInputSimple initOpen setOpen $ "id" =: idStr
 
-  stateCls _                True = "accordion disabled" <> cls
-  stateCls AccordionNeutral _    = "accordion" <> cls
-  stateCls AccordionError   _    = "accordion error" <> cls
-  stateCls AccordionSuccess _    = "accordion success" <> cls
+  stateCls _              True = "accordion disabled" <> cls
+  stateCls StepperNeutral _    = "accordion" <> cls
+  stateCls StepperError   _    = "accordion error" <> cls
+  stateCls StepperSuccess _    = "accordion success" <> cls
 
 accordion'
   :: (MonadIO m, DomBuilder t m, PostBuild t m)
@@ -218,7 +219,7 @@ stepper
   -> Integer
   -> Text
   -> Text
-  -> m (Event t AccordionState, b)
+  -> m (Event t StepperState, b)
   -> m (Event t (), b)
 stepper openEv stepNum titl descr cnt = do
   let setOpenEv = True <$ openEv
@@ -233,7 +234,7 @@ stepper openEv stepNum titl descr cnt = do
         (heading stateDyn)
         cnt
       stateDyn <- holdDyn def stateEv
-      let successEv = ffilter (== AccordionSuccess) stateEv
+      let successEv = ffilter (== StepperSuccess) stateEv
 
   pure (() <$ successEv, b)
  where
@@ -241,10 +242,10 @@ stepper openEv stepNum titl descr cnt = do
     _ <- elClass "span" "stepnum" $ dyn (numOrIcon <$> stateDyn)
     stackviewRow (constDyn titl) (text descr)
 
-  numOrIcon AccordionSuccess = icon
+  numOrIcon StepperSuccess = icon
     def { _iconConfig_status = constDyn (Just Success) }
     successStandardIcon
-  numOrIcon AccordionError =
+  numOrIcon StepperError =
     icon def { _iconConfig_status = constDyn (Just Danger) } errorStandardIcon
   numOrIcon _ = text ((<> ".") . pack . show $ stepNum)
 

@@ -51,7 +51,6 @@ import           Components.Input.Basic         ( randomId
 import           Components.Icon
 import           Nordtheme
 
-
 appStyle :: Css
 appStyle = do
   typographyStyle
@@ -492,31 +491,49 @@ verticalTabsStyle = do
     display flex
 
   ".tabs-vertical" ? do
-    lineHeight (rem 2)
     margin nil (rem (3 / 2)) nil nil
     paddingAll (rem (1 / 4))
 
     li ** a ? do
-      display block
+      display flex
       cursor pointer
       margin nil (rem (3 / 2)) nil nil
-      padding nil (rem (1 / 2)) nil (rem (1 / 2))
+      padding (rem (1 / 2)) (rem (1 / 2)) (rem (1 / 2)) (rem (1 / 2))
       textDecoration none
       fontColor nord3'
       minWidth (rem 10)
+      lineHeight (rem 1)
       borderLeft solid 3 white0'
 
-      hover Clay.& do
+      Clay.span ? textOverflowEllipsis
+
+      hover Clay.& Clay.not (star # ".disabled") Clay.& do
         background nord6'
         borderLeft solid 3 nord10'
+
+      ".error" Clay.& do
+        important $ borderLeftColor nord11'
+
+      ".success" Clay.& do
+        important $ borderLeftColor green1'
+
+      ".disabled" Clay.& do
+        fontColor grey0'
+        cursor notAllowed
 
     li ? do
       display block
 
       ".active" Clay.& a ? do
-        background nord4'
+        important $ background nord4'
         fontColor nord0'
         borderLeft solid 3 nord10'
+
+textOverflowEllipsis :: Css
+textOverflowEllipsis = do
+  overflow hidden
+  whiteSpace nowrap
+  textOverflow overflowEllipsis
 
 tabsVertical
   :: (Ord k, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -616,10 +633,7 @@ commonNavStyle = do
       cursor pointer
       lineHeight (rem 2)
 
-    (Clay.span <> a) ? do
-      overflow hidden
-      whiteSpace nowrap
-      textOverflow overflowEllipsis
+    (Clay.span <> a) ? textOverflowEllipsis
 
     input # ("type" @= "checkbox") ? display none
 

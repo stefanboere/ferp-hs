@@ -70,6 +70,7 @@ library
     , ghcjs-dom
     , http-api-data
     , http-types
+    , mtl
     , process
     , random
     , reflex
