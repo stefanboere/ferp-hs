@@ -8,6 +8,8 @@ module Components.Accordion
   , stackviewEmpty
   , stackviewRow
   , stepper
+  , stepperPage
+  , StepperPage
   )
 where
 
@@ -16,6 +18,7 @@ import           Prelude                 hiding ( rem )
 import           Clay                    hiding ( icon )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Control.Monad.State
 import           Data.Default
 import           Data.Text                      ( Text
                                                 , pack
@@ -149,8 +152,8 @@ stepper'
   -> m b
   -> m a
   -> m (b, a)
-stepper' cls disabledDyn state initOpen setOpen titl cnt =
-  elDynClass "section" (stateCls <$> state <*> disabledDyn) $ do
+stepper' cls disabledDyn state' initOpen setOpen titl cnt =
+  elDynClass "section" (stateCls <$> state' <*> disabledDyn) $ do
     idStr <- randomId
     _     <- dyn (mkCheckbox idStr <$> disabledDyn)
     el "div" $ do
@@ -213,39 +216,49 @@ stackviewRow titl cnt = elClass "div" "stack-row" $ do
   dynText titl
   elClass "div" "stack-content" cnt
 
+
+type StepperPage t m a = StateT (Integer, Event t ()) m a
+
 stepper
+  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  => StepperPage t m (Dynamic t a)
+  -> m (Event t a)
+stepper cnt = do
+  postBuildEv           <- getPostBuild
+  (dynA, (_, submitEv)) <- el "div" $ runStateT cnt (0, postBuildEv)
+  pure $ tagPromptlyDyn dynA submitEv
+
+stepperPage
   :: (MonadIO m, DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => Event t ()
-  -> Integer
+  => Text
   -> Text
-  -> Text
-  -> m (Event t StepperState, b)
-  -> m (Event t (), b)
-stepper openEv stepNum titl descr cnt = do
+  -> m (a, Event t StepperState)
+  -> StepperPage t m a
+stepperPage titl descr cnt = StateT $ \(stepNum, openEv) -> do
   let setOpenEv = True <$ openEv
   canOpenDyn <- foldDyn (||) False setOpenEv
 
-  rec ((), (stateEv, b)) <- stepper'
+  rec ((), (b, stateEv)) <- stepper'
         " stepper"
         (Prelude.not <$> canOpenDyn)
         stateDyn
         True
         (leftmost [setOpenEv, False <$ successEv])
-        (heading stateDyn)
+        (heading stepNum stateDyn)
         cnt
       stateDyn <- holdDyn def stateEv
       let successEv = ffilter (== StepperSuccess) stateEv
 
-  pure (() <$ successEv, b)
+  pure (b, (stepNum + 1, () <$ successEv))
  where
-  heading stateDyn = do
-    _ <- elClass "span" "stepnum" $ dyn (numOrIcon <$> stateDyn)
+  heading stepNum stateDyn = do
+    _ <- elClass "span" "stepnum" $ dyn (numOrIcon stepNum <$> stateDyn)
     stackviewRow (constDyn titl) (text descr)
 
-  numOrIcon StepperSuccess = icon
+  numOrIcon _ StepperSuccess = icon
     def { _iconConfig_status = constDyn (Just Success) }
     successStandardIcon
-  numOrIcon StepperError =
+  numOrIcon _ StepperError =
     icon def { _iconConfig_status = constDyn (Just Danger) } errorStandardIcon
-  numOrIcon _ = text ((<> ".") . pack . show $ stepNum)
+  numOrIcon stepNum _ = text ((<> ".") . pack . show $ stepNum)
 

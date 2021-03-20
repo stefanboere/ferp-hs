@@ -106,19 +106,17 @@ containerAccordion = do
 
   el "h2" $ text "Stepper"
 
-  postBuildEv <- getPostBuild
-  el "div" $ do
-    (step1Ev, _) <-
-      stepper postBuildEv 1 "Legal name" "Description goes here" $ do
-        btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
-                     (text "Next")
-        pure (StepperSuccess <$ btnEv, ())
+  _ <- stepper $ do
+    page1 <- stepperPage "Legal name" "Description goes here" $ do
+      btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
+                   (text "Next")
+      pure (constDyn (), StepperSuccess <$ btnEv)
 
-    _ <- stepper step1Ev 2 "Contact information" "Description goes here" $ do
+    page2 <- stepperPage "Contact information" "Description goes here" $ do
       btnEv <- btn def { _buttonConfig_priority = ButtonSecondary }
                    (text "Submit")
-      pure (StepperError <$ btnEv, ())
-    pure ()
+      pure (constDyn (), StepperError <$ btnEv)
+    pure ((,) <$> page1 <*> page2)
 
   pure never
 
