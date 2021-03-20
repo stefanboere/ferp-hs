@@ -2,7 +2,8 @@
 let
   unstable = import ./nix { };
   sources = import ./nix/sources.nix { };
-in (import ./reflex-platform { inherit system; }).project ({ pkgs, ... }: {
+in (import sources.reflex-platform { inherit system; }).project
+({ pkgs, ... }: {
   useWarp = true;
   withHoogle = false;
   packages = {
