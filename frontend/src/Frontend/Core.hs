@@ -235,6 +235,23 @@ coreButton = do
                       (spantext "Archive items" >> badge' def 10)
   btnBadge1 <- btn def (spantext "Mark as read" >> badge' def 100)
 
+  el "h2" $ text "Dropdown"
+  dropdownEv <- btnDropdown def (text "Dropdown") $ do
+    dropdownHeader "Dropdown header"
+    actionEv <- btn def (text "Action")
+    _        <- btn def { _buttonConfig_state = constDyn ActionDisabled }
+                    (text "Disabled link")
+    divider
+    loremEv      <- btn def (text "Lorem.")
+    loremIpsumEv <- btnDropdown def (text "Lorem ipsum.") $ do
+      fooEv <- btn def (text "Foo.")
+      barEv <- btnDropdown def (text "Bar.") $ do
+        btn def (text "Baz.")
+      foo2Ev <- btn def (text "Foo 2.")
+      pure $ leftmost [fooEv, barEv, foo2Ev]
+    ipsumEv <- btn def (text "Ipsum")
+    pure $ leftmost [actionEv, loremEv, loremIpsumEv, ipsumEv]
+
   el "h2" $ text "Interaction"
   btnState1 <- btn
     ButtonConfig { _buttonConfig_priority = def
@@ -281,9 +298,6 @@ coreButton = do
     , (ButtonPrimary Danger , "Danger")
     ]
 
-  el "h2" $ text "Dropdown"
-  el "p" $ text "WIP"
-
   (countDyn :: Dynamic t Integer) <- count $ leftmost
     [ btn1Ev
     , btn2Ev
@@ -301,24 +315,9 @@ coreButton = do
     , btnState1
     , btnState2
     , btnState3
+    , dropdownEv
     ]
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
-
-  _ <- btnDropdown def (text "Dropdown") $ do
-    dropdownHeader "Dropdown header"
-    actionEv <- btn def (text "Action")
-    _        <- btn def { _buttonConfig_state = constDyn ActionDisabled }
-                    (text "Disabled link")
-    divider
-    loremEv      <- btn def (text "Lorem.")
-    loremIpsumEv <- btnDropdown def (text "Lorem ipsum.") $ do
-      fooEv <- btn def (text "Foo.")
-      barEv <- btnDropdown def (text "Bar.") $ do
-        btn def (text "Baz.")
-      foo2Ev <- btn def (text "Foo 2.")
-      pure $ leftmost [fooEv, barEv, foo2Ev]
-    ipsumEv <- btn def (text "Ipsum")
-    pure $ leftmost [actionEv, loremEv, loremIpsumEv, ipsumEv]
 
   pure never
 
