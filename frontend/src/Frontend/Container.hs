@@ -249,7 +249,7 @@ containerSignpost = do
     mapM_ mkSignpost [minBound .. maxBound]
 
   el "h2" $ text "Tooltip"
-  text "WIP"
+  tooltip TopRight $ constDyn "A tooltip can contain text content"
 
   pure never
 

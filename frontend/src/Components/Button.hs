@@ -14,7 +14,8 @@ module Components.Button
   , dropdownHeader
   , divider
   , signpost
-  , TooltipPosition
+  , TooltipPosition(..)
+  , tooltip
   )
 where
 
@@ -78,7 +79,12 @@ instance Reflex t => Default (ButtonConfig t) where
                      }
 
 buttonStyle :: Css
-buttonStyle = buttonStyle' <> btnGroupStyle <> dropdownStyle <> signpostStyle
+buttonStyle =
+  buttonStyle'
+    <> btnGroupStyle
+    <> dropdownStyle
+    <> signpostStyle
+    <> tooltipStyle
 
 buttonStyle' :: Css
 buttonStyle' =
@@ -257,7 +263,7 @@ dropdownStyle = do
     marginTop (rem (1 / 4))
     marginBottom (rem (1 / 4))
 
-  (".dropdown" <> ".signpost") ? do
+  (".dropdown" <> ".signpost" <> ".tooltip") ? do
     Clay.display inlineFlex
     position relative
     ".angle-icon" ? do
@@ -291,7 +297,7 @@ dropdownStyle = do
     ".open" Clay.& do
       Clay.display flex
 
-  (".signpost-menu" <> ".dropdown-menu") ? do
+  (".signpost-menu" <> ".dropdown-menu" <> ".tooltip-menu") ? do
     Clay.display none
     position absolute
     maxWidth (rem 20)
@@ -393,15 +399,15 @@ signpostStyle = do
 
     ".button-close" ? do
       position absolute
-      right nil
-      top nil
-      important $ marginRight (px 6)
-
-    ".open" Clay.& do
-      Clay.display block
+      right (rem (1 / 4))
+      top (rem (1 / 4))
 
     ".button-close" |+ star ? do
       marginTop nil
+
+  ".signpost-menu" <> ".tooltip-menu" ? do
+    ".open" Clay.& do
+      Clay.display block
 
     before Clay.& do
       content $ stringContent ""
@@ -411,8 +417,18 @@ signpostStyle = do
       height (rem (1 / 2))
       backgroundColor inherit
 
+  (".signpost" <> ".tooltip") ? do
+    button # ".tertiary" ? do
+      paddingLeft (rem (1 / 4))
+      paddingRight (rem (1 / 4))
+      marginAll nil
+
+    button # ".open" ? do
+      color (rgb 115 151 186)
+      "fill" -: showColor (rgb 115 151 186)
+
   ".top-left" ? do
-    bottom (pct 100)
+    bottom (pct 100 @+@ rem (1 / 2))
     right (pct 50)
     borderBottomRightRadius nil nil
     before Clay.& do
@@ -426,7 +442,7 @@ signpostStyle = do
       transforms [skewY (deg 45)]
 
   ".top-middle" ? do
-    bottom (pct 100)
+    bottom (pct 100 @+@ rem (1 / 2))
 
   (".top-middle" <> ".bottom-middle") ? do
     right (pct 50)
@@ -435,7 +451,7 @@ signpostStyle = do
       right (pct 50)
 
   ".top-right" ? do
-    bottom (pct 100)
+    bottom (pct 100 @+@ rem (1 / 2))
     left (pct 50)
     borderBottomLeftRadius nil nil
     before Clay.& do
@@ -479,7 +495,7 @@ signpostStyle = do
       top (px (-1))
 
   ".bottom-right" ? do
-    top (pct 100)
+    top (pct 100 @+@ rem (1 / 2))
     left (pct 50)
     borderTopLeftRadius nil nil
     before Clay.& do
@@ -490,7 +506,7 @@ signpostStyle = do
       transforms [skewY (deg 45)]
 
   ".bottom-middle" ? do
-    top (pct 100)
+    top (pct 100 @+@ rem (1 / 2))
 
   (".bottom-middle" <> ".bottom-left") # before ? do
     top (rem (-1 / 4) @-@ px 2)
@@ -499,7 +515,7 @@ signpostStyle = do
     transforms [skewY (deg (-45))]
 
   ".bottom-left" ? do
-    top (pct 100)
+    top (pct 100 @+@ rem (1 / 2))
     right (pct 50)
     borderTopRightRadius nil nil
     before Clay.& do
@@ -532,15 +548,6 @@ signpostStyle = do
       borderRight solid (px 1) grey0'
       transforms [skewX (deg 45)]
 
-  ".signpost" ? do
-    button # ".tertiary" ? do
-      paddingLeft (rem (1 / 4))
-      paddingRight (rem (1 / 4))
-      marginRight nil
-
-    button # ".open" ? do
-      color (rgb 115 151 186)
-      "fill" -: showColor (rgb 115 151 186)
 
 data TooltipPosition = TopLeft
               | TopMiddle
@@ -574,9 +581,36 @@ signpost pos cnt =
           cnt
           pure closeEv
 
- where
-  toSnake :: Text -> Text
-  toSnake x =
-    let (x1, rest) = Text.span isUpper x
-        (x2, x3  ) = Text.span isLower rest
-    in  Text.toLower $ x1 <> x2 <> "-" <> x3
+toSnake :: Text -> Text
+toSnake x =
+  let (x1, rest) = Text.span isUpper x
+      (x2, x3  ) = Text.span isLower rest
+  in  Text.toLower $ x1 <> x2 <> "-" <> x3
+
+tooltipStyle :: Css
+tooltipStyle = do
+  ".tooltip-menu" ? do
+    backgroundColor nord0'
+    borderColor nord0'
+    before Clay.& borderColor nord0'
+
+    fontColor nord6'
+    "width" -: "max-content"
+    paddingAll (rem (1 / 2))
+    height (rem 1)
+
+  ".tooltip" # hover Clay.** ".tooltip-menu" ? Clay.display block
+
+tooltip
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => TooltipPosition
+  -> Dynamic t Text
+  -> m ()
+tooltip pos cnt =
+  (() <$)
+    <$> btnDropdown' ("tooltip " <> toSnake (pack (show pos)))
+                     def { _buttonConfig_priority = ButtonTertiary }
+                     (icon def infoStandardIcon)
+    $   dynText cnt
+    >>  pure never
+
