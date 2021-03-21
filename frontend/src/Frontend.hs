@@ -56,7 +56,7 @@ css = do
   timelineStyle
 
 withHeader
-  :: (MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
+  :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
   => m (Dynamic t URI)
   -> m ()
 withHeader x = do
@@ -68,7 +68,10 @@ withHeader x = do
                      , _headerConfig_navigationPattern = Sidenav
                      }
   actions = do
-    _ <- ahref "#" (constDyn False) $ icon def cogIcon
+    _ <- btnDropdown def (icon def cogIcon) $ do
+      accountEv <- ahref "#" (constDyn False) (text "Account")
+      logoutEv  <- ahref "#" (constDyn False) (text "Logout")
+      pure $ leftmost [accountEv, logoutEv]
     pure ()
 
 

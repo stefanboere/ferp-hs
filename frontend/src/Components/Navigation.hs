@@ -333,7 +333,7 @@ commonAppHeaderStyle = do
 
     ".icon" ? verticalAlign middle
 
-    ".header-actions" ** a # after ? do
+    ".header-actions" ** (a <> ".dropdown") # after ? do
       headerSeparatorStyle
       right nil
 
@@ -342,12 +342,31 @@ commonAppHeaderStyle = do
 
       a ? position relative
 
-    (star # Clay.not nav ** a) <> label ? headerIconStyle
+    (star # Clay.not nav ** (a <> Clay.button)) <> label ? headerIconStyle
+
+    Clay.button ? do
+      important $ backgroundColor inherit
+      important $ marginAll nil
+      fontColor nord6'
+      "fill" -: showColor nord6'
+
+    ".dropdown-menu" ** (a <> Clay.button) ? do
+      fontSize (rem 1)
+      important $ height (rem 2)
+      important $ width inherit
+      hover Clay.& do
+        fontColor nord3'
 
   ".header-actions" ? do
     display flex
     justifyContent flexEnd
     flexGrow 1
+
+    ".dropdown-menu" ? do
+      right nil
+      top (rem 3)
+      left inherit
+
 
   ".app-logo" ? do
     minWidth (rem 12)
@@ -369,7 +388,7 @@ headerIconStyle = do
   padding nil (rem 1.2) nil (rem 1.2)
   position relative
 
-  ".icon" ? do
+  ".icon" # Clay.not ".angle-icon" ? do
     important $ width (rem 1.5)
     important $ height (rem 1.5)
 

@@ -258,6 +258,9 @@ dropdownStyle = do
     ".angle-icon" ? do
       transforms [rotate (deg 180)]
 
+    button # ".open" ? do
+      zIndex 1
+
     button # ".open" # before ? do
       cursor cursorDefault
       content (stringContent "")
@@ -299,31 +302,31 @@ dropdownStyle = do
       left (pct 100 @-@ rem (1 / 2))
       top nil
 
-    button ? do
-      Clay.display flex
-      justifyContent spaceBetween
-      paddingLeft (rem 1)
-      height (rem (3 / 2))
-      width (pct 100)
-      textTransform none
-      marginAll nil
-      borderRadiusAll nil
-      backgroundColor inherit
-      color nord3'
-      "fill" -: showColor nord3'
-      fontWeight (weight 400)
+  ".dropdown" Clay.** ".dropdown-menu" Clay.** (button <> a) ? do
+    Clay.display flex
+    justifyContent spaceBetween
+    paddingLeft (rem 1)
+    height (rem (3 / 2))
+    width (pct 100)
+    textTransform none
+    marginAll nil
+    borderRadiusAll nil
+    backgroundColor inherit
+    color nord3'
+    "fill" -: showColor nord3'
+    fontWeight (weight 400)
 
-      hover Clay.& Clay.not (star # disabled) Clay.& do
-        background nord6'
+    hover Clay.& Clay.not (star # disabled) Clay.& do
+      background nord6'
 
-      disabled Clay.& do
-        fontColor grey0'
+    disabled Clay.& do
+      fontColor grey0'
 
-      ".open" Clay.& do
-        background nord4'
-        hover Clay.& backgroundColor nord4'
+    ".open" Clay.& do
+      background nord4'
+      hover Clay.& backgroundColor nord4'
 
-        before Clay.& Clay.display none
+      before Clay.& Clay.display none
 
 btnDropdown
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
