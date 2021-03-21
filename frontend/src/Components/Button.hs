@@ -13,6 +13,7 @@ module Components.Button
   , btnOverflow
   , dropdownHeader
   , divider
+  , signpost
   )
 where
 
@@ -73,7 +74,7 @@ instance Reflex t => Default (ButtonConfig t) where
                      }
 
 buttonStyle :: Css
-buttonStyle = buttonStyle' <> btnGroupStyle <> dropdownStyle
+buttonStyle = buttonStyle' <> btnGroupStyle <> dropdownStyle <> signpostStyle
 
 buttonStyle' :: Css
 buttonStyle' =
@@ -252,7 +253,7 @@ dropdownStyle = do
     marginTop (rem (1 / 4))
     marginBottom (rem (1 / 4))
 
-  ".dropdown" ? do
+  (".dropdown" <> ".signpost") ? do
     Clay.display inlineFlex
     position relative
     ".angle-icon" ? do
@@ -276,24 +277,26 @@ dropdownStyle = do
     paddingLeft (rem (1 / 2))
 
   ".dropdown-menu" ? do
+    flexDirection column
+    minWidth (rem 10)
+    top (rem 2)
+
+    ".open" Clay.& do
+      Clay.display flex
+
+  (".signpost-menu" <> ".dropdown-menu") ? do
     Clay.display none
     position absolute
-    top (rem 2)
-    minWidth (rem 10)
     maxWidth (rem 20)
     borderRadiusAll (px 3)
     background white0'
     border solid (px 1) grey0'
-    flexDirection column
     paddingTop (rem (1 / 2))
     paddingBottom (rem (1 / 2))
     boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil
                                                        (rem (1 / 16))
                                                        (rem (1 / 8))
     zIndex 1
-
-    ".open" Clay.& do
-      Clay.display flex
 
     ".angle-icon" ? do
       transforms [rotate (deg 90)]
@@ -335,6 +338,7 @@ btnDropdown
   -> m (Event t b)
   -> m (Event t b)
 btnDropdown cfg titl = btnDropdown'
+  "dropdown"
   cfg
   (titl >> icon def { _iconConfig_class = Just "angle-icon" } angleIcon)
 
@@ -343,19 +347,20 @@ btnOverflow
   => ButtonConfig t
   -> m (Event t b)
   -> m (Event t b)
-btnOverflow cfg = btnDropdown' cfg (icon def ellipsisHorizontalIcon)
+btnOverflow cfg = btnDropdown' "dropdown" cfg (icon def ellipsisHorizontalIcon)
 
 btnDropdown'
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
-  => ButtonConfig t
+  => Text
+  -> ButtonConfig t
   -> m a
   -> m (Event t b)
   -> m (Event t b)
-btnDropdown' cfg titl cnt = elClass "div" "dropdown" $ do
+btnDropdown' typeStr cfg titl cnt = elClass "div" typeStr $ do
   rec clickEv  <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
 
       actionEv <- elDynClass "div"
-                             (("dropdown-menu " <>) . mkCls <$> openDyn)
+                             (((typeStr <> "-menu ") <>) . mkCls <$> openDyn)
                              cnt
 
       openDyn <- foldDyn ($) False
@@ -372,3 +377,55 @@ dropdownHeader = elClass "h4" "dropdown-header" . dynText
 divider :: DomBuilder t m => m ()
 divider = elAttr "div" ("class" =: "divider" <> "role" =: "separator") blank
 
+signpostStyle :: Css
+signpostStyle = do
+  ".signpost-menu" ? do
+    minWidth (rem 15)
+    minHeight (rem 5)
+    maxHeight (rem 30)
+    paddingAll (rem 1)
+    top (pct 50)
+    left (pct 100)
+    borderTopLeftRadius nil nil
+
+    ".button-close" ? do
+      position absolute
+      right nil
+      top nil
+      marginRight nil
+
+    ".open" Clay.& do
+      Clay.display block
+
+    ".button-close" |+ star ? do
+      marginTop nil
+
+    before Clay.& do
+      content $ stringContent ""
+      Clay.display block
+      position absolute
+      width (rem (1 / 2))
+      height (rem (1 / 2))
+      top (px (-1))
+      left (rem (-1 / 4) @-@ px 1)
+      borderLeft solid (px 1) grey0'
+      borderTop solid (px 1) grey0'
+      backgroundColor inherit
+      transforms [skewX (deg 45)]
+
+  ".signpost" ? do
+    button # ".open" ? do
+      color (rgb 115 151 186)
+      "fill" -: showColor (rgb 115 151 186)
+
+signpost
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) => m () -> m ()
+signpost cnt =
+  (() <$)
+    <$> btnDropdown' "signpost"
+                     def { _buttonConfig_priority = ButtonTertiary }
+                     (icon def infoStandardIcon)
+    $   do
+          closeEv <- closeBtn def
+          cnt
+          pure closeEv

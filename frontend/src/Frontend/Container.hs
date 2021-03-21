@@ -236,10 +236,14 @@ containerModal = do
       okEv     <- btn def (text "Ok")
       pure $ leftmost [x, cancelEv, okEv]
 
-containerSignpost :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerSignpost
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => m (Event t URI)
 containerSignpost = do
   el "h1" $ text "Signpost"
-  text "WIP"
+  signpost $ do
+    el "h3" $ text "Default signpost"
+    el "p" $ text "Position: right-top"
 
   el "h2" $ text "Tooltip"
   text "WIP"
