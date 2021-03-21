@@ -304,6 +304,21 @@ coreButton = do
     ]
   el "p" $ dynText $ fmap (("Counter: " <>) . pack . show) countDyn
 
+  _ <- btnDropdown def (text "Dropdown") $ do
+    dropdownHeader "Dropdown header"
+    actionEv <- btn def (text "Action")
+    _        <- btn def { _buttonConfig_state = constDyn ActionDisabled }
+                    (text "Disabled link")
+    divider
+    loremEv      <- btn def (text "Lorem.")
+    loremIpsumEv <- btnDropdown def (text "Lorem ipsum.") $ do
+      fooEv <- btn def (text "Foo.")
+      barEv <- btnDropdown def (text "Bar.") $ do
+        btn def (text "Baz.")
+      foo2Ev <- btn def (text "Foo 2.")
+      pure $ leftmost [fooEv, barEv, foo2Ev]
+    ipsumEv <- btn def (text "Ipsum")
+    pure $ leftmost [actionEv, loremEv, loremIpsumEv, ipsumEv]
 
   pure never
 

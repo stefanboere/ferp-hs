@@ -1,5 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo #-}
 module Components.Button
   ( ButtonConfig(..)
   , ButtonPriority(..)
@@ -8,6 +9,9 @@ module Components.Button
   , btn
   , btnGroup
   , closeBtn
+  , btnDropdown
+  , dropdownHeader
+  , divider
   )
 where
 
@@ -17,6 +21,8 @@ import           Clay                    hiding ( (&)
                                                 , icon
                                                 )
 import qualified Clay                           ( (&) )
+import qualified Clay.Media                    as Media
+import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
 import           Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes )
@@ -27,6 +33,7 @@ import qualified Data.Text                     as Text
 import           Reflex
 import           Reflex.Dom              hiding ( textInput
                                                 , rangeInput
+                                                , button
                                                 )
 
 import           Components.Class
@@ -55,17 +62,17 @@ instance Default ActionState where
 data ButtonConfig t = ButtonConfig
   { _buttonConfig_priority :: ButtonPriority
   , _buttonConfig_state :: Dynamic t ActionState
-  , _buttonConfig_class :: Text
+  , _buttonConfig_class :: Dynamic t Text
   }
 
 instance Reflex t => Default (ButtonConfig t) where
   def = ButtonConfig { _buttonConfig_priority = def
                      , _buttonConfig_state    = constDyn def
-                     , _buttonConfig_class    = ""
+                     , _buttonConfig_class    = constDyn ""
                      }
 
 buttonStyle :: Css
-buttonStyle = buttonStyle' <> btnGroupStyle
+buttonStyle = buttonStyle' <> btnGroupStyle <> dropdownStyle
 
 buttonStyle' :: Css
 buttonStyle' =
@@ -156,16 +163,17 @@ buttonStyle' =
 btn
   :: (PostBuild t m, DomBuilder t m) => ButtonConfig t -> m a -> m (Event t ())
 btn ButtonConfig {..} lbl = do
-  (e, _) <- elDynAttr' "button"
-                       (mkAttrs <$> _buttonConfig_state)
-                       (dyn (stateIcon <$> _buttonConfig_state) >> lbl)
+  (e, _) <- elDynAttr'
+    "button"
+    (mkAttrs <$> _buttonConfig_state <*> _buttonConfig_class)
+    (dyn (stateIcon <$> _buttonConfig_state) >> lbl)
   pure
     $ gate (current ((== ActionAvailable) <$> _buttonConfig_state))
     $ domEvent Click e
  where
-  classStr = Text.toLower $ Text.unwords $ Prelude.filter
+  classStr cls = Text.toLower $ Text.unwords $ Prelude.filter
     (Prelude.not . Text.null)
-    [pack $ prioClass _buttonConfig_priority, _buttonConfig_class]
+    [pack $ prioClass _buttonConfig_priority, cls]
   prioClass (ButtonPrimary x) = "primary " <> show x
   prioClass ButtonSecondary   = "secondary"
   prioClass ButtonTertiary    = "tertiary"
@@ -183,9 +191,9 @@ btn ButtonConfig {..} lbl = do
   stateIcon ActionLoading = spinner def ""
   stateIcon _             = pure ()
 
-  mkAttrs state = Map.fromList $ catMaybes
+  mkAttrs state cls = Map.fromList $ catMaybes
     [ Just ("type", "button")
-    , Just ("class", classStr)
+    , Just ("class", classStr cls)
     , if state == ActionAvailable then Nothing else Just ("disabled", "")
     ]
 
@@ -221,3 +229,125 @@ closeBtn cfg =
           , _buttonConfig_class    = "button-close"
           }
     $ icon cfg timesIcon
+
+dropdownStyle :: Css
+dropdownStyle = do
+  -- | Stacking layout on mobile screens
+  query Clay.all [Media.maxWidth 544] $ do
+    ".dropdown-menu" ? ".dropdown-menu" ? do
+      left (pct 100 @-@ rem (1 / 2))
+      right inherit
+
+    ".dropdown-menu" ? ".dropdown-menu" ? ".dropdown-menu" ? do
+      right (pct 100 @-@ rem (1 / 2))
+      left inherit
+
+  ".divider" ? do
+    width (pct 100)
+    borderTop solid (px 1) grey0'
+    backgroundColor grey0'
+    height nil
+    marginTop (rem (1 / 4))
+    marginBottom (rem (1 / 4))
+
+  ".dropdown" ? do
+    position relative
+    ".angle-icon" ? do
+      transforms [rotate (deg 180)]
+
+    button # ".open" # before ? do
+      cursor cursorDefault
+      content (stringContent "")
+      Clay.display block
+      position fixed
+      width (vw 100)
+      height (vh 100)
+      top nil
+      left nil
+
+  ".dropdown-header" ? do
+    marginTop nil
+    paddingLeft (rem (1 / 2))
+
+  ".dropdown-menu" ? do
+    Clay.display none
+    position absolute
+    top (rem 2)
+    minWidth (rem 10)
+    maxWidth (rem 20)
+    borderRadiusAll (px 3)
+    background white0'
+    border solid (px 1) grey0'
+    flexDirection column
+    paddingTop (rem (1 / 2))
+    paddingBottom (rem (1 / 2))
+    boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil
+                                                       (rem (1 / 16))
+                                                       (rem (1 / 8))
+    zIndex 1
+
+    ".open" Clay.& do
+      Clay.display flex
+
+    ".angle-icon" ? do
+      transforms [rotate (deg 90)]
+
+    ".dropdown-menu" ? do
+      left (pct 100 @-@ rem (1 / 2))
+      top nil
+
+    button ? do
+      Clay.display flex
+      justifyContent spaceBetween
+      paddingLeft (rem 1)
+      height (rem (3 / 2))
+      width (pct 100)
+      textTransform none
+      marginAll nil
+      borderRadiusAll nil
+      backgroundColor inherit
+      color nord3'
+      "fill" -: showColor nord3'
+      fontWeight (weight 400)
+
+      hover Clay.& Clay.not (star # disabled) Clay.& do
+        background nord6'
+
+      disabled Clay.& do
+        fontColor grey0'
+
+      ".open" Clay.& do
+        background nord4'
+        hover Clay.& backgroundColor nord4'
+
+        before Clay.& Clay.display none
+
+btnDropdown
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => ButtonConfig t
+  -> m a
+  -> m (Event t b)
+  -> m (Event t b)
+btnDropdown cfg titl cnt = elClass "div" "dropdown" $ do
+  rec clickEv <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } $ do
+        _ <- titl
+        icon def { _iconConfig_class = Just "angle-icon" } angleIcon
+
+      actionEv <- elDynClass "div"
+                             (("dropdown-menu " <>) . mkCls <$> openDyn)
+                             cnt
+
+      openDyn <- foldDyn ($) False
+        $ leftmost [Prelude.not <$ clickEv, const False <$ actionEv]
+  pure actionEv
+
+ where
+  mkCls True  = "open"
+  mkCls False = ""
+
+dropdownHeader :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m ()
+dropdownHeader = elClass "h4" "dropdown-header" . dynText
+
+divider :: DomBuilder t m => m ()
+divider = elAttr "div" ("class" =: "divider" <> "role" =: "separator") blank
+
