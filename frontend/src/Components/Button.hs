@@ -10,6 +10,7 @@ module Components.Button
   , btnGroup
   , closeBtn
   , btnDropdown
+  , btnOverflow
   , dropdownHeader
   , divider
   )
@@ -199,18 +200,19 @@ btn ButtonConfig {..} lbl = do
 
 btnGroupStyle :: Css
 btnGroupStyle = ".button-group" ? do
-  Clay.display inlineBlock
+  Clay.display inlineFlex
+  alignItems center
   marginRight (rem (3 / 4))
 
-  Clay.button # firstChild <? do
+  (star # firstChild <> star # firstChild |> button) <? do
     borderTopLeftRadius (px 3) (px 3)
     borderBottomLeftRadius (px 3) (px 3)
 
-  Clay.button # lastChild <? do
+  (star # lastChild <> star # lastChild |> button) <? do
     borderTopRightRadius (px 3) (px 3)
     borderBottomRightRadius (px 3) (px 3)
 
-  Clay.button <? do
+  (star <> star |> button) <? do
     marginRight nil
     borderRadiusAll nil
 
@@ -220,7 +222,7 @@ btnGroupStyle = ".button-group" ? do
 
   ".secondary" # hover |+ star ? borderLeftColor (rgb 115 151 186)
 
-btnGroup :: DomBuilder t m => m () -> m ()
+btnGroup :: DomBuilder t m => m a -> m a
 btnGroup = elClass "div" "button-group"
 
 closeBtn :: (PostBuild t m, DomBuilder t m) => IconConfig t -> m (Event t ())
@@ -251,6 +253,7 @@ dropdownStyle = do
     marginBottom (rem (1 / 4))
 
   ".dropdown" ? do
+    Clay.display inlineFlex
     position relative
     ".angle-icon" ? do
       transforms [rotate (deg 180)]
@@ -328,10 +331,25 @@ btnDropdown
   -> m a
   -> m (Event t b)
   -> m (Event t b)
-btnDropdown cfg titl cnt = elClass "div" "dropdown" $ do
-  rec clickEv <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } $ do
-        _ <- titl
-        icon def { _iconConfig_class = Just "angle-icon" } angleIcon
+btnDropdown cfg titl = btnDropdown'
+  cfg
+  (titl >> icon def { _iconConfig_class = Just "angle-icon" } angleIcon)
+
+btnOverflow
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => ButtonConfig t
+  -> m (Event t b)
+  -> m (Event t b)
+btnOverflow cfg = btnDropdown' cfg (icon def ellipsisHorizontalIcon)
+
+btnDropdown'
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => ButtonConfig t
+  -> m a
+  -> m (Event t b)
+  -> m (Event t b)
+btnDropdown' cfg titl cnt = elClass "div" "dropdown" $ do
+  rec clickEv  <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
 
       actionEv <- elDynClass "div"
                              (("dropdown-menu " <>) . mkCls <$> openDyn)

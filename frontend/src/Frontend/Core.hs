@@ -273,12 +273,18 @@ coreButton = do
     (icon def timesIcon >> spantext "Save" >> badge' def 10)
 
   el "h2" $ text "Button Group"
-  btnGroup $ mapM_
-    (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
-    [ (ButtonPrimary Info, "Add")
-    , (ButtonPrimary Info, "Edit")
-    , (ButtonPrimary Info, "Delete")
-    ]
+  _ <- btnGroup $ do
+    mapM_
+      (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
+      [ (ButtonPrimary Info, "Add")
+      , (ButtonPrimary Info, "Edit")
+      , (ButtonPrimary Info, "Delete")
+      ]
+    btnOverflow (def { _buttonConfig_priority = ButtonPrimary Info }) $ do
+      downloadEv <- btn def (text "Download")
+      deleteEv   <- btn def (text "Delete")
+      pure $ leftmost [downloadEv, deleteEv]
+
   btnGroup $ mapM_
     (\(c, lbl) -> btn def { _buttonConfig_priority = c } (text lbl))
     [ (ButtonSecondary, "Add")
