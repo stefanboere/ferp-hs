@@ -241,14 +241,22 @@ containerSignpost
   => m (Event t URI)
 containerSignpost = do
   el "h1" $ text "Signpost"
-  signpost $ do
-    el "h3" $ text "Default signpost"
-    el "p" $ text "Position: right-top"
+  el "p" $ do
+    text "The default placement is right-top."
+    mkSignpost def
+  el "p" $ do
+    text "The following placements are also possible."
+    mapM_ mkSignpost [minBound .. maxBound]
 
   el "h2" $ text "Tooltip"
   text "WIP"
 
   pure never
+
+ where
+  mkSignpost pos = signpost pos $ do
+    el "h3" $ text "Default signpost"
+    el "p" $ text $ "Position: " <> pack (show pos)
 
 containerTab
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)

@@ -14,6 +14,7 @@ module Components.Button
   , dropdownHeader
   , divider
   , signpost
+  , TooltipPosition
   )
 where
 
@@ -25,6 +26,9 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
 import           Control.Monad.Fix              ( MonadFix )
+import           Data.Char                      ( isUpper
+                                                , isLower
+                                                )
 import           Data.Default
 import           Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes )
@@ -280,6 +284,9 @@ dropdownStyle = do
     flexDirection column
     minWidth (rem 10)
     top (rem 2)
+    boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil
+                                                       (rem (1 / 16))
+                                                       (rem (1 / 8))
 
     ".open" Clay.& do
       Clay.display flex
@@ -293,9 +300,6 @@ dropdownStyle = do
     border solid (px 1) grey0'
     paddingTop (rem (1 / 2))
     paddingBottom (rem (1 / 2))
-    boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil
-                                                       (rem (1 / 16))
-                                                       (rem (1 / 8))
     zIndex 1
 
     ".angle-icon" ? do
@@ -356,18 +360,20 @@ btnDropdown'
   -> m a
   -> m (Event t b)
   -> m (Event t b)
-btnDropdown' typeStr cfg titl cnt = elClass "div" typeStr $ do
+btnDropdown' typeStr' cfg titl cnt = elClass "div" typeStr $ do
   rec clickEv  <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
 
-      actionEv <- elDynClass "div"
-                             (((typeStr <> "-menu ") <>) . mkCls <$> openDyn)
-                             cnt
+      actionEv <- elDynClass
+        "div"
+        (((typeStr <> "-menu" <> typeStrOther <> " ") <>) . mkCls <$> openDyn)
+        cnt
 
       openDyn <- foldDyn ($) False
         $ leftmost [Prelude.not <$ clickEv, const False <$ actionEv]
   pure actionEv
 
  where
+  (typeStr, typeStrOther) = Text.span (/= ' ') typeStr'
   mkCls True  = "open"
   mkCls False = ""
 
@@ -384,15 +390,12 @@ signpostStyle = do
     minHeight (rem 5)
     maxHeight (rem 30)
     paddingAll (rem 1)
-    top (pct 50)
-    left (pct 100)
-    borderTopLeftRadius nil nil
 
     ".button-close" ? do
       position absolute
       right nil
       top nil
-      marginRight nil
+      important $ marginRight (px 6)
 
     ".open" Clay.& do
       Clay.display block
@@ -406,26 +409,174 @@ signpostStyle = do
       position absolute
       width (rem (1 / 2))
       height (rem (1 / 2))
-      top (px (-1))
+      backgroundColor inherit
+
+  ".top-left" ? do
+    bottom (pct 100)
+    right (pct 50)
+    borderBottomRightRadius nil nil
+    before Clay.& do
+      right (px (-1))
+
+  (".top-left" <> ".top-middle") ? do
+    before Clay.& do
+      bottom (rem (-1 / 4) @-@ px 2)
+      borderRight solid (px 1) grey0'
+      borderBottom solid (px 1) grey0'
+      transforms [skewY (deg 45)]
+
+  ".top-middle" ? do
+    bottom (pct 100)
+
+  (".top-middle" <> ".bottom-middle") ? do
+    right (pct 50)
+    transforms [translate (pct 50) nil]
+    before Clay.& do
+      right (pct 50)
+
+  ".top-right" ? do
+    bottom (pct 100)
+    left (pct 50)
+    borderBottomLeftRadius nil nil
+    before Clay.& do
+      left (px (-1))
+      bottom (rem (-1 / 4) @-@ px 2)
+      borderLeft solid (px 1) grey0'
+      borderBottom solid (px 1) grey0'
+      transforms [skewY (deg (-45))]
+
+  ".right-top" ? do
+    bottom (pct 50)
+    left (pct 100 @+@ rem (1 / 2))
+    borderBottomLeftRadius nil nil
+    before Clay.& do
+      bottom (px (-1))
       left (rem (-1 / 4) @-@ px 1)
       borderLeft solid (px 1) grey0'
+      borderBottom solid (px 1) grey0'
+      transforms [skewX (deg (-45))]
+
+  ".right-middle" ? do
+    left (pct 100 @+@ rem (1 / 2))
+
+  ".right-middle" <> ".left-middle" ? do
+    top (pct 50)
+    transforms [translate nil (pct (-50))]
+    before Clay.& do
+      top (pct 50)
+
+  (".right-middle" <> ".right-bottom") # before ? do
+    left (rem (-1 / 4) @-@ px 1)
+    borderLeft solid (px 1) grey0'
+    borderTop solid (px 1) grey0'
+    transforms [skewX (deg 45)]
+
+  ".right-bottom" ? do
+    top (pct 50)
+    left (pct 100 @+@ rem (1 / 2))
+    borderTopLeftRadius nil nil
+    before Clay.& do
+      top (px (-1))
+
+  ".bottom-right" ? do
+    top (pct 100)
+    left (pct 50)
+    borderTopLeftRadius nil nil
+    before Clay.& do
+      left (px (-1))
+      top (rem (-1 / 4) @-@ px 2)
+      borderLeft solid (px 1) grey0'
       borderTop solid (px 1) grey0'
-      backgroundColor inherit
+      transforms [skewY (deg 45)]
+
+  ".bottom-middle" ? do
+    top (pct 100)
+
+  (".bottom-middle" <> ".bottom-left") # before ? do
+    top (rem (-1 / 4) @-@ px 2)
+    borderRight solid (px 1) grey0'
+    borderTop solid (px 1) grey0'
+    transforms [skewY (deg (-45))]
+
+  ".bottom-left" ? do
+    top (pct 100)
+    right (pct 50)
+    borderTopRightRadius nil nil
+    before Clay.& do
+      right (px (-1))
+
+  ".left-bottom" ? do
+    top (pct 50)
+    right (pct 100 @+@ rem (1 / 2))
+    borderTopRightRadius nil nil
+    before Clay.& do
+      top (px (-1))
+
+  (".left-bottom" <> ".left-middle") # before ? do
+    right (rem (-1 / 4) @-@ px 1)
+    borderRight solid (px 1) grey0'
+    borderTop solid (px 1) grey0'
+    transforms [skewX (deg (-45))]
+
+  ".left-middle" ? do
+    right (pct 100 @+@ rem (1 / 2))
+
+  ".left-top" ? do
+    bottom (pct 50)
+    right (pct 100 @+@ rem (1 / 2))
+    borderBottomRightRadius nil nil
+    before Clay.& do
+      bottom (px (-1))
+      right (rem (-1 / 4) @-@ px 1)
+      borderBottom solid (px 1) grey0'
+      borderRight solid (px 1) grey0'
       transforms [skewX (deg 45)]
 
   ".signpost" ? do
+    button # ".tertiary" ? do
+      paddingLeft (rem (1 / 4))
+      paddingRight (rem (1 / 4))
+      marginRight nil
+
     button # ".open" ? do
       color (rgb 115 151 186)
       "fill" -: showColor (rgb 115 151 186)
 
+data TooltipPosition = TopLeft
+              | TopMiddle
+              | TopRight
+              | RightTop
+              | RightMiddle
+              | RightBottom
+              | BottomRight
+              | BottomMiddle
+              | BottomLeft
+              | LeftBottom
+              | LeftMiddle
+              | LeftTop
+              deriving (Eq, Show, Enum, Bounded)
+
+instance Default TooltipPosition where
+  def = RightMiddle
+
 signpost
-  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m) => m () -> m ()
-signpost cnt =
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => TooltipPosition
+  -> m ()
+  -> m ()
+signpost pos cnt =
   (() <$)
-    <$> btnDropdown' "signpost"
+    <$> btnDropdown' ("signpost " <> toSnake (pack (show pos)))
                      def { _buttonConfig_priority = ButtonTertiary }
                      (icon def infoStandardIcon)
     $   do
           closeEv <- closeBtn def
           cnt
           pure closeEv
+
+ where
+  toSnake :: Text -> Text
+  toSnake x =
+    let (x1, rest) = Text.span isUpper x
+        (x2, x3  ) = Text.span isLower rest
+    in  Text.toLower $ x1 <> x2 <> "-" <> x3
