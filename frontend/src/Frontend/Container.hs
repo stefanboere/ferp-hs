@@ -90,12 +90,13 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- stackviewEmpty "Label 1"
-                        (textInput' (pure never) "" (inputConfig "Content 1"))
+    _ <- stackviewEmpty
+      "Label 1"
+      (textInput' (pure (never, never)) "" (inputConfig "Content 1"))
     _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
       _ <- stackviewRow
         "Sub-label 1"
-        (textInput' (pure never) "" (inputConfig "Sub-content 1"))
+        (textInput' (pure (never, never)) "" (inputConfig "Sub-content 1"))
       stackviewRow "Sub-label 2" (text "Sub-content 2")
       stackviewRow "Sub-label 3" (text "Sub-content 3")
     _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do

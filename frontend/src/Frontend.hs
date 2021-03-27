@@ -46,6 +46,7 @@ css :: Css
 css = do
   appStyle
   inputStyle
+  comboboxStyle
   buttonStyle
   accordionStyle
   cardStyle

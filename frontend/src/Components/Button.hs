@@ -286,7 +286,7 @@ dropdownStyle = do
     marginTop nil
     paddingLeft (rem (1 / 2))
 
-  ".dropdown-menu" ? do
+  (".dropdown-menu" <> ".combobox-menu") ? do
     flexDirection column
     minWidth (rem 10)
     top (rem 2)
@@ -297,23 +297,24 @@ dropdownStyle = do
     ".open" Clay.& do
       Clay.display flex
 
-  (".signpost-menu" <> ".dropdown-menu" <> ".tooltip-menu") ? do
-    Clay.display none
-    position absolute
-    maxWidth (rem 20)
-    borderRadiusAll (px 3)
-    background white0'
-    border solid (px 1) grey0'
-    paddingTop (rem (1 / 2))
-    paddingBottom (rem (1 / 2))
-    zIndex 1
+  (".signpost-menu" <> ".dropdown-menu" <> ".tooltip-menu" <> ".combobox-menu")
+    ? do
+        Clay.display none
+        position absolute
+        maxWidth (rem 20)
+        borderRadiusAll (px 3)
+        background white0'
+        border solid (px 1) grey0'
+        paddingTop (rem (1 / 2))
+        paddingBottom (rem (1 / 2))
+        zIndex 1
 
-    ".angle-icon" ? do
-      transforms [rotate (deg 90)]
+        ".angle-icon" ? do
+          transforms [rotate (deg 90)]
 
-    ".dropdown-menu" ? do
-      left (pct 100 @-@ rem (1 / 2))
-      top nil
+        ".dropdown-menu" ? do
+          left (pct 100 @-@ rem (1 / 2))
+          top nil
 
   ".dropdown" Clay.** ".dropdown-menu" Clay.** (button <> a) ? do
     Clay.display flex

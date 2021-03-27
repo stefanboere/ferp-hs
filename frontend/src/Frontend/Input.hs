@@ -16,7 +16,9 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import qualified Data.Map                      as Map
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import           Data.Time
 import           URI.ByteString
 import           Reflex
@@ -207,12 +209,26 @@ checkboxHandler = do
 
   pure never
 
-comboboxHandler :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+comboboxHandler
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, MonadHold t m, MonadFix m)
+  => m (Event t URI)
 comboboxHandler = do
   el "h1" $ text "Combobox"
-  text "WIP"
+
+
+  el "form" $ do
+    x <- comboboxInput showOpt
+                       flavors
+                       def { _inputConfig_label = constDyn "Flavours" }
+
+    display x
 
   pure never
+ where
+  showOpt k v = text ((<> " ") . pack . show $ k) >> dynText v
+  flavors = constDyn $ Map.fromList $ zip
+    [(1 :: Integer) ..]
+    ["Cherry", "Mint chip", "Vanilla", "Lemon"]
 
 datalistHandler
   :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)

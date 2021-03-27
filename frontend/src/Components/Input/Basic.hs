@@ -20,6 +20,7 @@ module Components.Input.Basic
   , textInput
   , textInput'
   , InputStatus(..)
+  , InputEl(..)
   , labeled
   , randomId
   , NumberInputConfig(..)
@@ -36,6 +37,7 @@ module Components.Input.Basic
   , fileInput'
   , datalistInput
   , datalistInput'
+  , selectIcon
   , inputGroup
   , inputGroup'
   , passwordInput
@@ -173,6 +175,7 @@ inputStyle = do
   ".flex-row" ? do
     Clay.display flex
     flexDirection row
+    position relative
 
   ".input" ? do
     Clay.display flex
@@ -359,7 +362,9 @@ selectElementStyle = do
 
   (input <> Clay.select) |+ ".input-icon" ? do
     Clay.display inlineBlock
-    transform (translate (rem (-1.2)) (rem 0.2))
+    left (rem (-1.2))
+    top (rem 0.2)
+    position relative
     ".icon" ? position absolute
     cursor pointer
 
@@ -580,11 +585,11 @@ textInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m)
   => InputConfig t Text
   -> m (InputEl t Text)
-textInput cfg = labeled cfg (textInput' (pure never))
+textInput cfg = labeled cfg (textInput' (pure (never, never)))
 
 textInput'
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
-  => m (Event t (Map AttributeName (Maybe Text)))
+  => m (Event t (Map AttributeName (Maybe Text)), Event t Text)
   -> Text
   -> InputConfig t Text
   -> m (InputEl t Text)
@@ -600,7 +605,7 @@ textInput' after' idStr cfg = do
           &  inputElementConfig_initialValue
           .~ _inputConfig_initialValue cfg
           &  inputElementConfig_setValue
-          .~ _inputConfig_setValue cfg
+          .~ leftmost [setValEv, _inputConfig_setValue cfg]
           &  inputElementConfig_elementConfig
           .  elementConfig_initialAttributes
           .~ _inputConfig_attributes cfg
@@ -611,7 +616,7 @@ textInput' after' idStr cfg = do
           .~ mergeWith (<>)
                        [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
 
-        attrEv <- after'
+        (attrEv, setValEv) <- after'
 
       statusMessageIcon (_inputConfig_status cfg)
       pure n'
@@ -694,7 +699,7 @@ numberRangeInput' isReg nc idStr cfg = do
 
   rec
     n <- textInput'
-      (pure never)
+      (pure (never, never))
       idStr
       cfg
         { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
@@ -1141,7 +1146,7 @@ datalistInput' idStr options cfg = textInput'
 
     _ <- elAttr "datalist" ("id" =: listIdStr) $ listWithKey options mkOption
 
-    pure never
+    pure (never, never)
 
   mkOption k v = elAttr "option" ("value" =: pack (show k)) (dynText v)
 
@@ -1214,7 +1219,7 @@ passwordInput' idStr cfg = textInput'
     rec hideDyn    <- toggle True toggleEv
         toggleEvEv <- dyn (eyeIconEl <$> hideDyn)
         toggleEv   <- switchHold never toggleEvEv
-    pure $ mkAttrs <$> updated hideDyn
+    pure (mkAttrs <$> updated hideDyn, never)
 
   mkAttrs True  = "type" =: Just "password"
   mkAttrs False = "type" =: Just "text"
@@ -1348,7 +1353,7 @@ datetimeInput' formatTime' parseTime' typeStr ico nc idStr cfg = do
 
   after'       = do
     _ <- inputIcon ico
-    pure never
+    pure (never, never)
 
 
 inputIcon :: (PostBuild t m, DomBuilder t m) => m () -> m ()
