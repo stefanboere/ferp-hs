@@ -68,8 +68,7 @@ accordionStyle' = ".accordion" ? do
 
   input # checked |+ star ? do
     ".angle-icon" ? transforms [translateY (rem 0.25), rotate (deg 180)]
-    ".content" ? do
-      display block
+    ".content" ? display block
     label ? backgroundColor nord4'
 
   firstOfType & do
@@ -129,11 +128,9 @@ stepperStyle = ".stepper" ? do
     paddingTop (rem (3 / 4))
     paddingBottom (rem (3 / 4))
 
-  ".error" Clay.& label ? do
-    borderLeftColor nord11'
+  ".error" Clay.& label ? borderLeftColor nord11'
 
-  ".success" Clay.& label ? do
-    borderLeftColor green1'
+  ".success" Clay.& label ? borderLeftColor green1'
 
   ".stepnum" ? do
     display inlineFlex

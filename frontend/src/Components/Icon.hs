@@ -35,6 +35,7 @@ module Components.Icon
   , calendarIcon
   , circleIcon
   , dotCircleIcon
+  , fileIcon
   )
 where
 
@@ -215,9 +216,10 @@ checkIcon =
         "M13.72,27.69,3.29,17.27a1,1,0,0,1,1.41-1.41l9,9L31.29,7.29a1,1,0,0,1,1.41,1.41Z"
 
 angleIcon :: (PostBuild t m, DomBuilder t m) => m ()
-angleIcon = svg $ do
-  path
-    "M29.52,22.52,18,10.6,6.48,22.52a1.7,1.7,0,0,0,2.45,2.36L18,15.49l9.08,9.39a1.7,1.7,0,0,0,2.45-2.36Z"
+angleIcon =
+  svg
+    $ path
+        "M29.52,22.52,18,10.6,6.48,22.52a1.7,1.7,0,0,0,2.45,2.36L18,15.49l9.08,9.39a1.7,1.7,0,0,0,2.45-2.36Z"
 
 
 ferpIcon :: (PostBuild t m, DomBuilder t m) => m ()
@@ -261,9 +263,10 @@ searchIcon = svg $ do
   path "M35,33.29l-7.37-7.42-1.42,1.41,7.37,7.42A1,1,0,1,0,35,33.29Z"
 
 timesIcon :: (PostBuild t m, DomBuilder t m) => m ()
-timesIcon = svg $ do
-  path
-    "M19.41,18l8.29-8.29a1,1,0,0,0-1.41-1.41L18,16.59,9.71,8.29A1,1,0,0,0,8.29,9.71L16.59,18,8.29,26.29a1,1,0,1,0,1.41,1.41L18,19.41l8.29,8.29a1,1,0,0,0,1.41-1.41Z"
+timesIcon =
+  svg
+    $ path
+        "M19.41,18l8.29-8.29a1,1,0,0,0-1.41-1.41L18,16.59,9.71,8.29A1,1,0,0,0,8.29,9.71L16.59,18,8.29,26.29a1,1,0,1,0,1.41,1.41L18,19.41l8.29,8.29a1,1,0,0,0,1.41-1.41Z"
 
 userIcon :: (PostBuild t m, DomBuilder t m) => m ()
 userIcon = svg $ do
@@ -273,9 +276,10 @@ userIcon = svg $ do
     "M30.47,24.37a17.16,17.16,0,0,0-24.93,0A2,2,0,0,0,5,25.74V31a2,2,0,0,0,2,2H29a2,2,0,0,0,2-2V25.74A2,2,0,0,0,30.47,24.37ZM29,31H7V25.73a15.17,15.17,0,0,1,22,0h0Z"
 
 folderIcon :: (PostBuild t m, DomBuilder t m) => m ()
-folderIcon = svg $ do
-  path
-    "M30,9H16.42L14.11,5.82A2,2,0,0,0,12.49,5H6A2,2,0,0,0,4,7V29a2,2,0,0,0,2,2H30a2,2,0,0,0,2-2V11A2,2,0,0,0,30,9Zm0,20H6V13h7.31a2,2,0,0,0,2-2H6V7h6.49l2.61,3.59a1,1,0,0,0,.81.41H30Z"
+folderIcon =
+  svg
+    $ path
+        "M30,9H16.42L14.11,5.82A2,2,0,0,0,12.49,5H6A2,2,0,0,0,4,7V29a2,2,0,0,0,2,2H30a2,2,0,0,0,2-2V11A2,2,0,0,0,30,9Zm0,20H6V13h7.31a2,2,0,0,0,2-2H6V7h6.49l2.61,3.59a1,1,0,0,0,.81.41H30Z"
 
 eyeIcon :: (PostBuild t m, DomBuilder t m) => m ()
 eyeIcon = svg $ do
@@ -322,12 +326,19 @@ calendarIcon = svg $ do
   rect 13 6 10 2
 
 circleIcon :: (PostBuild t m, DomBuilder t m) => m ()
-circleIcon = svg $ do
-  path
-    "M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"
+circleIcon =
+  svg
+    $ path
+        "M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"
 
 dotCircleIcon :: (PostBuild t m, DomBuilder t m) => m ()
 dotCircleIcon = svg $ do
   path "M18,11a7,7,0,1,1-7,7,7,7,0,0,1,7-7"
   path
     "M18,34A16,16,0,1,1,34,18,16,16,0,0,1,18,34ZM18,4A14,14,0,1,0,32,18,14,14,0,0,0,18,4Z"
+
+fileIcon :: (PostBuild t m, DomBuilder t m) => m ()
+fileIcon =
+  svg
+    $ path
+        "M21.89,4H7.83A1.88,1.88,0,0,0,6,5.91V30.09A1.88,1.88,0,0,0,7.83,32H28.17A1.88,1.88,0,0,0,30,30.09V11.92Zm-.3,2.49,6,5.9h-6ZM8,30V6H20v8h8V30Z"

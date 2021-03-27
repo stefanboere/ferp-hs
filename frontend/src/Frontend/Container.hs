@@ -327,9 +327,40 @@ containerTimeline = do
                  "Enjoy your cake"
                  (pure ())
 
-containerTreeview :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerTreeview
+  :: (PostBuild t m, DomBuilder t m, MonadIO m) => m (Event t URI)
 containerTreeview = do
   el "h1" $ text "Treeview"
-  text "WIP"
+  treeview never (item "ferp-hs") $ do
+    treeview never (item "Components") $ do
+
+      treeview never (item "Input") $ do
+        leafitem "Basic"
+        leafitem "Combobox"
+        leafitem "Numeric"
+
+      leafitem "Accordion"
+      leafitem "Alert"
+      leafitem "Card"
+      leafitem "Class"
+      leafitem "Icon"
+      leafitem "Input"
+      leafitem "Navigation"
+      leafitem "Progress"
+      leafitem "Table"
+      leafitem "Tag"
+      leafitem "Timeline"
+
+    treeview never (item "Frontend") $ do
+      leafitem "Container"
+      leafitem "Core"
+      leafitem "Input"
+
+    leafitem "DevelMain"
+    leafitem "Nordtheme"
 
   pure never
+
+ where
+  item lbl = icon def folderIcon >> text lbl
+  leafitem lbl = leaf $ icon def fileIcon >> text lbl

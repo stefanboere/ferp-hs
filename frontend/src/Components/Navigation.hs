@@ -12,6 +12,8 @@ module Components.Navigation
   , ahref
   , liahref
   , navGroup
+  , treeview
+  , leaf
   , safelink
   , safelinkGroup
   )
@@ -58,6 +60,7 @@ appStyle = do
   commonNavStyle
   tabsStyle
   verticalTabsStyle
+  treeviewStyle
   query Clay.all [Media.maxWidth 768]
     $ mconcat [mobileNavStyle, mobileHeaderStyle]
   query Clay.all [Media.minWidth 768]
@@ -191,14 +194,26 @@ navGroup
   -> m ()
   -> m a
   -> m a
-navGroup setOpen titl cnt = elClass "section" "nav-group" $ do
+navGroup = navGroup' 0.7 "nav-group"
+
+navGroup'
+  :: (MonadIO m, PostBuild t m, DomBuilder t m)
+  => Double
+  -> Text
+  -> Event t Bool
+  -> m ()
+  -> m a
+  -> m a
+navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
   idStr <- randomId
-  checkboxInputSimple False setOpen $ "id" =: idStr
+  checkboxInputSimple False setOpen $ "id" =: idStr <> "style" =: "display:none"
   el "div" $ do
     elAttr "label" ("for" =: idStr) $ do
       el "span" titl
       icon
-        def { _iconConfig_size = 0.7, _iconConfig_class = Just "angle-icon" }
+        def { _iconConfig_size  = iconSize
+            , _iconConfig_class = Just "angle-icon"
+            }
         angleIcon
 
     el "ul" cnt
@@ -354,8 +369,7 @@ commonAppHeaderStyle = do
       fontSize (rem 1)
       important $ height (rem 2)
       important $ width inherit
-      hover Clay.& do
-        fontColor nord3'
+      hover Clay.& fontColor nord3'
 
   ".header-actions" ? do
     display flex
@@ -506,8 +520,7 @@ tabs = tabDisplay "tabs" "active"
 
 verticalTabsStyle :: Css
 verticalTabsStyle = do
-  ".tabs-vertical-container" ? do
-    display flex
+  ".tabs-vertical-container" ? display flex
 
   ".tabs-vertical" ? do
     margin nil (rem (3 / 2)) nil nil
@@ -625,8 +638,7 @@ commonNavStyle = do
     overflowX hidden
     overflowY auto
 
-    ".icon" ? do
-      paddingRight (rem 0.6)
+    ".icon" ? paddingRight (rem 0.6)
 
     a ? do
       fontColor inherit
@@ -654,20 +666,18 @@ commonNavStyle = do
 
     (Clay.span <> a) ? textOverflowEllipsis
 
-    input # ("type" @= "checkbox") ? display none
+  ".nav-group" ? do
+    paddingRight nil
+    ".angle-icon" ? do
+      marginLeft (rem (-0.8))
+      marginRight (rem 0.2)
+      transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
 
-    ".nav-group" ? do
-      paddingRight nil
-      ".angle-icon" ? do
-        marginLeft (rem (-0.8))
-        marginRight (rem 0.2)
-        transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
+    label ? paddingRight (rem 0.6)
 
-      label ? paddingRight (rem 0.6)
-
-      input # checked |+ star ? do
-        ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
-        ul ? display flex
+    input # checked |+ star ? do
+      ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
+      ul ? display flex
 
 sideNavStyle :: Css
 sideNavStyle = do
@@ -702,4 +712,56 @@ sideNavStyle = do
 
 sideNav :: DomBuilder t m => m a -> m a
 sideNav = elClass "nav" "sidenav"
+
+treeviewStyle :: Css
+treeviewStyle = ".treeview" ? do
+  fontSize (rem (13 / 16))
+  ".icon" # Clay.not ".angle-icon" ? paddingRight (rem (1 / 4))
+
+  ul ? do
+    margin nil nil nil (rem (3 / 2))
+    flexDirection column
+    paddingAll nil
+
+  li ? do
+    display flex
+    alignItems center
+    lineHeight (rem 1.5)
+
+  label ? do
+    fontWeight (weight 500)
+    display flex
+    justifyContent flexStart
+    cursor pointer
+    lineHeight (rem 1.5)
+
+    Clay.span ? do
+      display flex
+      alignItems center
+
+  ".angle-icon" ? do
+    order (-1)
+    marginLeft (rem (-3 / 2))
+    marginRight (rem (1 / 2))
+
+  input # checked |+ star ? do
+    ".angle-icon"
+      ? transforms [translate (rem 0.25) (rem 0.25), rotate (deg 180)]
+    ul ? display flex
+
+  input # Clay.not (star # checked) |+ star ? do
+    ".angle-icon" ? transforms [translate (rem 0.5) (rem 0.25), rotate (deg 90)]
+    ul ? display none
+
+
+treeview
+  :: (MonadIO m, PostBuild t m, DomBuilder t m)
+  => Event t Bool
+  -> m ()
+  -> m a
+  -> m a
+treeview = navGroup' 1 "treeview"
+
+leaf :: (DomBuilder t m) => m a -> m a
+leaf = el "li"
 
