@@ -113,6 +113,10 @@ data InputStatus = InputNeutral (Maybe Text) | InputSuccess Text | InputError Te
 instance Default InputStatus where
   def = InputNeutral Nothing
 
+instance Semigroup InputStatus where
+  (InputNeutral _) <> x = x
+  x                <> _ = x
+
 data InputConfig t a = InputConfig
   { _inputConfig_initialValue :: a
   , _inputConfig_setValue     :: Event t a
@@ -122,12 +126,13 @@ data InputConfig t a = InputConfig
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
   }
 
-data InputEl t a = InputEl
+data InputEl d t a = InputEl
   { _inputEl_value :: Dynamic t a
   , _inputEl_hasFocus :: Dynamic t Bool
+  , _inputEl_element :: Element EventResult d t
   }
 
-instance Reflex t => Functor (InputEl t) where
+instance Reflex t => Functor (InputEl d t) where
   fmap f x = x { _inputEl_value = f <$> _inputEl_value x }
 
 inputConfig :: Reflex t => a -> InputConfig t a
@@ -585,7 +590,7 @@ labeled cfg editor = do
 textInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m)
   => InputConfig t Text
-  -> m (InputEl t Text)
+  -> m (InputEl (DomBuilderSpace m) t Text)
 textInput cfg = labeled cfg (textInput' (pure (never, never)))
 
 textInput'
@@ -593,7 +598,7 @@ textInput'
   => m (Event t (Map AttributeName (Maybe Text)), Event t Text)
   -> Text
   -> InputConfig t Text
-  -> m (InputEl t Text)
+  -> m (InputEl (DomBuilderSpace m) t Text)
 textInput' after' idStr cfg = fst <$> textInput'' (((), ) <$> after') idStr cfg
 
 textInput''
@@ -601,7 +606,7 @@ textInput''
   => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
   -> Text
   -> InputConfig t Text
-  -> m (InputEl t Text, a)
+  -> m (InputEl (DomBuilderSpace m) t Text, a)
 textInput'' after' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -635,6 +640,7 @@ textInput'' after' idStr cfg = do
     pure
       ( InputEl { _inputEl_value    = _inputElement_value n
                 , _inputEl_hasFocus = _inputElement_hasFocus n
+                , _inputEl_element  = _inputElement_element n
                 }
       , x
       )
@@ -927,7 +933,7 @@ selectInput'
   :: (PostBuild t m, DomBuilder t m, HasLabel a, Enum a, Bounded a)
   => Text
   -> InputConfig t (Maybe a)
-  -> m (InputEl t (Maybe a))
+  -> m (InputEl (DomBuilderSpace m) t (Maybe a))
 selectInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -959,6 +965,7 @@ selectInput' idStr cfg = do
 
     pure $ InputEl { _inputEl_value = parseEnum <$> _selectElement_value (fst n)
                    , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
+                   , _inputEl_element = _selectElement_element (fst n)
                    }
  where
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
@@ -1022,7 +1029,7 @@ textAreaInput'
   :: (PostBuild t m, DomBuilder t m)
   => Text
   -> InputConfig t Text
-  -> m (InputEl t Text)
+  -> m (InputEl (DomBuilderSpace m) t Text)
 textAreaInput' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -1051,6 +1058,7 @@ textAreaInput' idStr cfg = do
 
     pure $ InputEl { _inputEl_value    = _textAreaElement_value n
                    , _inputEl_hasFocus = _textAreaElement_hasFocus n
+                   , _inputEl_element  = _textAreaElement_element n
                    }
 
 rangeInput
@@ -1142,7 +1150,7 @@ datalistInput'
   => Text
   -> Dynamic t (Map k Text)
   -> InputConfig t Text
-  -> m (InputEl t Text)
+  -> m (InputEl (DomBuilderSpace m) t Text)
 datalistInput' idStr options cfg = textInput'
   after'
   idStr
@@ -1217,7 +1225,7 @@ passwordInput'
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => Text
   -> InputConfig t Text
-  -> m (InputEl t Text)
+  -> m (InputEl (DomBuilderSpace m) t Text)
 passwordInput' idStr cfg = textInput'
   after'
   idStr

@@ -266,11 +266,9 @@ dropdownStyle = do
   (".dropdown" <> ".signpost" <> ".tooltip") ? do
     Clay.display inlineFlex
     position relative
-    ".angle-icon" ? do
-      transforms [rotate (deg 180)]
+    ".angle-icon" ? transforms [rotate (deg 180)]
 
-    button # ".open" ? do
-      zIndex 1
+    button # ".open" ? zIndex 1
 
     button # ".open" # before ? do
       cursor cursorDefault
@@ -294,8 +292,7 @@ dropdownStyle = do
                                                        (rem (1 / 16))
                                                        (rem (1 / 8))
 
-    ".open" Clay.& do
-      Clay.display flex
+    ".open" Clay.& Clay.display flex
 
   (".signpost-menu" <> ".dropdown-menu" <> ".tooltip-menu" <> ".combobox-menu")
     ? do
@@ -309,8 +306,7 @@ dropdownStyle = do
         paddingBottom (rem (1 / 2))
         zIndex 1
 
-        ".angle-icon" ? do
-          transforms [rotate (deg 90)]
+        ".angle-icon" ? transforms [rotate (deg 90)]
 
         ".dropdown-menu" ? do
           left (pct 100 @-@ rem (1 / 2))
@@ -330,11 +326,9 @@ dropdownStyle = do
     "fill" -: showColor nord3'
     fontWeight (weight 400)
 
-    hover Clay.& Clay.not (star # disabled) Clay.& do
-      background nord6'
+    hover Clay.& Clay.not (star # disabled) Clay.& background nord6'
 
-    disabled Clay.& do
-      fontColor grey0'
+    disabled Clay.& fontColor grey0'
 
     ".open" Clay.& do
       background nord4'
@@ -403,12 +397,10 @@ signpostStyle = do
       right (rem (1 / 4))
       top (rem (1 / 4))
 
-    ".button-close" |+ star ? do
-      marginTop nil
+    ".button-close" |+ star ? marginTop nil
 
   ".signpost-menu" <> ".tooltip-menu" ? do
-    ".open" Clay.& do
-      Clay.display block
+    ".open" Clay.& Clay.display block
 
     before Clay.& do
       content $ stringContent ""
@@ -432,8 +424,7 @@ signpostStyle = do
     bottom (pct 100 @+@ rem (1 / 2))
     right (pct 50)
     borderBottomRightRadius nil nil
-    before Clay.& do
-      right (px (-1))
+    before Clay.& right (px (-1))
 
   (".top-left" <> ".top-middle") ? do
     before Clay.& do
@@ -442,14 +433,12 @@ signpostStyle = do
       borderBottom solid (px 1) grey0'
       transforms [skewY (deg 45)]
 
-  ".top-middle" ? do
-    bottom (pct 100 @+@ rem (1 / 2))
+  ".top-middle" ? bottom (pct 100 @+@ rem (1 / 2))
 
   (".top-middle" <> ".bottom-middle") ? do
     right (pct 50)
     transforms [translate (pct 50) nil]
-    before Clay.& do
-      right (pct 50)
+    before Clay.& right (pct 50)
 
   ".top-right" ? do
     bottom (pct 100 @+@ rem (1 / 2))
@@ -473,14 +462,12 @@ signpostStyle = do
       borderBottom solid (px 1) grey0'
       transforms [skewX (deg (-45))]
 
-  ".right-middle" ? do
-    left (pct 100 @+@ rem (1 / 2))
+  ".right-middle" ? left (pct 100 @+@ rem (1 / 2))
 
   ".right-middle" <> ".left-middle" ? do
     top (pct 50)
     transforms [translate nil (pct (-50))]
-    before Clay.& do
-      top (pct 50)
+    before Clay.& top (pct 50)
 
   (".right-middle" <> ".right-bottom") # before ? do
     left (rem (-1 / 4) @-@ px 1)
@@ -492,8 +479,7 @@ signpostStyle = do
     top (pct 50)
     left (pct 100 @+@ rem (1 / 2))
     borderTopLeftRadius nil nil
-    before Clay.& do
-      top (px (-1))
+    before Clay.& top (px (-1))
 
   ".bottom-right" ? do
     top (pct 100 @+@ rem (1 / 2))
@@ -506,8 +492,7 @@ signpostStyle = do
       borderTop solid (px 1) grey0'
       transforms [skewY (deg 45)]
 
-  ".bottom-middle" ? do
-    top (pct 100 @+@ rem (1 / 2))
+  ".bottom-middle" ? top (pct 100 @+@ rem (1 / 2))
 
   (".bottom-middle" <> ".bottom-left") # before ? do
     top (rem (-1 / 4) @-@ px 2)
@@ -519,15 +504,13 @@ signpostStyle = do
     top (pct 100 @+@ rem (1 / 2))
     right (pct 50)
     borderTopRightRadius nil nil
-    before Clay.& do
-      right (px (-1))
+    before Clay.& right (px (-1))
 
   ".left-bottom" ? do
     top (pct 50)
     right (pct 100 @+@ rem (1 / 2))
     borderTopRightRadius nil nil
-    before Clay.& do
-      top (px (-1))
+    before Clay.& top (px (-1))
 
   (".left-bottom" <> ".left-middle") # before ? do
     right (rem (-1 / 4) @-@ px 1)
@@ -535,8 +518,7 @@ signpostStyle = do
     borderTop solid (px 1) grey0'
     transforms [skewX (deg (-45))]
 
-  ".left-middle" ? do
-    right (pct 100 @+@ rem (1 / 2))
+  ".left-middle" ? right (pct 100 @+@ rem (1 / 2))
 
   ".left-top" ? do
     bottom (pct 50)

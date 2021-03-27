@@ -69,6 +69,7 @@ library
     , containers
     , data-default
     , foreign-store
+    , fuzzy
     , ghcjs-dom
     , http-api-data
     , http-types

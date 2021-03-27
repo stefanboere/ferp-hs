@@ -214,7 +214,7 @@ comboboxHandler
   => m (Event t URI)
 comboboxHandler = do
   el "h1" $ text "Combobox"
-
+  el "p" $ text "WIP"
 
   el "form" $ do
     x <- comboboxInput showOpt
@@ -225,9 +225,9 @@ comboboxHandler = do
 
   pure never
  where
-  showOpt k v = text ((<> " ") . pack . show $ k) >> dynText v
+  showOpt k v = dynText ((<> " ") . pack . show <$> k) >> dynText v
   flavors = constDyn $ Map.fromList $ zip
-    [(1 :: Integer) ..]
+    [(10 :: Integer), 9 ..]
     ["Cherry", "Mint chip", "Vanilla", "Lemon"]
 
 datalistHandler
