@@ -19,6 +19,7 @@ module Components.Input.Basic
   , inputConfig
   , textInput
   , textInput'
+  , textInput''
   , InputStatus(..)
   , InputEl(..)
   , labeled
@@ -593,11 +594,19 @@ textInput'
   -> Text
   -> InputConfig t Text
   -> m (InputEl t Text)
-textInput' after' idStr cfg = do
+textInput' after' idStr cfg = fst <$> textInput'' (((), ) <$> after') idStr cfg
+
+textInput''
+  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
+  -> Text
+  -> InputConfig t Text
+  -> m (InputEl t Text, a)
+textInput'' after' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
-    n <- elClass "div" "flex-row" $ do
+    (n, x) <- elClass "div" "flex-row" $ do
       rec
         n' <-
           inputElement
@@ -616,16 +625,19 @@ textInput' after' idStr cfg = do
           .~ mergeWith (<>)
                        [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
 
-        (attrEv, setValEv) <- after'
+        (x, (attrEv, setValEv)) <- after'
 
       statusMessageIcon (_inputConfig_status cfg)
-      pure n'
+      pure (n', x)
 
     statusMessageElement (_inputConfig_status cfg)
 
-    pure $ InputEl { _inputEl_value    = _inputElement_value n
-                   , _inputEl_hasFocus = _inputElement_hasFocus n
-                   }
+    pure
+      ( InputEl { _inputEl_value    = _inputElement_value n
+                , _inputEl_hasFocus = _inputElement_hasFocus n
+                }
+      , x
+      )
 
 numberInput
   :: ( MonadHold t m

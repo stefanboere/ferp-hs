@@ -20,11 +20,11 @@ import           Data.Map                       ( Map )
 import           Data.Maybe                     ( fromMaybe )
 import qualified Data.Map                      as Map
 import           Data.Text                      ( Text )
+import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( (&)
                                                 , display
                                                 )
 
-import           Components.Icon
 import           Components.Input.Basic
 import           Nordtheme
 
@@ -83,7 +83,7 @@ comboboxInput'
   -> InputConfig t (ComboboxValue (Maybe k))
   -> m (InputEl t (ComboboxValue (Maybe k)))
 comboboxInput' idStr showOpt options cfg = do
-  rec searchStrInput <- textInput'
+  rec (searchStrInput, selectEv) <- textInput''
         (after' hasFocusDyn)
         idStr
         (_cb_text <$> cfg)
@@ -94,7 +94,14 @@ comboboxInput' idStr showOpt options cfg = do
                                       =: "combobox"
           }
       let hasFocusDyn = _inputEl_hasFocus searchStrInput
-  pure $ ComboboxValue Nothing <$> searchStrInput
+
+  let clearEv = ffilter Text.null $ updated (_inputEl_value searchStrInput)
+
+  selKey <- holdDyn Nothing $ leftmost [Just <$> selectEv, Nothing <$ clearEv]
+
+  let comboVal = ComboboxValue <$> selKey <*> _inputEl_value searchStrInput
+
+  pure $ InputEl comboVal hasFocusDyn
  where
   listIdStr = idStr <> "-datalist"
   after' hasFocusDyn = do
@@ -120,18 +127,16 @@ comboboxInput' idStr showOpt options cfg = do
           )
           <$> updated openDyn
 
-    let updateValAttrEv =
-          fmap (fromMaybe "")
-            $   attachPromptlyDynWith (Map.!?) options
-            $   fst
-            .   Map.findMin
-            <$> dynOptEv
+    let selectedKeyEv = fst . Map.findMin <$> dynOptEv
 
-    pure (setOpenAttrEv, updateValAttrEv)
+    let updateValAttrEv =
+          fromMaybe "" <$> attachPromptlyDynWith (Map.!?) options selectedKeyEv
+
+    pure (selectedKeyEv, (setOpenAttrEv, updateValAttrEv))
 
   mkOption k v = do
     (e, _) <- elDynAttr' "option" (("value" =:) <$> v) (showOpt k v)
-    pure $ k <$ domEvent Click e
+    pure $ domEvent Click e
 
   mkDatalistAttr isOpen = Map.fromList
     [ ("id"   , listIdStr)
