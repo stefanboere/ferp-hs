@@ -129,6 +129,7 @@ typographyStyle = do
   ".p3"
     <> ".alert"
     <> tbody
+    <> thead
     <> ".tooltip"
     <> form
     <> ".stackview"
@@ -212,7 +213,7 @@ navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
       el "span" titl
       icon
         def { _iconConfig_size  = iconSize
-            , _iconConfig_class = Just "angle-icon"
+            , _iconConfig_class = constDyn $ Just "angle-icon"
             }
         angleIcon
 

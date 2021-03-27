@@ -16,6 +16,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import           Data.Text                      ( pack )
+import           Data.Time                      ( fromGregorian )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -90,13 +91,10 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- stackviewEmpty
-      "Label 1"
-      (textInput' (pure (never, never)) "" (inputConfig "Content 1"))
+    _ <- stackviewEmpty "Label 1" (textInput' "" (inputConfig "Content 1"))
     _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
-      _ <- stackviewRow
-        "Sub-label 1"
-        (textInput' (pure (never, never)) "" (inputConfig "Sub-content 1"))
+      _ <- stackviewRow "Sub-label 1"
+                        (textInput' "" (inputConfig "Sub-content 1"))
       stackviewRow "Sub-label 2" (text "Sub-content 2")
       stackviewRow "Sub-label 3" (text "Sub-content 3")
     _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do
@@ -287,14 +285,54 @@ containerTable
 containerTable = do
   el "h1" $ text "Table"
   _ <- tableDyn
-    [ ("First" , \_ r -> dynText (fst <$> r))
-    , ("Second", \_ r -> dynText (snd <$> r))
+    [ (text "First" , \_ r -> dynText (fst <$> r))
+    , (text "Second", \_ r -> dynText (snd <$> r))
     ]
     (constDyn
       (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
     )
   el "h2" $ text "Datagrid"
-  text "WIP"
+  tableEl $ do
+    el "thead" $ do
+      el "tr" $ do
+        columnHead $ do
+          _ <- sortlabel "User ID"
+          filterEl BottomRight (constDyn True) blank
+        el "th" $ text "Name"
+        el "th" $ text "Creation date"
+        el "th" $ text "Tickets"
+      el "tr" $ do
+        _ <- el "td" $ textInput' "" (inputConfig "")
+        _ <- el "td" $ textInput' "" (inputConfig "")
+        _ <- el "td" $ textInput' "" (inputConfig "")
+        _ <- el "td" $ textInput' "" (inputConfig "")
+        pure ()
+    el "tbody" $ do
+      el "tr" $ do
+        el "td" $ text "42"
+        _ <- el "td" $ textInput' "" (inputConfig "John Doe")
+        _ <- el "td"
+          $ dateInput' def "" (inputConfig (Just (fromGregorian 1970 01 01)))
+        _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
+        pure ()
+      el "tr" $ do
+        el "td" $ text "104"
+        el "td" $ text "Adam Smith"
+        el "td" $ text "Jul 1, 2007"
+        elClass "td" "right" $ text "0"
+      el "tr" $ do
+        el "td" $ text "131"
+        el "td" $ text "Dimitri Johnson"
+        el "td" $ text "May 4, 2014"
+        elClass "td" "right" $ text "10"
+    el "tfoot" $ do
+      el "tr" $ do
+        el "td" $ text "3"
+        el "td" blank
+        el "td" blank
+        elClass "td" "right" $ text "11"
+      el "tr" $ elAttr "td" ("colspan" =: "1000") $ text "pagination"
+
   pure never
 
 containerTimeline :: (PostBuild t m, DomBuilder t m) => m (Event t URI)

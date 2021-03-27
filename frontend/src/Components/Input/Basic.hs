@@ -19,7 +19,8 @@ module Components.Input.Basic
   , inputConfig
   , textInput
   , textInput'
-  , textInput''
+  , textInputWithIco
+  , textInputWithIco'
   , InputStatus(..)
   , InputEl(..)
   , labeled
@@ -219,8 +220,7 @@ timeStyle =
     <> input
     #  ("type" @= "week")
     )
-    ? do
-        paddingRight (rem (3 / 2))
+    ? paddingRight (rem (3 / 2))
 
 toggleStyle :: Css
 toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
@@ -591,23 +591,31 @@ textInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadIO m)
   => InputConfig t Text
   -> m (InputEl (DomBuilderSpace m) t Text)
-textInput cfg = labeled cfg (textInput' (pure (never, never)))
+textInput cfg = labeled cfg textInput'
 
 textInput'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  => Text
+  -> InputConfig t Text
+  -> m (InputEl (DomBuilderSpace m) t Text)
+textInput' = textInputWithIco (pure (never, never))
+
+textInputWithIco
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t (Map AttributeName (Maybe Text)), Event t Text)
   -> Text
   -> InputConfig t Text
   -> m (InputEl (DomBuilderSpace m) t Text)
-textInput' after' idStr cfg = fst <$> textInput'' (((), ) <$> after') idStr cfg
+textInputWithIco after' idStr cfg =
+  fst <$> textInputWithIco' (((), ) <$> after') idStr cfg
 
-textInput''
+textInputWithIco'
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
   -> Text
   -> InputConfig t Text
   -> m (InputEl (DomBuilderSpace m) t Text, a)
-textInput'' after' idStr cfg = do
+textInputWithIco' after' idStr cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   elClass "div" "input" $ do
@@ -717,7 +725,6 @@ numberRangeInput' isReg nc idStr cfg = do
 
   rec
     n <- textInput'
-      (pure (never, never))
       idStr
       cfg
         { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
@@ -1151,7 +1158,7 @@ datalistInput'
   -> Dynamic t (Map k Text)
   -> InputConfig t Text
   -> m (InputEl (DomBuilderSpace m) t Text)
-datalistInput' idStr options cfg = textInput'
+datalistInput' idStr options cfg = textInputWithIco
   after'
   idStr
   cfg
@@ -1226,7 +1233,7 @@ passwordInput'
   => Text
   -> InputConfig t Text
   -> m (InputEl (DomBuilderSpace m) t Text)
-passwordInput' idStr cfg = textInput'
+passwordInput' idStr cfg = textInputWithIco
   after'
   idStr
   cfg
@@ -1321,7 +1328,7 @@ datetimeInput' formatTime' parseTime' typeStr ico nc idStr cfg = do
 
   (minMaxEv, minMaxDyn) <- getMinMaxEv formatTime' nc
 
-  rec n <- textInput'
+  rec n <- textInputWithIco
         after'
         idStr
         (fmap mFormatTime' cfg)

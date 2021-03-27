@@ -155,7 +155,7 @@ stepper' cls disabledDyn state' initOpen setOpen titl cnt =
     _     <- dyn (mkCheckbox idStr <$> disabledDyn)
     el "div" $ do
       l <- elAttr "label" ("class" =: "p3" <> "for" =: idStr) $ do
-        icon def { _iconConfig_class = Just "angle-icon" } angleIcon
+        icon def { _iconConfig_class = constDyn $ Just "angle-icon" } angleIcon
         titl
 
       c <- elClass "div" "content" cnt

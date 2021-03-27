@@ -1,6 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TupleSections #-}
 module Components.Button
   ( ButtonConfig(..)
   , ButtonPriority(..)
@@ -14,6 +15,7 @@ module Components.Button
   , dropdownHeader
   , divider
   , signpost
+  , signpost'
   , TooltipPosition(..)
   , tooltip
   )
@@ -192,12 +194,12 @@ btn ButtonConfig {..} lbl = do
 
   stateIcon ActionError = icon
     def { _iconConfig_status = constDyn (Just Danger)
-        , _iconConfig_class  = Just "action-icon"
+        , _iconConfig_class  = constDyn $ Just "action-icon"
         }
     errorStandardIcon
   stateIcon ActionSuccess = icon
     def { _iconConfig_status = constDyn (Just Success)
-        , _iconConfig_class  = Just "action-icon"
+        , _iconConfig_class  = constDyn $ Just "action-icon"
         }
     checkIcon
   stateIcon ActionLoading = spinner def ""
@@ -342,36 +344,42 @@ btnDropdown
   -> m a
   -> m (Event t b)
   -> m (Event t b)
-btnDropdown cfg titl = btnDropdown'
+btnDropdown cfg titl cnt = snd <$> btnDropdown'
   "dropdown"
   cfg
-  (titl >> icon def { _iconConfig_class = Just "angle-icon" } angleIcon)
+  (  titl
+  >> icon def { _iconConfig_class = constDyn $ Just "angle-icon" } angleIcon
+  )
+  (((), ) <$> cnt)
 
 btnOverflow
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => ButtonConfig t
   -> m (Event t b)
   -> m (Event t b)
-btnOverflow cfg = btnDropdown' "dropdown" cfg (icon def ellipsisHorizontalIcon)
+btnOverflow cfg cnt = snd <$> btnDropdown' "dropdown"
+                                           cfg
+                                           (icon def ellipsisHorizontalIcon)
+                                           (((), ) <$> cnt)
 
 btnDropdown'
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => Text
   -> ButtonConfig t
   -> m a
-  -> m (Event t b)
-  -> m (Event t b)
+  -> m (x, Event t b)
+  -> m (x, Event t b)
 btnDropdown' typeStr' cfg titl cnt = elClass "div" typeStr $ do
-  rec clickEv  <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
+  rec clickEv       <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
 
-      actionEv <- elDynClass
+      (x, actionEv) <- elDynClass
         "div"
         (((typeStr <> "-menu" <> typeStrOther <> " ") <>) . mkCls <$> openDyn)
         cnt
 
       openDyn <- foldDyn ($) False
         $ leftmost [Prelude.not <$ clickEv, const False <$ actionEv]
-  pure actionEv
+  pure (x, actionEv)
 
  where
   (typeStr, typeStrOther) = Text.span (/= ' ') typeStr'
@@ -554,15 +562,22 @@ signpost
   => TooltipPosition
   -> m ()
   -> m ()
-signpost pos cnt =
-  (() <$)
-    <$> btnDropdown' ("signpost " <> toSnake (pack (show pos)))
-                     def { _buttonConfig_priority = ButtonTertiary }
-                     (icon def infoStandardIcon)
-    $   do
-          closeEv <- closeBtn def
-          cnt
-          pure closeEv
+signpost = fmap (fmap fst) . signpost' (icon def infoStandardIcon)
+
+signpost'
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
+  => m ()
+  -> TooltipPosition
+  -> m a
+  -> m (a, Event t ())
+signpost' ico pos cnt =
+  btnDropdown' ("signpost " <> toSnake (pack (show pos)))
+               def { _buttonConfig_priority = ButtonTertiary }
+               ico
+    $ do
+        closeEv <- closeBtn def
+        x       <- cnt
+        pure (x, closeEv)
 
 toSnake :: Text -> Text
 toSnake x =
@@ -595,5 +610,5 @@ tooltip pos cnt =
                      def { _buttonConfig_priority = ButtonTertiary }
                      (icon def infoStandardIcon)
     $   dynText cnt
-    >>  pure never
+    >>  pure ((), never)
 

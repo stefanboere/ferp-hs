@@ -36,6 +36,9 @@ module Components.Icon
   , circleIcon
   , dotCircleIcon
   , fileIcon
+  , arrowIcon
+  , filterGridIcon
+  , filterGridCircleIcon
   )
 where
 
@@ -62,7 +65,7 @@ data IconConfig t = IconConfig
   { _iconConfig_size :: Double
   , _iconConfig_status :: Dynamic t (Maybe Status)
   , _iconConfig_direction :: Dynamic t Direction
-  , _iconConfig_class :: Maybe Text
+  , _iconConfig_class :: Dynamic t (Maybe Text)
   }
 
 instance Reflex t => Default (IconConfig t) where
@@ -75,12 +78,13 @@ instance Reflex t => Default (IconConfig t) where
 icon :: (PostBuild t m, DomBuilder t m) => IconConfig t -> m a -> m a
 icon IconConfig {..} = elDynAttr
   "div"
-  (   (\s d -> "class" =: ("icon" <> classStr) <> "style" =: style s d)
+  (   (\s d x -> "class" =: ("icon" <> classStr x) <> "style" =: style s d)
   <$> _iconConfig_status
   <*> _iconConfig_direction
+  <*> _iconConfig_class
   )
  where
-  classStr = maybe "" (" " <>) _iconConfig_class
+  classStr = maybe "" (" " <>)
   style status direction =
     "display:inline-block;width:"
       <> rem'
@@ -342,3 +346,22 @@ fileIcon =
   svg
     $ path
         "M21.89,4H7.83A1.88,1.88,0,0,0,6,5.91V30.09A1.88,1.88,0,0,0,7.83,32H28.17A1.88,1.88,0,0,0,30,30.09V11.92Zm-.3,2.49,6,5.9h-6ZM8,30V6H20v8h8V30Z"
+
+arrowIcon :: (PostBuild t m, DomBuilder t m) => m ()
+arrowIcon =
+  svg
+    $ path
+        "M27.66,15.61,18,6,8.34,15.61A1,1,0,1,0,9.75,17L17,9.81V28.94a1,1,0,1,0,2,0V9.81L26.25,17a1,1,0,0,0,1.41-1.42Z"
+
+filterGridIcon :: (PostBuild t m, DomBuilder t m) => m ()
+filterGridIcon =
+  svg
+    $ path
+        "M15,25.86l2,1V20.27a1,1,0,0,0-.29-.7L10.23,13H25.79l-6.47,6.57a1,1,0,0,0-.29.7L19,28l2,1V20.68L27.58,14A1.46,1.46,0,0,0,28,13V12a1,1,0,0,0-1-1H9a1,1,0,0,0-1,1v1a1.46,1.46,0,0,0,.42,1L15,20.68Z"
+
+filterGridCircleIcon :: (PostBuild t m, DomBuilder t m) => m ()
+filterGridCircleIcon = svg $ do
+  path
+    "M15,25.86l2,1V20.27a1,1,0,0,0-.29-.7L10.23,13H25.79l-6.47,6.57a1,1,0,0,0-.29.7L19,28l2,1V20.68L27.58,14A1.46,1.46,0,0,0,28,13V12a1,1,0,0,0-1-1H9a1,1,0,0,0-1,1v1a1.46,1.46,0,0,0,.42,1L15,20.68Z"
+  path
+    "M18,2A16,16,0,1,0,34,18,16,16,0,0,0,18,2Zm0,30A14,14,0,1,1,32,18,14,14,0,0,1,18,32Z"

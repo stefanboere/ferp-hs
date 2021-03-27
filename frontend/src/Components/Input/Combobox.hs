@@ -79,7 +79,7 @@ comboboxInput'
   -> m (InputEl (DomBuilderSpace m) t (ComboboxValue (Maybe k)))
 comboboxInput' idStr showOpt allOptions cfg = do
   rec
-    (searchStrInput, selectEv) <- textInput''
+    (searchStrInput, selectEv) <- textInputWithIco'
       (after' dynSelection options hasFocusDyn)
       idStr
       (_cb_text <$> cfg)
