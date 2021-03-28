@@ -8,6 +8,8 @@
 module Components.Input.Basic
   ( numberInput
   , numberInput'
+  , integralInput
+  , integralInput'
   , toggleInput
   , togglesInput
   , checkboxInput
@@ -162,6 +164,12 @@ data NumberInputConfig t a = NumberInputConfig
 
 instance Reflex t => Default (NumberInputConfig t a) where
   def = NumberInputConfig def def Nothing
+
+instance Reflex t => Functor (NumberInputConfig t) where
+  fmap f cfg = cfg
+    { _numberInputConfig_maxValue = fmap f <$> _numberInputConfig_maxValue cfg
+    , _numberInputConfig_minValue = fmap f <$> _numberInputConfig_minValue cfg
+    }
 
 inputStyle :: Css
 inputStyle = do
@@ -681,6 +689,33 @@ numberInput'
   -> m (Dynamic t (Maybe a))
 numberInput' = numberRangeInput' True
 
+integralInput
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Integral a
+     , MonadIO m
+     )
+  => NumberInputConfig t a
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+integralInput nc cfg = labeled cfg (integralInput' nc)
+
+integralInput'
+  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Integral a)
+  => NumberInputConfig t a
+  -> Text
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+integralInput' nc idStr cfg = conv <$> numberInput'
+  (fromIntegral <$> nc { _numberInputConfig_precision = Just 0 })
+  idStr
+  (fromIntegral <$> cfg)
+ where
+  conv
+    :: (Integral a, Reflex t) => Dynamic t (Maybe Double) -> Dynamic t (Maybe a)
+  conv = fmap (fmap Prelude.round)
 
 numberRangeInput'
   :: ( MonadHold t m
@@ -762,7 +797,10 @@ numberRangeInput' isReg nc idStr cfg = do
 
   mkStep :: Int -> Text
   mkStep x = prnt (10 ^^ (-x))
-  prnt x = pack $ showFFloatAlt (_numberInputConfig_precision nc) x ""
+  prnt x = Text.dropWhileEnd (== '.') $ pack $ showFFloatAlt
+    (_numberInputConfig_precision nc)
+    x
+    ""
   emptyNoFocus (x, r) f | Text.null x && not f = Just (prnt 0)
                         | not f                = prnt <$> r
                         | otherwise            = Nothing

@@ -244,9 +244,8 @@ coreButton = do
     divider
     loremEv      <- btn def (text "Lorem.")
     loremIpsumEv <- btnDropdown def (text "Lorem ipsum.") $ do
-      fooEv <- btn def (text "Foo.")
-      barEv <- btnDropdown def (text "Bar.") $ do
-        btn def (text "Baz.")
+      fooEv  <- btn def (text "Foo.")
+      barEv  <- btnDropdown def (text "Bar.") $ btn def (text "Baz.")
       foo2Ev <- btn def (text "Foo 2.")
       pure $ leftmost [fooEv, barEv, foo2Ev]
     ipsumEv <- btn def (text "Ipsum")

@@ -39,6 +39,7 @@ module Components.Icon
   , arrowIcon
   , filterGridIcon
   , filterGridCircleIcon
+  , stepForwardIcon
   )
 where
 
@@ -365,3 +366,10 @@ filterGridCircleIcon = svg $ do
     "M15,25.86l2,1V20.27a1,1,0,0,0-.29-.7L10.23,13H25.79l-6.47,6.57a1,1,0,0,0-.29.7L19,28l2,1V20.68L27.58,14A1.46,1.46,0,0,0,28,13V12a1,1,0,0,0-1-1H9a1,1,0,0,0-1,1v1a1.46,1.46,0,0,0,.42,1L15,20.68Z"
   path
     "M18,2A16,16,0,1,0,34,18,16,16,0,0,0,18,2Zm0,30A14,14,0,1,1,32,18,14,14,0,0,1,18,32Z"
+
+stepForwardIcon :: (PostBuild t m, DomBuilder t m) => m ()
+stepForwardIcon = svg $ do
+  path
+    "M7.08,6.52a1.68,1.68,0,0,0,0,2.4L16.51,18,7.12,27.08a1.7,1.7,0,0,0,2.36,2.44h0L21.4,18,9.48,6.47A1.69,1.69,0,0,0,7.08,6.52Z"
+  path
+    "M26.49,5a1.7,1.7,0,0,0-1.7,1.7V29.3a1.7,1.7,0,0,0,3.4,0V6.7A1.7,1.7,0,0,0,26.49,5Z"

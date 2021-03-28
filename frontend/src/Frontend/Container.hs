@@ -292,9 +292,10 @@ containerTable = do
       (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
     )
   el "h2" $ text "Datagrid"
-  tableEl $ do
+  datagrid $ do
     el "thead" $ do
       el "tr" $ do
+        el "th" $ checkboxInputSimple False never mempty
         columnHead $ do
           _ <- sortlabel "User ID"
           filterEl BottomRight (constDyn True) blank
@@ -302,13 +303,15 @@ containerTable = do
         el "th" $ text "Creation date"
         el "th" $ text "Tickets"
       el "tr" $ do
+        el "td" blank
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         pure ()
-    el "tbody" $ do
+    elAttr "tbody" ("style" =: "height:10rem") $ do
       el "tr" $ do
+        el "td" $ checkboxInputSimple False never mempty
         el "td" $ text "42"
         _ <- el "td" $ textInput' "" (inputConfig "John Doe")
         _ <- el "td"
@@ -316,22 +319,27 @@ containerTable = do
         _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
         pure ()
       el "tr" $ do
+        el "td" $ checkboxInputSimple False never mempty
         el "td" $ text "104"
         el "td" $ text "Adam Smith"
         el "td" $ text "Jul 1, 2007"
         elClass "td" "right" $ text "0"
       el "tr" $ do
+        el "td" $ checkboxInputSimple False never mempty
         el "td" $ text "131"
         el "td" $ text "Dimitri Johnson"
         el "td" $ text "May 4, 2014"
         elClass "td" "right" $ text "10"
     el "tfoot" $ do
       el "tr" $ do
+        el "td" blank
         el "td" $ text "3"
         el "td" blank
         el "td" blank
         elClass "td" "right" $ text "11"
-      el "tr" $ elAttr "td" ("colspan" =: "1000") $ text "pagination"
+      _ <- tfooter (paginationInput (constDyn (Just 51)))
+      pure ()
+
 
   pure never
 
