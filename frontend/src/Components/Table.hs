@@ -14,6 +14,8 @@ module Components.Table
   , rowMultiSelect
   , selectedCountInfo
   , showHideColumns
+  , linkCell
+  , angleDoubleRightIcon
   )
 where
 
@@ -46,9 +48,38 @@ import           Nordtheme
 tableStyle :: Css
 tableStyle = do
   selectedCountStyle
+  (  ".datagrid"
+    ** th
+    <> ".datagrid-1"
+    ** tr
+    ** td
+    #  firstChild
+    <> ".datagrid-2"
+    ** tr
+    ** td
+    #  nthChild "2"
+    )
+    ? do
+        position relative
+        before Clay.& do
+          content (stringContent "")
+          position absolute
+          height (pct 100 @-@ rem (1 / 2))
+          width (px 1)
+          top (rem (1 / 4))
+          right nil
+          backgroundColor nord4'
+
+  (".datagrid-1" <> ".datagrid-2") ? do
+    tr ** (td <> th) # firstChild ? width (rem (3 / 2))
+
+  ".datagrid-2" ? do
+    tr ** (td <> th) # nthChild "2" ? width (rem (3 / 2))
+
   ".datagrid" ? do
     tbody ** tr # lastChild ** td ? borderBottomWidth 1
-    tr ** (td <> th) # firstChild ? width (rem 1)
+    th # before ? backgroundColor (lighten 0.5 grey0')
+    th # lastChild # before ? display none
 
   table ? do
     borderCollapse separate
@@ -95,11 +126,14 @@ tableStyle = do
 
   td ? do
     ".right" Clay.& textAlign end
+    ".center" Clay.& textAlign center
     paddingAll (rem (1 / 2))
     textAlign start
     ".input" ? do
       marginTop (rem (-1 / 4))
       marginBottom (rem (-1 / 2))
+
+    input # ("type" @= "checkbox") ? marginTop (rem (-1 / 8))
 
     input ? do
       borderBottomColor nord4'
@@ -190,9 +224,16 @@ tableAttr attrs =
 tableEl :: DomBuilder t m => m a -> m a
 tableEl = tableAttr Map.empty
 
-datagrid :: DomBuilder t m => m a -> m a
-datagrid = tableAttr ("class" =: "datagrid")
+datagrid :: DomBuilder t m => Int -> m a -> m a
+datagrid i' = tableAttr ("class" =: ("datagrid datagrid-" <> pack (show i')))
 
+linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
+linkCell dynHref =
+  elClass "td" "center" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
+
+angleDoubleRightIcon :: (DomBuilder t m, PostBuild t m) => m ()
+angleDoubleRightIcon =
+  icon def { _iconConfig_direction = constDyn DirRight } angleDoubleIcon
 
 data SortOrder = Descending | Ascending deriving (Eq, Show)
 

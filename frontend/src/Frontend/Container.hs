@@ -293,10 +293,11 @@ containerTable = do
       (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
     )
   el "h2" $ text "Datagrid"
-  datagrid $ do
+  datagrid 2 $ do
     selectAllEv' <- el "thead" $ do
       selectAllEv <- el "tr" $ do
         selectAllEv <- el "th" $ checkboxInputSimple False never mempty
+        el "th" $ text ""
         columnHead $ do
           _ <- sortlabel "User ID"
           filterEl BottomRight (constDyn True) blank
@@ -306,6 +307,7 @@ containerTable = do
         pure selectAllEv
       el "tr" $ do
         el "td" blank
+        el "td" blank
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
@@ -314,6 +316,7 @@ containerTable = do
     let selectAllEv = updated selectAllEv'
     selcountDyn <- elAttr "tbody" ("style" =: "height:10rem") $ do
       (s1, _) <- rowMultiSelect False selectAllEv $ do
+        linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"
         _ <- el "td" $ textInput' "" (inputConfig "John Doe")
         _ <- el "td"
@@ -321,11 +324,13 @@ containerTable = do
         _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
         pure ()
       (s2, _) <- rowMultiSelect False selectAllEv $ do
+        linkCell "#" angleDoubleRightIcon
         el "td" $ text "104"
         el "td" $ text "Adam Smith"
         el "td" $ text "Jul 1, 2007"
         elClass "td" "right" $ text "0"
       (s3, _) <- rowMultiSelect False selectAllEv $ do
+        linkCell "#" angleDoubleRightIcon
         el "td" $ text "131"
         el "td" $ text "Dimitri Johnson"
         el "td" $ text "May 4, 2014"
@@ -335,6 +340,7 @@ containerTable = do
       pure selcountDyn
     el "tfoot" $ do
       el "tr" $ do
+        el "td" blank
         el "td" blank
         el "td" $ text "3"
         el "td" blank
