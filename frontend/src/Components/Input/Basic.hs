@@ -14,7 +14,10 @@ module Components.Input.Basic
   , togglesInput
   , checkboxInput
   , checkboxesInput
-  , checkboxesInputLbl
+  , checkboxesInputMap
+  , checkboxesInputMap'
+  , checkboxesInputDynMap
+  , checkboxesInputDynMap'
   , checkboxInputSimple
   , inputStyle
   , InputConfig(..)
@@ -71,18 +74,16 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
 import           Clay.Stylesheet                ( key )
-import           Control.Applicative            ( Alternative(empty)
-                                                , (<|>)
-                                                )
+import           Control.Applicative            ( (<|>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
-                                                , listToMaybe
-                                                , maybeToList
                                                 )
 import           Data.Text                      ( Text
                                                 , pack
@@ -822,29 +823,27 @@ numberRangeInput' isReg nc idStr cfg = do
 
 toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
-  => InputConfig t Bool
+  => Text
+  -> InputConfig t Bool
   -> m (Dynamic t Bool)
-toggleInput cfg = do
+toggleInput lbl cfg = do
   let initAttrs = "class" =: "toggle"
 
-  checkboxInput cfg
-    { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
-    }
+  checkboxInput
+    lbl
+    cfg { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs }
 
 togglesInput
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , Eq a
+     , Ord a
      , HasLabel a
      , Enum a
      , Bounded a
-     , Foldable f
-     , Alternative f
-     , Monoid (f a)
      )
-  => InputConfig t (f a)
-  -> m (Dynamic t (f a))
+  => InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
 togglesInput cfg = do
   let initAttrs = "class" =: "toggle"
 
@@ -852,117 +851,168 @@ togglesInput cfg = do
     { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
     }
 
-checkboxInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
-  => InputConfig t Bool
-  -> m (Dynamic t Bool)
-checkboxInput cfg = fmap (not . null) <$> checkboxesInputLbl'
-  (\() -> _inputConfig_label cfg)
-  mempty
-  ((\v -> [ () | v ]) <$> cfg)
-
 checkboxesInput
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , Eq a
+     , Ord a
      , HasLabel a
      , Enum a
      , Bounded a
-     , Foldable f
-     , Alternative f
-     , Monoid (f a)
      )
-  => InputConfig t (f a)
-  -> m (Dynamic t (f a))
-checkboxesInput = checkboxesInputLbl (constDyn . toLabel)
+  => InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInput cfg =
+  checkboxesInputMap (allPossibleMap (_inputConfig_initialValue cfg)) cfg
 
 checkboxesInput'
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , Eq a
+     , Ord a
      , HasLabel a
      , Enum a
      , Bounded a
-     , Foldable f
-     , Alternative f
-     , Monoid (f a)
      )
   => Text
-  -> InputConfig t (f a)
-  -> m (Dynamic t (f a))
-checkboxesInput' = checkboxesInputLbl' (constDyn . toLabel)
+  -> InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInput' idStr cfg =
+  checkboxesInputMap' (allPossibleMap (_inputConfig_initialValue cfg)) idStr cfg
 
--- | Same as 'checkboxesInput' but with a custom label provider
-checkboxesInputLbl
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , Eq a
-     , Enum a
-     , Bounded a
-     , Foldable f
-     , Alternative f
-     , Monoid (f a)
-     )
-  => (a -> Dynamic t Text)
-  -> InputConfig t (f a)
-  -> m (Dynamic t (f a))
-checkboxesInputLbl toLbl cfg = labeled cfg (checkboxesInputLbl' toLbl)
+allPossibleMap :: (HasLabel a, Bounded a, Enum a, Ord a) => f a -> Map a Text
+allPossibleMap = Map.fromList . fmap (\x -> (x, toLabel x)) . allPossible
 
-checkboxesInputLbl'
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , Enum a
-     , Bounded a
-     , Eq a
-     , Foldable f
-     , Alternative f
-     , Monoid (f a)
-     )
-  => (a -> Dynamic t Text)
+-- | Same as 'checkboxesInput' but with a map containing all options
+checkboxesInputMap
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
+  => Map a Text
+  -> InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInputMap opts cfg = labeled cfg (checkboxesInputMap' opts)
+
+checkboxesInputMap'
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
+  => Map a Text
   -> Text
-  -> InputConfig t (f a)
-  -> m (Dynamic t (f a))
-checkboxesInputLbl' toLbl idStr' cfg =
+  -> InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInputMap' opts idStr' cfg =
   elAttr "div" ("class" =: "input" <> "id" =: idStr') $ do
     modAttrEv <- statusModAttrEv' cfg
 
-    result    <- mapM (mkCheckbox modAttrEv)
-                      (allPossible (_inputConfig_initialValue cfg))
+    result    <- Map.traverseWithKey (mkCheckbox modAttrEv) opts
 
-    elClass "div" "statusmessage" $ do
-      statusMessageIcon (_inputConfig_status cfg)
-      statusMessageElement (_inputConfig_status cfg)
+    statusMessageDiv (_inputConfig_status cfg)
 
-    pure (mconcat result)
+    pure
+      (Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap
+        (constDyn result)
+      )
  where
-  mkCheckbox modAttrEv x = el "div" $ do
-    idStr <- randomId
-    n     <-
-      inputElement
-      $  def
-      &  inputElementConfig_initialChecked
-      .~ (x `elem` _inputConfig_initialValue cfg)
-      &  inputElementConfig_setChecked
-      .~ ((x `elem`) <$> _inputConfig_setValue cfg)
-      &  inputElementConfig_elementConfig
-      .  elementConfig_initialAttributes
-      .~ _inputConfig_attributes cfg
-      <> ("type" =: "checkbox")
-      <> "id"
-      =: idStr
-      &  inputElementConfig_elementConfig
-      .  elementConfig_modifyAttributes
-      .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+  mkCheckbox modAttrEv k x =
+    let cfg' = ((k `elem`) <$> cfg)
+    in  checkboxInput' cfg'
+          { _inputConfig_modifyAttributes = mergeWith
+                                              (<>)
+                                              [ modAttrEv
+                                              , _inputConfig_modifyAttributes
+                                                cfg'
+                                              ]
+          , _inputConfig_label            = constDyn x
+          }
 
-    elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label")
-      $ dynText (toLbl x)
+-- | Same as 'checkboxesInput' but with a map containing all options
+checkboxesInputDynMap
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , MonadHold t m
+     , MonadFix m
+     , Ord a
+     )
+  => Dynamic t (Map a Text)
+  -> InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInputDynMap opts cfg = labeled cfg (checkboxesInputDynMap' opts)
 
-    pure $ fmap (\v -> if v then pure x else empty) (_inputElement_checked n)
+checkboxesInputDynMap'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , MonadHold t m
+     , MonadFix m
+     , Ord a
+     )
+  => Dynamic t (Map a Text)
+  -> Text
+  -> InputConfig t (Set a)
+  -> m (Dynamic t (Set a))
+checkboxesInputDynMap' opts idStr' cfg =
+  elAttr "div" ("class" =: "input" <> "id" =: idStr') $ do
+    modAttrEv <- statusModAttrEv' cfg
 
+    result    <- listWithKey opts (mkCheckbox modAttrEv)
+
+    statusMessageDiv (_inputConfig_status cfg)
+
+    pure (Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap result)
+ where
+  mkCheckbox modAttrEv k x =
+    let cfg' = ((k `elem`) <$> cfg)
+    in  checkboxInput' cfg'
+          { _inputConfig_modifyAttributes = mergeWith
+                                              (<>)
+                                              [ modAttrEv
+                                              , _inputConfig_modifyAttributes
+                                                cfg'
+                                              ]
+          , _inputConfig_label            = x
+          }
+
+statusMessageDiv
+  :: (PostBuild t m, DomBuilder t m) => Dynamic t InputStatus -> m ()
+statusMessageDiv status = elClass "div" "statusmessage" $ do
+  statusMessageIcon status
+  statusMessageElement status
+
+checkboxInput
+  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  => Text
+  -> InputConfig t Bool
+  -> m (Dynamic t Bool)
+checkboxInput lbl cfg = fmap (Prelude.not . Set.null) <$> checkboxesInputMap
+  (Map.singleton () lbl)
+  ((\x -> if x then Set.singleton () else Set.empty) <$> cfg)
+
+checkboxInput'
+  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  => InputConfig t Bool
+  -> m (Dynamic t Bool)
+checkboxInput' cfg = el "div" $ do
+  idStr <- randomId
+  n     <-
+    inputElement
+    $  def
+    &  inputElementConfig_initialChecked
+    .~ _inputConfig_initialValue cfg
+    &  inputElementConfig_setChecked
+    .~ _inputConfig_setValue cfg
+    &  inputElementConfig_elementConfig
+    .  elementConfig_initialAttributes
+    .~ _inputConfig_attributes cfg
+    <> ("type" =: "checkbox")
+    <> "id"
+    =: idStr
+    &  inputElementConfig_elementConfig
+    .  elementConfig_modifyAttributes
+    .~ _inputConfig_modifyAttributes cfg
+
+  elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label")
+    $ dynText
+    $ _inputConfig_label cfg
+
+  pure (_inputElement_checked n)
 
 checkboxInputSimple
   :: DomBuilder t m
@@ -1055,7 +1105,7 @@ radioInput
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , Eq a
+     , Ord a
      , HasLabel a
      , Enum a
      , Bounded a
@@ -1068,7 +1118,7 @@ radioInput'
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadIO m
-     , Eq a
+     , Ord a
      , HasLabel a
      , Enum a
      , Bounded a
@@ -1076,9 +1126,9 @@ radioInput'
   => Text
   -> InputConfig t (Maybe a)
   -> m (Dynamic t (Maybe a))
-radioInput' idStr cfg = fmap listToMaybe <$> checkboxesInput'
+radioInput' idStr cfg = fmap Set.lookupMin <$> checkboxesInput'
   idStr
-  (fmap maybeToList cfg)
+  (fmap (maybe Set.empty Set.singleton) cfg)
     { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
     }
   where initAttrs = "type" =: "radio" <> "name" =: idStr

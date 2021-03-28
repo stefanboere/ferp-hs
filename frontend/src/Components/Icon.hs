@@ -40,6 +40,8 @@ module Components.Icon
   , filterGridIcon
   , filterGridCircleIcon
   , stepForwardIcon
+  , angleDoubleIcon
+  , viewColumnsIcon
   )
 where
 
@@ -373,3 +375,17 @@ stepForwardIcon = svg $ do
     "M7.08,6.52a1.68,1.68,0,0,0,0,2.4L16.51,18,7.12,27.08a1.7,1.7,0,0,0,2.36,2.44h0L21.4,18,9.48,6.47A1.69,1.69,0,0,0,7.08,6.52Z"
   path
     "M26.49,5a1.7,1.7,0,0,0-1.7,1.7V29.3a1.7,1.7,0,0,0,3.4,0V6.7A1.7,1.7,0,0,0,26.49,5Z"
+
+angleDoubleIcon :: (PostBuild t m, DomBuilder t m) => m ()
+angleDoubleIcon = svg $ do
+  path
+    "M29,19.41a1,1,0,0,1-.71-.29L18,8.83,7.71,19.12a1,1,0,0,1-1.41-1.41L18,6,29.71,17.71A1,1,0,0,1,29,19.41Z"
+  path
+    "M29,30.41a1,1,0,0,1-.71-.29L18,19.83,7.71,30.12a1,1,0,0,1-1.41-1.41L18,17,29.71,28.71A1,1,0,0,1,29,30.41Z"
+
+viewColumnsIcon :: (PostBuild t m, DomBuilder t m) => m ()
+viewColumnsIcon =
+  svg
+    $ path
+        "M31,5H5A2,2,0,0,0,3,7V29a2,2,0,0,0,2,2H31a2,2,0,0,0,2-2V7A2,2,0,0,0,31,5ZM13,29H5V7h8Zm10,0H15V7h8Z"
+

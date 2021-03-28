@@ -15,6 +15,7 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
+import qualified Data.Map                      as Map
 import           Data.Text                      ( pack )
 import           Data.Time                      ( fromGregorian )
 import           URI.ByteString
@@ -280,7 +281,7 @@ containerTab = do
   pure never
 
 containerTable
-  :: (MonadFix m, PostBuild t m, MonadHold t m, DomBuilder t m)
+  :: (MonadIO m, MonadFix m, PostBuild t m, MonadHold t m, DomBuilder t m)
   => m (Event t URI)
 containerTable = do
   el "h1" $ text "Table"
@@ -341,6 +342,12 @@ containerTable = do
         elClass "td" "right" $ text "11"
       _ <- tfooter $ do
         selectedCountInfo selcountDyn
+        _ <- showHideColumns $ Map.fromList
+          [ (1 :: Int, "User ID")
+          , (2       , "Name")
+          , (3       , "Creation date")
+          , (4       , "Tickets")
+          ]
         paginationInput (constDyn (Just 51))
       pure ()
 

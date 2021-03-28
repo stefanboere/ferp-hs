@@ -13,6 +13,7 @@ module Components.Table
   , tfooter
   , rowMultiSelect
   , selectedCountInfo
+  , showHideColumns
   )
 where
 
@@ -22,9 +23,11 @@ import           Prelude                 hiding ( rem
                                                 )
 import           Clay                    hiding ( icon )
 import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
+import           Data.Set                       ( Set )
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text
                                                 , pack
@@ -67,6 +70,10 @@ tableStyle = do
     Clay.button # disabled ? do
       backgroundColor inherit
       "fill" -: showColor (lighten 0.5 grey0')
+
+  ".show-hide-columns" ? do
+    marginTop (rem 1)
+    marginBottom (rem 1)
 
 
   ".sortlabel" ? do
@@ -239,6 +246,32 @@ filterEl pos isSetDyn cnt = do
 
   mkStatus True  = Just Info
   mkStatus False = Nothing
+
+showHideColumns
+  :: ( MonadIO m
+     , MonadFix m
+     , MonadHold t m
+     , DomBuilder t m
+     , PostBuild t m
+     , Ord k
+     )
+  => Map k Text
+  -> m (Dynamic t (Set k))
+showHideColumns columns = do
+  (x, _) <- signpost' ico TopRight $ do
+    el "h3" $ text "Show columns"
+    let allCols = Map.keysSet columns
+    rec dynSet <- elClass "div" "show-hide-columns" $ checkboxesInputMap'
+          columns
+          ""
+          (inputConfig allCols) { _inputConfig_setValue = allCols <$ selectAllEv
+                                }
+        selectAllEv <- btn def { _buttonConfig_priority = ButtonTertiary }
+          $ text "Select all"
+    pure dynSet
+
+  pure x
+  where ico = icon def viewColumnsIcon
 
 columnHead :: (DomBuilder t m) => m a -> m a
 columnHead = el "th" . elClass "div" "flex-row"

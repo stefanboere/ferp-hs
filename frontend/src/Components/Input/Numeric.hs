@@ -66,10 +66,12 @@ overridableNumberInput setCalc cfg = labeled cfg $ \idStr _ ->
             , gate (not <$> current dynOverridden) setCalc
             ]
           }
-      dynOverridden <- toggleInput (fmap isOverridden cfg)
-        { _inputConfig_label  = constDyn "Override"
-        , _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
-        }
+      dynOverridden <- toggleInput
+        "Override"
+        (fmap isOverridden cfg)
+          { _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
+          , _inputConfig_label  = constDyn ""
+          }
       calc <- holdDyn
         (ovr_calculation $ _inputConfig_initialValue cfg)
         (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])

@@ -16,6 +16,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import qualified Data.Map                      as Map
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -93,7 +94,7 @@ inputHandler =
 instance Default Text where
   def = mempty
 
-data Material = M14404 | M14307 deriving (Eq, Show, Enum, Bounded)
+data Material = M14404 | M14307 deriving (Eq, Show, Ord, Enum, Bounded)
 
 instance Default Material where
   def = M14404
@@ -154,54 +155,51 @@ checkboxHandler = do
   el "h1" $ text "Checkbox"
 
   el "form" $ do
-    _ <- checkboxInput (inputConfig False)
-      { _inputConfig_label = constDyn "I agree to the terms"
-      }
+    _ <- checkboxInput "I agree to the terms" (inputConfig False)
 
-    _ <- checkboxesInput (inputConfig [M14307])
+    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Material"
       , _inputConfig_status = constDyn $ InputError "Error"
       }
 
-    _ <- checkboxesInput (inputConfig [M14307])
+    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Disabled"
       , _inputConfig_status = constDyn InputDisabled
       }
 
-    _ <- checkboxesInput (inputConfig [M14307])
+    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Success"
       , _inputConfig_status = constDyn $ InputSuccess "Success message"
       }
     pure ()
 
   elClass "form" "vertical" $ do
-    _ <- checkboxesInputLbl
-      (\() -> "I agree")
-      (inputConfig [()]) { _inputConfig_label = constDyn "Terms and conditions"
-                         }
+    _ <- checkboxesInputMap
+      (Map.singleton () "I agree")
+      (inputConfig Set.empty) { _inputConfig_label = constDyn
+                                "Terms and conditions"
+                              }
 
-    _ <- checkboxesInput (inputConfig [M14307])
+    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label = constDyn "Vertical layout"
       }
     pure ()
 
   el "h2" $ text "Toggle"
   el "form" $ do
-    _ <- toggleInput (inputConfig False) { _inputConfig_label = constDyn
-                                           "Turn it on"
-                                         }
-    _ <- togglesInput (inputConfig [M14307]) { _inputConfig_label = constDyn
-                                               "Material"
-                                             }
-    _ <- togglesInput (inputConfig [M14307])
+    _ <- toggleInput "Turn it on" (inputConfig False)
+    _ <- togglesInput (inputConfig (Set.singleton M14307))
+      { _inputConfig_label = constDyn "Material"
+      }
+    _ <- togglesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Material"
       , _inputConfig_status = constDyn $ InputError "Error"
       }
-    _ <- togglesInput (inputConfig [M14307])
+    _ <- togglesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Disabled"
       , _inputConfig_status = constDyn InputDisabled
       }
-    _ <- togglesInput (inputConfig [M14307])
+    _ <- togglesInput (inputConfig (Set.singleton M14307))
       { _inputConfig_label  = constDyn "Success"
       , _inputConfig_status = constDyn $ InputSuccess "Success message"
       }
