@@ -211,7 +211,7 @@ inputStyle = do
 datalistStyle :: Css
 datalistStyle = do
   datalist ? Clay.display none
-  input # "::-webkit-calendar-picker-indicator" ? Clay.display none
+  ".datalist" # "::-webkit-calendar-picker-indicator" ? Clay.display none
 
 timeStyle :: Css
 timeStyle =
@@ -1203,6 +1203,8 @@ datalistInput' idStr options cfg = textInputWithIco
     { _inputConfig_attributes = _inputConfig_attributes cfg
                                 <> "list"
                                 =: listIdStr
+                                <> "class"
+                                =: "datalist"
     }
  where
   listIdStr = idStr <> "-datalist"
