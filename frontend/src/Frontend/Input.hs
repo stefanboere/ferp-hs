@@ -214,8 +214,6 @@ comboboxHandler
   => m (Event t URI)
 comboboxHandler = do
   el "h1" $ text "Combobox"
-  el "p" $ text "WIP"
-
   el "form" $ do
     x <- comboboxInput showOpt
                        flavors
