@@ -273,7 +273,7 @@ rowMultiSelect
   -> m a
   -> m (Dynamic t Bool, a)
 rowMultiSelect fullRowSelect setSelectEv cnt = do
-  rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> r) $ do
+  rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> dynSel) $ do
         r' <- elClass "td" "row-select"
           $ checkboxInputSimple False (updated dynSel) mempty
         x' <- cnt
