@@ -106,7 +106,8 @@ tableStyle = do
       height (rem 1)
       width (rem 1)
     Clay.button ? do
-      margin (rem (-1 / 4)) (rem (1 / 4)) (rem (-1 / 4)) (rem (1 / 4))
+      important
+        $ margin (rem (-1 / 4)) (rem (1 / 4)) (rem (-1 / 4)) (rem (1 / 4))
       paddingAll (rem (1 / 4))
 
   (thead <> tbody <> tfoot) ** tr ? do
