@@ -284,40 +284,55 @@ checkboxStyle = do
          fontColor grey0'
          cursor notAllowed
 
-  (input # ("type" @= "checkbox") <> input # ("type" @= "radio")) ? do
-    position relative
-    cursor pointer
-    marginRight (rem 0.8)
+  (  input
+    #  ("type" @= "checkbox")
+    <> input
+    #  ("type" @= "radio")
+    <> ".selected-count"
+    )
+    ? do
+        position relative
+        cursor pointer
+        marginRight (rem 0.8)
 
-    disabled Clay.& cursor notAllowed
+        disabled Clay.& cursor notAllowed
 
-    before Clay.& do
-      absoluteBlock
-      width (rem 1)
-      height (rem 1)
-      borderRadiusAll (px 3)
-      border solid 1 grey0'
-      backgroundColor white0'
-      ".has-error" Clay.& borderColor nord11'
+        before Clay.& do
+          absoluteBlock
+          width (rem 1)
+          height (rem 1)
+          borderRadiusAll (px 3)
+          border solid 1 grey0'
+          backgroundColor white0'
+          ".has-error" Clay.& borderColor nord11'
 
-    checked Clay.& do
-      before Clay.& do
-        borderColor nord10'
-        backgroundColor nord10'
-        disabled Clay.& do
-          borderColor grey0'
-          backgroundColor grey0'
+        checked Clay.& do
+          before Clay.& do
+            borderColor nord10'
+            backgroundColor nord10'
+            disabled Clay.& do
+              borderColor grey0'
+              backgroundColor grey0'
 
-      after Clay.& do
-        absoluteBlock
-        width (rem 0.25)
-        height (rem 0.5)
-        borderStyle solid
-        borderColor white0'
-        borderWidth4 nil 2 2 nil
-        transform (rotate (deg 45))
-        top (rem 0.15)
-        left (rem 0.4)
+  (  input
+    #  ("type" @= "checkbox")
+    #  checked
+    <> input
+    #  ("type" @= "radio")
+    #  checked
+    <> ".selected-count"
+    )
+    ? do
+        after Clay.& do
+          absoluteBlock
+          width (rem 0.25)
+          height (rem 0.5)
+          borderStyle solid
+          borderColor white0'
+          borderWidth4 nil 2 2 nil
+          transform (rotate (deg 45))
+          top (rem 0.15)
+          left (rem 0.4)
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do

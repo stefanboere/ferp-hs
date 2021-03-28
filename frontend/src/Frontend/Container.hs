@@ -311,25 +311,27 @@ containerTable = do
         _ <- el "td" $ textInput' "" (inputConfig "")
         pure selectAllEv
     let selectAllEv = updated selectAllEv'
-    elAttr "tbody" ("style" =: "height:10rem") $ do
-      _ <- rowMultiSelect False selectAllEv $ do
+    selcountDyn <- elAttr "tbody" ("style" =: "height:10rem") $ do
+      (s1, _) <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "42"
         _ <- el "td" $ textInput' "" (inputConfig "John Doe")
         _ <- el "td"
           $ dateInput' def "" (inputConfig (Just (fromGregorian 1970 01 01)))
         _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
         pure ()
-      _ <- rowMultiSelect False selectAllEv $ do
+      (s2, _) <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "104"
         el "td" $ text "Adam Smith"
         el "td" $ text "Jul 1, 2007"
         elClass "td" "right" $ text "0"
-      _ <- rowMultiSelect False selectAllEv $ do
+      (s3, _) <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "131"
         el "td" $ text "Dimitri Johnson"
         el "td" $ text "May 4, 2014"
         elClass "td" "right" $ text "10"
-      pure ()
+      let selcountDyn =
+            length . filter id <$> mconcat (fmap (fmap (: [])) [s1, s2, s3])
+      pure selcountDyn
     el "tfoot" $ do
       el "tr" $ do
         el "td" blank
@@ -337,7 +339,9 @@ containerTable = do
         el "td" blank
         el "td" blank
         elClass "td" "right" $ text "11"
-      _ <- tfooter (paginationInput (constDyn (Just 51)))
+      _ <- tfooter $ do
+        selectedCountInfo selcountDyn
+        paginationInput (constDyn (Just 51))
       pure ()
 
 

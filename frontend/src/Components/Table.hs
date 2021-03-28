@@ -12,6 +12,7 @@ module Components.Table
   , paginationInput
   , tfooter
   , rowMultiSelect
+  , selectedCountInfo
   )
 where
 
@@ -41,6 +42,7 @@ import           Nordtheme
 
 tableStyle :: Css
 tableStyle = do
+  selectedCountStyle
   ".datagrid" ? do
     tbody ** tr # lastChild ** td ? borderBottomWidth 1
     tr ** (td <> th) # firstChild ? width (rem 1)
@@ -54,10 +56,9 @@ tableStyle = do
     width (pct 100)
     overflow scroll
 
-  ".tfooter" ? float floatRight
-
   ".pagination" ? do
     display flex
+    marginLeft auto
     input ? width (rem 2)
     span ? do
       marginLeft (rem 1)
@@ -264,7 +265,7 @@ pageSize Page100 = 100
 
 tfooter :: DomBuilder t m => m a -> m a
 tfooter =
-  el "tr" . elAttr "td" ("colspan" =: "1000") . elClass "div" "tfooter flex-row"
+  el "tr" . elAttr "td" ("colspan" =: "1000") . elClass "div" "flex-row"
 
 rowMultiSelect
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -274,23 +275,39 @@ rowMultiSelect
   -> m (Dynamic t Bool, a)
 rowMultiSelect fullRowSelect setSelectEv cnt = do
   rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> dynSel) $ do
-        r' <- elClass "td" "row-select"
+        (r', _) <- elClass' "td" "row-select"
           $ checkboxInputSimple False (updated dynSel) mempty
         x' <- cnt
         pure (r', x')
-      let rowClickEv = domEvent Click e
-      dynSel <- foldDyn ($) False $ leftmost
-        [ const <$> setSelectEv
-        , if fullRowSelect
-          then Prelude.not <$ rowClickEv
-          else const <$> updated r
-        ]
+      let rowClickEv = domEvent Click $ if fullRowSelect then e else r
+      dynSel <- foldDyn ($) False
+        $ leftmost [const <$> setSelectEv, Prelude.not <$ rowClickEv]
 
-  pure (r, x)
+  pure (dynSel, x)
  where
   selectedCls True  = "active"
   selectedCls False = ""
 
+selectedCountStyle :: Css
+selectedCountStyle = do
+  ".hidden" ? display none
+
+  ".selected-count" ? do
+    marginLeft (rem (1 / 4))
+    cursor cursorDefault
+    before Clay.& do
+      backgroundColor grey0'
+      Clay.display inlineBlock
+      marginRight (rem (1 / 2))
+      marginBottom (rem (-1 / 4))
+      position relative
+
+selectedCountInfo :: (PostBuild t m, DomBuilder t m) => Dynamic t Int -> m ()
+selectedCountInfo dynCount = elDynClass "div" (mkCls <$> dynCount)
+  $ dynText (pack . show <$> dynCount)
+ where
+  mkCls x | x > 0     = "selected-count"
+          | otherwise = "selected-count hidden"
 
 paginationInput
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
