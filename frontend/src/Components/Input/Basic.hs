@@ -950,9 +950,13 @@ checkboxesInputLbl' toLbl idStr' cfg =
 
 
 checkboxInputSimple
-  :: DomBuilder t m => Bool -> Event t Bool -> Map AttributeName Text -> m ()
+  :: DomBuilder t m
+  => Bool
+  -> Event t Bool
+  -> Map AttributeName Text
+  -> m (Dynamic t Bool)
 checkboxInputSimple initOpen setOpen attrs = do
-  _ <-
+  r <-
     inputElement
     $            def
     Reflex.Dom.& inputElementConfig_setChecked
@@ -963,7 +967,7 @@ checkboxInputSimple initOpen setOpen attrs = do
     <>           ("type" =: "checkbox")
     Reflex.Dom.& inputElementConfig_initialChecked
     .~           initOpen
-  pure ()
+  pure (_inputElement_checked r)
 
 class HasLabel a where
   toLabel :: a -> Text

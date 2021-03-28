@@ -293,43 +293,43 @@ containerTable = do
     )
   el "h2" $ text "Datagrid"
   datagrid $ do
-    el "thead" $ do
-      el "tr" $ do
-        el "th" $ checkboxInputSimple False never mempty
+    selectAllEv' <- el "thead" $ do
+      selectAllEv <- el "tr" $ do
+        selectAllEv <- el "th" $ checkboxInputSimple False never mempty
         columnHead $ do
           _ <- sortlabel "User ID"
           filterEl BottomRight (constDyn True) blank
         el "th" $ text "Name"
         el "th" $ text "Creation date"
         el "th" $ text "Tickets"
+        pure selectAllEv
       el "tr" $ do
         el "td" blank
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
         _ <- el "td" $ textInput' "" (inputConfig "")
-        pure ()
+        pure selectAllEv
+    let selectAllEv = updated selectAllEv'
     elAttr "tbody" ("style" =: "height:10rem") $ do
-      el "tr" $ do
-        el "td" $ checkboxInputSimple False never mempty
+      _ <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "42"
         _ <- el "td" $ textInput' "" (inputConfig "John Doe")
         _ <- el "td"
           $ dateInput' def "" (inputConfig (Just (fromGregorian 1970 01 01)))
         _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
         pure ()
-      el "tr" $ do
-        el "td" $ checkboxInputSimple False never mempty
+      _ <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "104"
         el "td" $ text "Adam Smith"
         el "td" $ text "Jul 1, 2007"
         elClass "td" "right" $ text "0"
-      el "tr" $ do
-        el "td" $ checkboxInputSimple False never mempty
+      _ <- rowMultiSelect False selectAllEv $ do
         el "td" $ text "131"
         el "td" $ text "Dimitri Johnson"
         el "td" $ text "May 4, 2014"
         elClass "td" "right" $ text "10"
+      pure ()
     el "tfoot" $ do
       el "tr" $ do
         el "td" blank

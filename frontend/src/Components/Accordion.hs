@@ -162,8 +162,9 @@ stepper' cls disabledDyn state' initOpen setOpen titl cnt =
       pure (l, c)
 
  where
-  mkCheckbox _     True  = pure ()
-  mkCheckbox idStr False = checkboxInputSimple initOpen setOpen $ "id" =: idStr
+  mkCheckbox _ True = pure ()
+  mkCheckbox idStr False =
+    checkboxInputSimple initOpen setOpen ("id" =: idStr) >> pure ()
 
   stateCls _              True = "accordion disabled" <> cls
   stateCls StepperNeutral _    = "accordion" <> cls

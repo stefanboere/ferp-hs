@@ -207,7 +207,12 @@ navGroup'
   -> m a
 navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
   idStr <- randomId
-  checkboxInputSimple False setOpen $ "id" =: idStr <> "style" =: "display:none"
+  _     <-
+    checkboxInputSimple False setOpen
+    $  "id"
+    =: idStr
+    <> "style"
+    =: "display:none"
   el "div" $ do
     elAttr "label" ("for" =: idStr) $ do
       el "span" titl
@@ -274,7 +279,8 @@ app cfg primary secondary actions page = do
 
 navigationCheckbox :: (DomBuilder t m) => Text -> Event t Bool -> m ()
 navigationCheckbox idStr setOpen =
-  checkboxInputSimple False setOpen $ "id" =: idStr <> "class" =: "nav-opener"
+  checkboxInputSimple False setOpen ("id" =: idStr <> "class" =: "nav-opener")
+    >> pure ()
 
 primaryNavigation
   :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()

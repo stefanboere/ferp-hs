@@ -11,6 +11,7 @@ module Components.Table
   , columnHead
   , paginationInput
   , tfooter
+  , rowMultiSelect
   )
 where
 
@@ -42,6 +43,7 @@ tableStyle :: Css
 tableStyle = do
   ".datagrid" ? do
     tbody ** tr # lastChild ** td ? borderBottomWidth 1
+    tr ** (td <> th) # firstChild ? width (rem 1)
 
   table ? do
     borderCollapse separate
@@ -114,6 +116,11 @@ tableStyle = do
     overflow auto
     backgroundColor white
     tr # lastChild ** td ? borderBottomWidth nil
+
+    tr # hover ? backgroundColor nord6'
+
+    tr # ".active" ? backgroundColor nord4'
+
 
   (tbody <> thead) ** td ? borderBottom solid (px 1) nord4'
 
@@ -258,6 +265,32 @@ pageSize Page100 = 100
 tfooter :: DomBuilder t m => m a -> m a
 tfooter =
   el "tr" . elAttr "td" ("colspan" =: "1000") . elClass "div" "tfooter flex-row"
+
+rowMultiSelect
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  => Bool
+  -> Event t Bool
+  -> m a
+  -> m (Dynamic t Bool, a)
+rowMultiSelect fullRowSelect setSelectEv cnt = do
+  rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> r) $ do
+        r' <- elClass "td" "row-select"
+          $ checkboxInputSimple False (updated dynSel) mempty
+        x' <- cnt
+        pure (r', x')
+      let rowClickEv = domEvent Click e
+      dynSel <- foldDyn ($) False $ leftmost
+        [ const <$> setSelectEv
+        , if fullRowSelect
+          then Prelude.not <$ rowClickEv
+          else const <$> updated r
+        ]
+
+  pure (r, x)
+ where
+  selectedCls True  = "active"
+  selectedCls False = ""
+
 
 paginationInput
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
