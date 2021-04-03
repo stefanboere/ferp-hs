@@ -27,11 +27,13 @@ in (import sources.reflex-platform { inherit system; }).project
       # Prevents ghcjs build being stuck, see reflex-platform#717
       mmorph = self.callHackage "mmorph" "1.1.3" { };
       clay = self.callHackage "clay" "0.13.3" { };
+      reflex-codemirror =
+        self.callCabal2nix "reflex-codemirror" sources.reflex-codemirror { };
       reflex-dom-contrib = doJailbreak
         (self.callCabal2nix "reflex-dom-contrib" sources.reflex-dom-contrib
           { });
       reflex-dom-pandoc =
-        self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };
+        self.callCabal2nix "reflex-dom-pandoc" ../reflex-dom-pandoc { };
     };
 
 })

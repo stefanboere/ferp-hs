@@ -33,6 +33,7 @@ import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 
 import           Components
+import           Reflex.Markdown
 
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View
@@ -41,6 +42,7 @@ type InputApi = "input" :> "basic" :> View
            :<|> "input" :> "datalist" :> View
            :<|> "input" :> "file" :> View
            :<|> "input" :> "group" :> View
+           :<|> "input" :> "markdown" :> View
            :<|> "input" :> "password" :> View
            :<|> "input" :> "radio" :> View
            :<|> "input" :> "range" :> View
@@ -51,9 +53,9 @@ type InputApi = "input" :> "basic" :> View
 inputApi :: Proxy InputApi
 inputApi = Proxy
 
-inputBasicLink, inputCheckboxLink, inputComboBoxLink, inputDatalist, inputFileLink, inputGroupLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink, inputTimeLink
+inputBasicLink, inputCheckboxLink, inputComboBoxLink, inputDatalist, inputFileLink, inputGroupLink, inputMarkdownLink, inputPasswordLink, inputRadioLink, inputRangeLink, inputSelectLink, inputTextareaLink, inputTimeLink
   :: Link
-inputBasicLink :<|> inputCheckboxLink :<|> inputComboBoxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink :<|> inputTimeLink
+inputBasicLink :<|> inputCheckboxLink :<|> inputComboBoxLink :<|> inputDatalist :<|> inputFileLink :<|> inputGroupLink :<|> inputMarkdownLink :<|> inputPasswordLink :<|> inputRadioLink :<|> inputRangeLink :<|> inputSelectLink :<|> inputTextareaLink :<|> inputTimeLink
   = allLinks inputApi
 
 inputLinks
@@ -68,6 +70,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputDatalist $ text "Datalist"
   , safelink dynUri inputFileLink $ text "File"
   , safelink dynUri inputGroupLink $ text "Input Group"
+  , safelink dynUri inputMarkdownLink $ text "Markdown"
   , safelink dynUri inputPasswordLink $ text "Password"
   , safelink dynUri inputRadioLink $ text "Radio"
   , safelink dynUri inputRangeLink $ text "Range"
@@ -84,6 +87,7 @@ inputHandler =
     :<|> datalistHandler
     :<|> fileHandler
     :<|> groupHandler
+    :<|> markdownHandler
     :<|> passwordHandler
     :<|> radioHandler
     :<|> rangeHandler
@@ -356,6 +360,14 @@ instance HasLabel ToplevelDomain where
   toLabel Dev = ".dev"
   toLabel Com = ".com"
   toLabel Org = ".org"
+
+markdownHandler :: MonadWidget t m => m (Event t URI)
+markdownHandler = do
+  headD <- codeInputScripts
+  _     <- whenLoaded [headD] blank $ markdownInput
+    "Markdown editor\n==============\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: $x^2$"
+    never
+  pure never
 
 passwordHandler
   :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)

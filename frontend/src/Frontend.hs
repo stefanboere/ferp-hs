@@ -20,7 +20,6 @@ import           Data.Default
 import           Data.Either                    ( fromRight )
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
-import           Data.Text.Encoding             ( encodeUtf8 )
 import           Data.Text.Lazy                 ( toStrict )
 import           URI.ByteString
 import           Reflex
@@ -36,11 +35,15 @@ import           Components
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
+import           Reflex.Markdown
 
 
 main :: IO ()
-main = mainWidgetWithCss (encodeUtf8 . toStrict $ renderWith compact [] css)
-  $ withHeader mainPage
+main = mainWidgetWithHead headWidget $ withHeader mainPage
+
+headWidget :: (DomBuilder t m) => m ()
+headWidget = do
+  el "style" $ text (toStrict $ renderWith compact [] css)
 
 css :: Css
 css = do
@@ -55,6 +58,8 @@ css = do
   tagStyle
   progressStyle
   timelineStyle
+  codeInputStyle
+  markdownInputStyle
 
 withHeader
   :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)

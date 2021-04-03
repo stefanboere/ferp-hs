@@ -60,6 +60,7 @@ library
     Frontend.Core
     Frontend.Input
     Nordtheme
+    Reflex.Markdown
     Servant.Router
 
   build-depends:
@@ -73,13 +74,17 @@ library
     , ghcjs-dom
     , http-api-data
     , http-types
+    , jsaddle
+    , lens
     , mtl
+    , pandoc
     , process
     , random
     , reflex
+    , reflex-codemirror
     , reflex-dom
     , reflex-dom-contrib
-    , reflex-dom-pandoc
+    , reflex-dom-pandoc   ^>=0.8.0.0
     , servant
     , text
     , time
