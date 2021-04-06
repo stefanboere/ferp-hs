@@ -44,11 +44,13 @@ main = mainWidgetWithHead headWidget $ withHeader mainPage
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do
   el "style" $ text (toStrict $ renderWith compact [] css)
+  fileDropzoneScript
 
 css :: Css
 css = do
   appStyle
   inputStyle
+  fileDropzoneStyle
   comboboxStyle
   buttonStyle
   accordionStyle

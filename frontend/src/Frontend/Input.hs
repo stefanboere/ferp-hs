@@ -21,6 +21,8 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import           Data.Time
+import           Language.Javascript.JSaddle.Types
+                                                ( MonadJSM )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -270,7 +272,15 @@ datalistHandler = do
     [(1 :: Integer) ..]
     ["Cherry", "Mint chip", "Vanilla", "Lemon"]
 
-fileHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+fileHandler
+  :: ( MonadIO m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadJSM m
+     , MonadFix m
+     , MonadHold t m
+     )
+  => m (Event t URI)
 fileHandler = do
   el "h1" $ text "File"
 
@@ -290,6 +300,11 @@ fileHandler = do
       }
     _ <- fileInput def
       { _inputConfig_label  = constDyn "Success"
+      , _inputConfig_status = constDyn $ InputSuccess "File accepted"
+      }
+
+    _ <- fileDropzone def
+      { _inputConfig_label  = constDyn "Dropzone"
       , _inputConfig_status = constDyn $ InputSuccess "File accepted"
       }
 

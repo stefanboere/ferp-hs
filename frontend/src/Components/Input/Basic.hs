@@ -59,6 +59,8 @@ module Components.Input.Basic
   , weekInput'
   , monthInput
   , monthInput'
+  , statusModAttrEv'
+  , statusMessageDiv
   )
 where
 
@@ -354,7 +356,7 @@ radioStyle = input # ("type" @= "radio") ? do
 
 
 inputElementStyle :: Css
-inputElementStyle = (input <> Clay.select <> textarea) ? do
+inputElementStyle = (input <> Clay.select <> textarea <> ".dropzone") ? do
   background transparent
   borderWidth 0
   borderBottomWidth 1
@@ -399,7 +401,7 @@ selectElementStyle = do
     cursor pointer
 
 textAreaElementStyle :: Css
-textAreaElementStyle = textarea ? do
+textAreaElementStyle = (".dropzone" <> textarea) ? do
   background white
   borderWidth 1
   borderRadiusAll (px 3)
@@ -464,10 +466,10 @@ inputGroupStyle = ".input-group" ? do
   label ? Clay.display none
 
   ".has-error" Clay.& do
-    (Clay.select <> textarea <> input) ? borderColor nord11'
+    (Clay.select <> textarea <> input <> ".drozone") ? borderColor nord11'
 
   ".has-success" Clay.& do
-    (Clay.select <> textarea <> input) ? borderColor green1'
+    (Clay.select <> textarea <> input <> ".dropzone") ? borderColor green1'
 
 formStyle :: Css
 formStyle = do
@@ -1240,7 +1242,7 @@ fileInput' idStr cfg = do
     pure $ _inputElement_files n
 
  where
-  initAttrs = "type" =: "file"
+  initAttrs = "type" =: "file" <> "multiple" =: ""
   dynClass x = "file-upload-label secondary"
     <> if x == InputDisabled then " disabled" else mempty
 
