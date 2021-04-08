@@ -7,18 +7,32 @@ in (import sources.reflex-platform { inherit system; }).project
   useWarp = true;
   withHoogle = false;
   packages = {
-    common = ./common;
     backend = ./backend;
+    backend-api = ./backend-api;
+    beam-crud = ./beam-crud;
+    common = ./common;
     frontend = ./frontend;
+    servant-ac = ./servant-ac;
+    servant-crud = ./servant-crud;
+    servant-crud-server = ./servant-crud-server;
   };
 
   shells = {
-    ghc = [ "common" "backend" "frontend" ];
+    ghc = [
+      "backend"
+      "backend-api"
+      "beam-crud"
+      "common"
+      "frontend"
+      "servant-ac"
+      "servant-crud"
+      "servant-crud-server"
+    ];
     ghcjs = [ "common" "frontend" ];
   };
 
   shellToolOverrides = ghc: super: {
-    haskell-language-server = unstable.haskell-language-server;
+    #    haskell-language-server = unstable.haskell-language-server;
     xdotool = pkgs.xdotool;
   };
 
@@ -34,6 +48,12 @@ in (import sources.reflex-platform { inherit system; }).project
           { });
       reflex-dom-pandoc =
         self.callCabal2nix "reflex-dom-pandoc" ../reflex-dom-pandoc { };
+
+      servant-aeson-specs =
+        dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
+      servant-quickcheck =
+        doJailbreak (unmarkBroken (super.servant-quickcheck));
+      dhall = doJailbreak (super.dhall);
     };
 
 })

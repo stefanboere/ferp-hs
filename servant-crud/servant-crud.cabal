@@ -1,0 +1,71 @@
+cabal-version:      2.4
+name:               servant-crud
+version:            0.1.0.0
+synopsis:           Combinators to express CRUD api's.
+description:
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Stefan Boere
+maintainer:         s.boere@hotmail.com
+
+-- copyright:
+category:           Web
+extra-source-files: README.md
+
+common test
+  hs-source-dirs: test
+  ghc-options:    -Wno-missing-export-lists -Wno-implicit-prelude
+
+common common
+  build-depends:    base ^>=4.12.0.0
+  default-language: Haskell2010
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints
+    -Wmissing-export-lists -Wimplicit-prelude
+
+library
+  import:          common
+  hs-source-dirs:  src
+  exposed-modules:
+    Servant.Crud.API
+    Servant.Crud.Deriving
+    Servant.Crud.Headers
+    Servant.Crud.OrderBy
+    Servant.Crud.QueryObject
+    Servant.Crud.QueryOperator
+
+  -- other-modules:
+  build-depends:
+    , aeson
+    , data-default
+    , generic-aeson
+    , generic-deriving
+    , http-link-header
+    , http-types
+    , servant
+    , servant-aeson-specs
+    , servant-client-core
+    , servant-foreign
+    , text
+
+test-suite spec
+  import:             common, test
+  type:               exitcode-stdio-1.0
+  main-is:            Spec.hs
+  ghc-options:        -Wno-missing-signatures
+  build-depends:
+    , aeson           ^>=1.4
+    , data-default    ^>=0.7
+    , generic-random
+    , hspec           ^>=2.7.0
+    , QuickCheck
+    , servant         ^>=0.16
+    , servant-crud
+    , text            ^>=1.2
+
+  build-tool-depends: hspec-discover:hspec-discover ^>=2.7.0
+  other-modules:
+    Servant.Crud.OrderBySpec
+    Servant.Crud.QueryObjectSpec
+    Servant.Crud.QueryOperatorSpec

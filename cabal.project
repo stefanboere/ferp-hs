@@ -1,4 +1,9 @@
 packages:
-  common/
   backend/
+  backend-api/
+  beam-crud/
+  common/
   frontend/
+  servant-ac/
+  servant-crud/
+  servant-crud-server/
