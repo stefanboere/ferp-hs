@@ -99,3 +99,7 @@ executable frontend
   build-depends:
     , base
     , frontend
+
+  if impl(ghcjs -any)
+    ghc-options: -dedupe
+    cpp-options: -DGHCJS_BROWSER

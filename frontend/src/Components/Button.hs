@@ -247,7 +247,7 @@ closeBtn cfg =
 
 dropdownStyle :: Css
 dropdownStyle = do
-  -- | Stacking layout on mobile screens
+  -- Stacking layout on mobile screens
   query Clay.all [Media.maxWidth 544] $ do
     ".dropdown-menu" ? ".dropdown-menu" ? do
       left (pct 100 @-@ rem (1 / 2))
