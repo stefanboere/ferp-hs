@@ -380,7 +380,7 @@ markdownHandler :: MonadWidget t m => m (Event t URI)
 markdownHandler = do
   headD <- codeInputScripts
   _     <- whenLoaded [headD] blank $ markdownInput
-    "Markdown editor\n==============\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: $x^2$"
+    "# Markdown editor\n\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: `$x^2$`"
     never
   pure never
 

@@ -27,11 +27,12 @@ import           Language.Javascript.JSaddle.Types
                                                 ( MonadJSM )
 import           Reflex.CodeMirror
 import           Reflex.Dom
-import           Reflex.Dom.Pandoc
+import           Reflex.Dom.MMark
+import qualified Text.MMark                    as MMark
+import qualified Text.Megaparsec               as M
 
 import           GHCJS.DOM.Element              ( IsElement )
 import qualified GHCJS.DOM.Types               as DOM
-import           Text.Pandoc
 
 import           Nordtheme                      ( grey0' )
 
@@ -170,19 +171,24 @@ markdownInput
      )
   => Text
   -> Event t Text
-  -> m (Dynamic t (Either PandocError Pandoc))
+  -> m
+       ( Dynamic
+           t
+           ( Either
+               (M.ParseErrorBundle Text MMark.MMarkErr)
+               MMark.MMark
+           )
+       )
 markdownInput initText setValueEv = elClass "div" "code-input" $ do
   textD <- elClass "div" "code-editor" $ codeInput config initText setValueEv
-  let dynPandoc' = readMd <$> textD
-  dynPandoc <- eitherDyn dynPandoc'
-  _         <- elClass "div" "code-view" $ dyn
-    -- TODO Improve errors when updating to Pandoc 2.12
-    (   either (dynText . fmap (pack . show)) (elPandoc_ defaultConfig)
-    <$> dynPandoc
+  let dynMMark' = MMark.parse "" <$> textD
+  dynMMark <- eitherDyn dynMMark'
+  _        <- elClass "div" "code-view" $ dyn
+    (either (dynText . fmap (pack . M.errorBundlePretty)) renderDom <$> dynMMark
     )
-  delayPandocEv <- delay 0.05 (updated textD)
-  _             <- performEvent (mathJaxTypeset <$ delayPandocEv)
-  pure dynPandoc'
+  delayEv <- delay 0.05 (updated textD)
+  _       <- performEvent (mathJaxTypeset <$ delayEv)
+  pure dynMMark'
  where
   config :: Configuration
   config = def { _configuration_theme          = Just "nord"
@@ -195,18 +201,11 @@ markdownInput initText setValueEv = elClass "div" "code-input" $ do
     mathjax <- jsg ("MathJax" :: Text)
     mathjax ^. js0 ("typeset" :: Text)
 
-  elPandoc_ cfg x = do
-    _ <- elPandoc cfg x
-    pure ()
-
-
-readMd :: Text -> Either PandocError Pandoc
-readMd = runPure . readMarkdown def { readerExtensions = pandocExtensions }
 
 
 skylightingStyle :: Css
 skylightingStyle = do
-  ".highlighted" ? do -- Normal
+  ".source-code" ? do -- Normal
     padding (Clay.rem 1) (Clay.rem 1) (Clay.rem 1) (Clay.rem 1)
     backgroundColor (parse "#2e3440")
     color (parse "#d8dee9")
@@ -235,9 +234,9 @@ skylightingStyle = do
   ".cf" ? do -- ControlFlow
     fontWeight (weight 500)
     color (parse "#81a1c1")
-  ".dt" ? do -- DataType
+  (".dt" <> ".cr") ? do -- DataType
     color (parse "#81a1c1")
-  ".dv" ? do -- DecVal
+  (".dv" <> ".it") ? do -- DecVal
     color (parse "#b48ead")
   ".do" ? do -- Documentation
     color (parse "#5e81ac")
@@ -247,7 +246,7 @@ skylightingStyle = do
   ".ex" ? do -- Extension
     fontWeight (weight 500)
     color (parse "#8fbcbb")
-  ".fl" ? do -- Float
+  (".fl" <> ".ra") ? do -- Float
     color (parse "#b48ead")
   ".fu" ? do -- Function
     color (parse "#88c0d0")
@@ -255,14 +254,14 @@ skylightingStyle = do
     color (parse "#a3be8c")
   ".in" ? do -- Information
     color (parse "#ebcb8b")
-  ".kw" ? do -- Keyword
+  (".kw" <> ".sy") ? do -- Keyword
     fontWeight (weight 500)
     color (parse "#81a1c1")
   ".op" ? do -- Operator
     color (parse "#81a1c1")
   ".ot" ? do -- Others
     color (parse "#8fbcbb")
-  ".pp" ? do -- Preprocessor
+  (".pp" <> ".pr") ? do -- Preprocessor
     color (parse "#5e81ac")
   ".re" ? do -- RegionMarker
     backgroundColor (parse "#3b4252")

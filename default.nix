@@ -12,6 +12,7 @@ let
       beam-crud = ./beam-crud;
       common = ./common;
       frontend = ./frontend;
+      reflex-dom-mmark = ./reflex-dom-mmark;
       servant-ac = ./servant-ac;
       servant-crud = ./servant-crud;
       servant-crud-server = ./servant-crud-server;
@@ -24,6 +25,7 @@ let
         "beam-crud"
         "common"
         "frontend"
+        "reflex-dom-mmark"
         "servant-ac"
         "servant-crud"
         "servant-crud-server"

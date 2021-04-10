@@ -71,18 +71,6 @@
         "url": "https://github.com/reflex-frp/reflex-dom-contrib/archive/09d1223a3eadda768a6701410b4532fda8c7033d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
-    "reflex-dom-pandoc": {
-        "branch": "master",
-        "description": "Render Pandoc documents in reflex-dom",
-        "homepage": "",
-        "owner": "srid",
-        "repo": "reflex-dom-pandoc",
-        "rev": "26272d4a9ecab6e4d4af5e601ebf6e2bb8edef0d",
-        "sha256": "10kmiif0yq9w6s37i6mlakm412dn5jksbxnmwjvy3bvm3idkh6k0",
-        "type": "tarball",
-        "url": "https://github.com/srid/reflex-dom-pandoc/archive/26272d4a9ecab6e4d4af5e601ebf6e2bb8edef0d.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
     "reflex-platform": {
         "branch": "develop",
         "description": "A curated package set and set of tools that let you build Haskell packages so they can run on a variety of platforms. reflex-platform is built on top of the nix package manager.",

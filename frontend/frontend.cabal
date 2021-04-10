@@ -76,15 +76,16 @@ library
     , http-types
     , jsaddle
     , lens
+    , megaparsec
+    , mmark
     , mtl
-    , pandoc
     , process
     , random
     , reflex
     , reflex-codemirror
     , reflex-dom
     , reflex-dom-contrib
-    , reflex-dom-pandoc   ^>=0.8.0.0
+    , reflex-dom-mmark
     , servant
     , text
     , time
