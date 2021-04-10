@@ -54,6 +54,7 @@ let
         servant-quickcheck =
           doJailbreak (unmarkBroken (super.servant-quickcheck));
         dhall = doJailbreak (super.dhall);
+        mmark = dontHaddock super.mmark;
       };
   });
 

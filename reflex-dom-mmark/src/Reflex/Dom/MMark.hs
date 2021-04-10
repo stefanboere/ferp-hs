@@ -3,6 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Reflex.Dom.MMark
   ( renderDom
+  , S.SyntaxMap
+  , S.parseSyntaxDefinitionFromString
+  , S.Syntax
+  , S.addSyntaxDefinition
   )
 where
 
@@ -23,7 +27,7 @@ import qualified Data.Text                     as Text
 import           Data.Type.Equality             ( (:~:)(..) )
 -- import qualified GHC.SyntaxHighlighter         as GS
 import           Reflex.Dom              hiding ( Link )
-import qualified Skylighting                   as S
+import qualified Skylighting.Core              as S
 import           Text.MMark                     ( MMark )
 import qualified Text.MMark                    as MMark
 import           Text.MMark.Extension
@@ -33,29 +37,33 @@ import qualified Text.URI                      as URI
 
 renderDom
   :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
-  => Dynamic t MMark
+  => S.SyntaxMap
+  -> Dynamic t (Maybe MMark)
   -> m ()
-renderDom dynx = renderBlocks (markToDBlocks <$> dynx)
+renderDom syntaxMap dynx = renderBlocks syntaxMap (markToDBlocks <$> dynx)
 
-markToDBlocks :: MMark -> [DBlock]
-markToDBlocks y =
+markToDBlocks :: Maybe MMark -> [DBlock]
+markToDBlocks (Just y) =
   MMark.runScanner y (Fold.Fold (\x a -> x . (mmarkBlockDSum a :)) id ($ []))
+markToDBlocks Nothing = []
 
 renderBlocks
   :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
-  => Dynamic t [DBlock]
+  => S.SyntaxMap
+  -> Dynamic t [DBlock]
   -> m ()
-renderBlocks xs = do
+renderBlocks syntaxMap xs = do
   _ <- simpleList xs $ \x -> do
     x' <- factorDyn x
-    dyn $ fmap renderBlock x'
+    dyn $ fmap (renderBlock syntaxMap) x'
   pure ()
 
 renderBlock
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => DynBlock t
+  => S.SyntaxMap
+  -> DynBlock t
   -> m ()
-renderBlock = \case
+renderBlock syntaxMap = \case
   ThematicBreakTag :=> _         -> el "hr" blank
   Heading1Tag      :=> Compose h -> el "h1" $ renderInlines (runIdentity <$> h)
   Heading2Tag      :=> Compose h -> el "h2" $ renderInlines (runIdentity <$> h)
@@ -65,23 +73,24 @@ renderBlock = \case
   Heading6Tag      :=> Compose h -> el "h6" $ renderInlines (runIdentity <$> h)
   CodeBlockTag     :=> Compose d -> do
     let (infoString, txt) = splitDynPure (runIdentity <$> d)
-    _ <- listWithKey (Map.singleton <$> infoString <*> txt) renderCode
+    _ <- listWithKey (Map.singleton <$> infoString <*> txt)
+                     (renderCode syntaxMap)
     pure ()
   NakedTag :=> Compose html -> renderInlines (runIdentity <$> html)
   ParagraphTag :=> Compose html ->
     el "p" $ renderInlines (runIdentity <$> html)
   BlockquoteTag :=> Compose blocks -> do
-    el "blockquote" $ renderBlocks (runIdentity <$> blocks)
+    el "blockquote" $ renderBlocks syntaxMap (runIdentity <$> blocks)
   OrderedListTag :=> Compose d ->
     let (i, items) = splitDynPure (runIdentity <$> d)
     in  do
           _ <- elDynAttr "ol" (fmap startFrom i) $ do
             simpleList (NE.toList <$> items) $ \x -> do
-              el "li" $ renderBlocks x
+              el "li" $ renderBlocks syntaxMap x
           pure ()
   UnorderedListTag :=> Compose items -> do
     _ <- el "ul" $ simpleList (NE.toList . runIdentity <$> items) $ \x ->
-      el "li" $ renderBlocks x
+      el "li" $ renderBlocks syntaxMap x
     pure ()
   TableTag :=> Compose d ->
     let (calign, allrows) = splitDynPure (runIdentity <$> d)
@@ -153,10 +162,13 @@ renderInline = \case
             .   runIdentity
             <$> dynTxt
         dynCode = el "code" . dynText
-        dynMath x = elClass "span" "math inline" $ do
-          text "\\("
-          dynText x
-          text "\\)"
+        dynMath x' = do
+          xUniq <- holdUniqDyn x'
+          _     <- dyn $ ffor xUniq $ \x -> elClass "span" "math inline" $ do
+            text "\\("
+            text x
+            text "\\)"
+          pure ()
     splitDynText' <- eitherDyn splitDynText
     _             <- dyn (either dynMath dynCode <$> splitDynText')
     pure ()
@@ -310,19 +322,21 @@ instance GEq InlineTag where
 
 renderCode
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => Maybe Text
+  => S.SyntaxMap
+  -> Maybe Text
   -> Dynamic t Text
   -> m ()
-renderCode (Just "mathjax") code = el "p" $ do
-  _ <- simpleList (Text.lines <$> code) $ \txt ->
-    elClass "span" "math display" $ do
+renderCode _ (Just "mathjax") code = el "p" $ do
+  _ <- simpleList (Text.lines <$> code) $ \txt -> do
+    t' <- holdUniqDyn txt
+    dyn $ ffor t' $ \t -> elClass "span" "math display" $ do
       text "\\["
-      dynText txt
+      text t
       text "\\]"
   pure ()
 
 {-
-renderCode (Just "haskell") code = codeEl (Just "haskell") $ do
+renderCode _ (Just "haskell") code = codeEl (Just "haskell") $ do
   dynTok <- maybeDyn (GS.tokenizeHaskell <$> code)
   dyn_ (maybe (dynText code) renderGhc <$> dynTok)
  where
@@ -333,7 +347,7 @@ renderCode (Just "haskell") code = codeEl (Just "haskell") $ do
     pure ()
 -}
 
-renderCode (Just lang) code = codeEl (Just lang) $ do
+renderCode syntaxMap (Just lang) code = codeEl (Just lang) $ do
   dynTok <- maybeDyn (tokens <$> code)
   dyn_ (maybe (dynText code) renderSkylighting <$> dynTok)
  where
@@ -346,15 +360,14 @@ renderCode (Just lang) code = codeEl (Just lang) $ do
     pure ()
 
   tokens s = do
-    syntax <- S.lookupSyntax lang S.defaultSyntaxMap
+    syntax <- S.lookupSyntax lang syntaxMap
     either (const Nothing) pure $ S.tokenize tokenizerConfig syntax s
 
-  tokenizerConfig = S.TokenizerConfig { S.syntaxMap   = S.defaultSyntaxMap
-                                      , S.traceOutput = False
-                                      }
+  tokenizerConfig =
+    S.TokenizerConfig { S.syntaxMap = syntaxMap, S.traceOutput = False }
 
 
-renderCode Nothing code = codeEl Nothing $ dynText code
+renderCode _ _ code = codeEl Nothing $ dynText code
 
 codeEl :: (DomBuilder t m) => Maybe Text -> m a -> m a
 codeEl (Just lang) x = elClass "div" "source-code" $ el "pre" $ elClass

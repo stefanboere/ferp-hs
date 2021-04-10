@@ -34,6 +34,7 @@ import qualified Text.Megaparsec               as M
 import           GHCJS.DOM.Element              ( IsElement )
 import qualified GHCJS.DOM.Types               as DOM
 
+import           Components.Input.Basic
 import           Nordtheme                      ( grey0' )
 
 whenLoaded
@@ -106,12 +107,11 @@ codeInputScripts = do
   pure ((== Just ()) <$> x)
 
 codeInputStyle :: Css
-codeInputStyle = do
-  ".CodeMirror" ? do
-    minHeight (Clay.rem 20)
-    height (pct 100)
-    borderRadius (px 3) (px 3) (px 3) (px 3)
-    padding (Clay.rem 1) (Clay.rem 1) (Clay.rem 1) (Clay.rem 1)
+codeInputStyle = ".code-editor" Clay.** ".CodeMirror" ? do
+  minHeight (Clay.rem 10)
+  height (pct 100 @-@ Clay.rem 2)
+  borderRadius (px 3) (px 3) (px 3) (px 3)
+  padding (Clay.rem 1) (Clay.rem 1) (Clay.rem 1) (Clay.rem 1)
 
 
 codeInput
@@ -155,6 +155,10 @@ markdownInputStyle = do
     Clay.display grid
     "grid-gap" -: "1rem"
     "grid-template-columns" -: "repeat(auto-fit, minmax(30rem, 1fr))"
+    "grid-template-rows" -: "1fr auto"
+
+    ".statusmessage" ? do
+      "grid-row" -: "2"
 
 
 markdownInput
@@ -169,8 +173,8 @@ markdownInput
      , IsElement (RawElement (DomBuilderSpace m))
      , MonadJSM (Performable m)
      )
-  => Text
-  -> Event t Text
+  => SyntaxMap
+  -> InputConfig t Text
   -> m
        ( Dynamic
            t
@@ -179,16 +183,26 @@ markdownInput
                MMark.MMark
            )
        )
-markdownInput initText setValueEv = elClass "div" "code-input" $ do
-  textD <- elClass "div" "code-editor" $ codeInput config initText setValueEv
-  let dynMMark' = MMark.parse "" <$> textD
-  dynMMark <- eitherDyn dynMMark'
-  _        <- elClass "div" "code-view" $ dyn
-    (either (dynText . fmap (pack . M.errorBundlePretty)) renderDom <$> dynMMark
-    )
+markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
+  textD <- elClass "div" "code-editor"
+    $ codeInput
+        config
+        (_inputConfig_initialValue cfg)
+        (_inputConfig_setValue cfg)
+
+  let dynMMarkWithError = MMark.parse "" <$> textD
+  dynMark <- improvingMaybe (either (const Nothing) pure <$> dynMMarkWithError)
+  let dynError =
+        either (InputError . pack . M.errorBundlePretty) def
+          <$> dynMMarkWithError
+
+  elClass "div" "code-view" $ renderDom syntaxMap dynMark
+
+  statusMessageDiv (dynError <> _inputConfig_status cfg)
+
   delayEv <- delay 0.05 (updated textD)
   _       <- performEvent (mathJaxTypeset <$ delayEv)
-  pure dynMMark'
+  pure dynMMarkWithError
  where
   config :: Configuration
   config = def { _configuration_theme          = Just "nord"
