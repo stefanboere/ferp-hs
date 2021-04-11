@@ -58,6 +58,7 @@ library
     , beam-migrate
     , beam-postgres
     , bytestring
+    , cassava
     , data-default
     , dhall
     , ekg

@@ -28,6 +28,7 @@ import           Prelude
 import           Data.Default                   ( Default(..) )
 import           Network.HTTP.Link.Types        ( Link )
 import           Servant.API             hiding ( Link )
+import           Servant.CSV.Cassava
 import           Servant.Crud.Headers           ( Page(..)
                                                 , PathInfo
                                                 , TotalCount
@@ -42,7 +43,7 @@ import           Servant.Crud.QueryObject       ( FromQueryText(..)
 -- | 'GET' which returns a JSON array of type @a@ with some extra headers
 type GetList' a
   = Get
-      '[JSON]
+      '[JSON, CSV]
       ( Headers
           '[Header "X-Total-Count" TotalCount, Header "Link" Link, Header
             "Link"

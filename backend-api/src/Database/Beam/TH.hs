@@ -29,6 +29,8 @@ import qualified Data.List                     as L
 import           Data.Aeson                     ( FromJSON
                                                 , ToJSON
                                                 )
+import           Data.ByteString                ( ByteString )
+import qualified Data.Csv                      as Csv
 import           Data.Swagger                   ( ToParamSchema
                                                 , ToSchema
                                                 , declareNamedSchema
@@ -122,6 +124,9 @@ instancesBody t =
     deriving via (Generically ($(t) f)) instance Monoid (Rep ($(t) f) ()) => Monoid ($(t) f)
     deriving via (JsonBody ($(t) f)) instance GToJSON ($(t) f) => ToJSON ($(t) f)
     deriving via (JsonBody ($(t) f)) instance GFromJSON ($(t) f) => FromJSON ($(t) f)
+    deriving instance Csv.GToRecord (Rep ($(t) f)) (ByteString, ByteString) => Csv.ToNamedRecord ($(t) f)
+    deriving instance Csv.GFromNamedRecord (Rep ($(t) f))  => Csv.FromNamedRecord ($(t) f)
+    deriving instance Csv.GToNamedRecordHeader (Rep ($(t) f))  => Csv.DefaultOrdered ($(t) f)
 
     -- NameT Filter instances
     deriving via (QueryType ($(t) Filter)) instance ToQueryText ($(t) Filter)

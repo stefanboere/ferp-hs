@@ -45,6 +45,7 @@ library
     , http-types
     , servant
     , servant-aeson-specs
+    , servant-cassava
     , servant-client-core
     , servant-foreign
     , text
