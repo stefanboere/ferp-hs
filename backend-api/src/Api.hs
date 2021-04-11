@@ -62,7 +62,7 @@ type BlogApi
       :<|>
       (Auth Admin :> Post_ BlogT)
       :<|>
-      (Auth Everyone :> GetList Postgres BlogT)
+      (GetList Postgres BlogT)
 
 
 
@@ -76,8 +76,8 @@ blogServer =
     :<|> const (_post gBlog)
     :<|> getBlogs
  where
-  getBlogs :: AuthUser -> AppServer (GetList Postgres BlogT)
-  getBlogs (AuthUser _ roles) pinfo v = _getList gBlog pinfo newView
+  getBlogs :: AppServer (GetList Postgres BlogT)
+  getBlogs pinfo v = _getList gBlog pinfo newView
    where
     newView = v { filters = newFilt }
   --  newOrd  = ord { blogDate = Ordering Desc (-1) } -- Force the blogs to be ordered newest first
@@ -87,7 +87,7 @@ blogServer =
     maximumMaybe [] = Nothing
     maximumMaybe xs = Just $ maximum xs
 
-    newFilt = case maximumMaybe roles of
+    newFilt = case maximumMaybe [] of
       Just Administrator -> filt
       Just Extra ->
         filt { blogIsPublished = setf @"" [True] $ blogIsPublished filt }
@@ -95,8 +95,7 @@ blogServer =
         { blogIsExtra     = setf @"" [False] $ blogIsExtra filt
         , blogIsPublished = setf @"" [True] $ blogIsPublished filt
         }
-      Nothing ->
-        filt { blogIsExtra = setf @"" [True] . setf @"!" [True] $ def }
+      Nothing -> filt { blogIsPublished = def }
 
   gBlog :: CrudRoutes BlogT BlogT (AsServerT App)
   gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id
