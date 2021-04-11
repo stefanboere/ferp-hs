@@ -18,7 +18,6 @@ where
 
 import           Prelude
 
-import           Data.Default                   ( def )
 import           Data.Either                    ( isRight )
 import           Network.HTTP.Client            ( Manager
                                                 , defaultManagerSettings
@@ -52,8 +51,7 @@ runClient mananger port f = do
 
 
 getUsers :: ClientM [User]
-getUsers = getResponse <$> _getList userRoutes def
-
+getUsers = getResponse <$> _getList userRoutes mempty
 
 userRoutes :: CrudRoutes UserT UserT (AsClientT ClientM)
 userRoutes = genericClient

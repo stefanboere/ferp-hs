@@ -78,6 +78,15 @@ data View' c r filterType = View
 instance (Default filterType) => Default (View' c r filterType) where
   def = View def def def
 
+instance (Semigroup filterType) => Semigroup (View' c r filterType) where
+  x <> y = View { page     = page x <> page y
+                , ordering = ordering x <> ordering y
+                , filters  = filters x <> filters y
+                }
+
+instance (Monoid filterType) => Monoid (View' c r filterType) where
+  mempty = View mempty mempty mempty
+
 instance (Selectors c r, FromQueryText filterType) => FromQueryText (View' c r filterType) where
   fromQueryText t qs =
     View <$> fromQueryText t qs <*> fromQueryText t qs <*> fromQueryText t qs

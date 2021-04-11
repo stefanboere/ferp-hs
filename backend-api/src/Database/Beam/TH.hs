@@ -116,6 +116,8 @@ instancesBody t =
     [d|
     deriving via (Generically ($(t) f)) instance GEq ($(t) f) => Eq ($(t) f)
     deriving via (Generically ($(t) f)) instance GShow0 (Rep ($(t) f)) => Show ($(t) f)
+    deriving via (Generically ($(t) f)) instance Semigroup (Rep ($(t) f) ()) => Semigroup ($(t) f)
+    deriving via (Generically ($(t) f)) instance Monoid (Rep ($(t) f) ()) => Monoid ($(t) f)
     deriving via (JsonBody ($(t) f)) instance GToJSON ($(t) f) => ToJSON ($(t) f)
     deriving via (JsonBody ($(t) f)) instance GFromJSON ($(t) f) => FromJSON ($(t) f)
 

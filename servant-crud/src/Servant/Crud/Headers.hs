@@ -22,7 +22,9 @@ where
 import           Prelude
 
 import           Data.Default                   ( Default(..) )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy                     ( Proxy(..) )
+import           Data.Semigroup                 ( Min(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           GHC.Generics                   ( Generic )
@@ -85,6 +87,22 @@ instance ToQueryText Page
 
 instance Default Page where
   def = Page def def
+
+-- | Calculates the intersection between two pages, then it satisfies the monoid laws with def (the entire set)
+instance Semigroup Page where
+  x <> y =
+    let offset_x  = fromMaybe 0 (offset x)
+        offset_y  = fromMaybe 0 (offset y)
+        offset_xy = max offset_x offset_y
+        last_x    = Min . (+ offset_x) <$> limit x
+        last_y    = Min . (+ offset_y) <$> limit y
+        last_xy   = (\s -> s - offset_xy) . getMin <$> (last_x <> last_y)
+    in  Page { offset = if offset_xy == 0 then Nothing else Just offset_xy
+             , limit  = max 0 <$> last_xy
+             }
+
+instance Monoid Page where
+  mempty = def
 
 -- | The total number of rows in this view. Nothing indicates an unknown total
 newtype TotalCount = TotalCount { unTotalCount :: Integer } deriving (Eq, Show)
