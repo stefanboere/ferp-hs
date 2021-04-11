@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -15,6 +16,7 @@ language extension.
 module Database.Beam.Deriving
   ( BeamOrderBy(..)
   , BeamEnum(..)
+  , GBeamOrderBy
   )
 where
 
@@ -46,6 +48,7 @@ import           Servant.Crud.OrderBy           ( GSelectors
                                                 )
 import           Text.Read                      ( readEither )
 
+type GBeamOrderBy be s = (Typeable be, Typeable s, BeamSqlBackend be)
 
 -- | Newtype for usage with -XDeriveVia to derive instances 'Selectors', using
 -- 'queryOptions'  instead of the default options.

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -12,6 +13,9 @@ language extension.
 module Servant.Crud.Deriving
   ( -- * Newtypes
     JsonBody(..)
+  , GToJSON
+  , GFromJSON
+  , GEq
   , QueryType(..)
     -- * For creating options
   , aesonOptions
@@ -87,13 +91,23 @@ aesonSettings = Settings . Just . Text.unpack . typeName
 -- > deriving via (JsonBody $(t)) instance ToJSON $(t)
 newtype JsonBody a = JsonBody { unJsonBody :: a }
 
--- | A common type name prefix is dropped
-instance (Generic a, GtoJson (Rep a), ConNames (Rep a), GIsEnum (Rep a), Typeable a)
-    => ToJSON (JsonBody a) where
-  toJSON = gtoJsonWithSettings (aesonSettings (Proxy :: Proxy a)) . unJsonBody
+type GToJSON a
+  = (Generic a, GtoJson (Rep a), ConNames (Rep a), GIsEnum (Rep a), Typeable a)
 
 -- | A common type name prefix is dropped
-instance (Generic a, GfromJson (Rep a), ConNames (Rep a), GIsEnum (Rep a), Typeable a)
+instance GToJSON a => ToJSON (JsonBody a) where
+  toJSON = gtoJsonWithSettings (aesonSettings (Proxy :: Proxy a)) . unJsonBody
+
+type GFromJSON a
+  = ( Generic a
+    , GfromJson (Rep a)
+    , ConNames (Rep a)
+    , GIsEnum (Rep a)
+    , Typeable a
+    )
+
+-- | A common type name prefix is dropped
+instance GFromJSON a
     => FromJSON (JsonBody a) where
   parseJSON x =
     JsonBody <$> gparseJsonWithSettings (aesonSettings (Proxy :: Proxy a)) x
@@ -114,3 +128,5 @@ instance (Generic a, Typeable a, GFromQueryText (Rep a)) => FromQueryText (Query
 instance (Generic a, Typeable a, GToQueryText (Rep a)) => ToQueryText (QueryType a) where
   toQueryTextPrio t =
     defaultToQueryText (queryOptions (Proxy :: Proxy a)) t . unQueryType
+
+type GEq t = Eq (Rep t ())

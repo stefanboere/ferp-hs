@@ -17,7 +17,6 @@ module Database.Beam.TH
   , instancesId
   , instancesT
   , instancesTFull
-  , instancesQuery
   , instancesBody
   )
 where
@@ -48,13 +47,13 @@ import           Database.Beam.Deriving         ( BeamOrderBy(..) )
 import           Database.Beam.Named            ( Full
                                                 , Named
                                                 )
+import           GHC.Generics                   ( Rep )
+import           Generic.Data
 import           Language.Haskell.TH
 import           Servant.API                    ( FromHttpApiData(..)
                                                 , ToHttpApiData(..)
                                                 )
-import           Servant.Crud.Server.Deriving   ( JsonBody(..)
-                                                , QueryType(..)
-                                                )
+import           Servant.Crud.Server.Deriving
 import           Servant.Crud.Server.OrderBy    ( Selectors )
 import           Servant.Crud.Server.QueryObject
                                                 ( FromQueryText
@@ -70,17 +69,8 @@ import           Servant.Crud.Server.QueryOperator
 -- 'ToQueryText', 'ToParams' and 'ToSchema' for the 'NameT Identity' and 'NameT Maybe'
 -- Also creats relevant instances for 'NameT Filter'
 instances :: Name -> DecsQ
-instances n = concat <$> sequence
-  [ instancesBody tId
-  , instancesBody tMay
-  , instancesQuery tQ
-  , instancesOrderBy (conT n)
-  ]
- where
-  tId  = appT (conT n) (conT ''Identity)
-  tMay = appT (conT n) (conT ''Maybe)
-  tQ   = appT (conT n) (conT ''Filter)
-
+instances n =
+  concat <$> sequence [instancesBody (conT n), instancesSchema (conT n)]
 
 -- | Like 'instances', but for types with an extra T
 -- The first argument should either be 'Named' or 'Id', depending if you plan to
@@ -88,12 +78,10 @@ instances n = concat <$> sequence
 -- brittany-disable-next-binding
 instancesT' :: Name -> Name -> DecsQ
 instancesT' n0 n = concat <$>
-  sequence [ instancesBody  (t ''PrimaryKey ''Identity) -- HaskellValue / Put / Post
-           , instancesBody  (t ''PrimaryKey ''Maybe)    -- Patch
-           , instancesBody  (t n0 ''Identity)      -- Get
-           , instancesQuery (t n0 ''Filter)      -- Filter object for Get
+  sequence [ instancesBody  (t ''PrimaryKey) -- HaskellValue / Put / Post / Patch
+           , instancesBody  (t n0)      -- Get / Filter object for Get
+           , instancesSchema (t ''PrimaryKey)
            , otherInstances
-           , instancesOrderBy (appT (conT n) (conT n0))
            ]
     where
       otherInstances :: DecsQ
@@ -101,9 +89,8 @@ instancesT' n0 n = concat <$>
           deriving instance Beamable ($(conT n) PrimaryKey)
           deriving instance Beamable $(appT (conT n) (conT n0))
         |]
-
-      t :: Name -> Name -> TypeQ
-      t n1 n2 = appT (appT (conT n) (conT n1)) (conT n2)
+      t :: Name -> TypeQ
+      t n1 = appT (conT n) (conT n1)
 
 -- | Like 'instances', but for types with an extra T
 instancesT :: Name -> DecsQ
@@ -113,63 +100,45 @@ instancesT = instancesT' ''Named
 instancesTFull :: Name -> DecsQ
 instancesTFull = instancesT' ''Full
 
+-- | Swagger schema instances
+-- brittany-disable-next-binding
+instancesSchema :: TypeQ -> DecsQ
+instancesSchema t =
+  [d|
+  deriving instance ToSchema ($(t) Identity)
+  deriving instance ToSchema ($(t) Maybe)
+  |]
 
 -- | Regular instances like 'Eq', 'Show' and JSON related instances
 -- brittany-disable-next-binding
 instancesBody :: TypeQ -> DecsQ
 instancesBody t =
     [d|
-    deriving instance Eq $(t)
-    deriving instance Show $(t)
-    deriving instance ToSchema $(t)
-    deriving via (JsonBody $(t)) instance FromJSON $(t)
-    deriving via (JsonBody $(t)) instance ToJSON $(t)
-    |]
+    deriving via (Generically ($(t) f)) instance GEq ($(t) f) => Eq ($(t) f)
+    deriving via (Generically ($(t) f)) instance GShow0 (Rep ($(t) f)) => Show ($(t) f)
+    deriving via (JsonBody ($(t) f)) instance GToJSON ($(t) f) => ToJSON ($(t) f)
+    deriving via (JsonBody ($(t) f)) instance GFromJSON ($(t) f) => FromJSON ($(t) f)
 
-
--- | Creates instances for 'Eq', 'Show', 'FromJSON', 'ToJSON', 'FromQueryText'
--- 'ToQueryText', 'ToParams' and 'ToSchema' for the 'NameT Filter'
--- brittany-disable-next-binding
-instancesQuery :: TypeQ -> DecsQ
-instancesQuery t = [d|
     -- NameT Filter instances
-    deriving instance Eq $(t)
-    deriving instance Show $(t)
-    deriving via QueryType $(t) instance FromQueryText $(t)
-    deriving via QueryType $(t) instance ToQueryText $(t)
-    deriving via QueryType $(t) instance ToParams NoTypes NoContent $(t)
-    |]
+    deriving via (QueryType ($(t) Filter)) instance ToQueryText ($(t) Filter)
+    deriving via (QueryType ($(t) Filter)) instance FromQueryText ($(t) Filter)
+    deriving via (QueryType ($(t) Filter)) instance ToParams NoTypes NoContent ($(t) Filter)
 
--- brittany-disable-next-binding
-instancesOrderBy :: TypeQ -> DecsQ
-instancesOrderBy t = [d|
-  deriving via BeamOrderBy ($(t) (QExpr be s)) instance
+    deriving via BeamOrderBy ($(t) (QExpr be s)) instance
         (Typeable be, Typeable s, BeamSqlBackend be)
       => Selectors (Orderable be) ($(t) (QExpr be s))
-   |]
+    |]
 
 -- | Creates relevant instances for 'NameId'
 -- Takes the NameT type and the inner type of the primary key
 -- brittany-disable-next-binding
 instancesId :: Name -> Name -> DecsQ
 instancesId n n0 = [d|
-    -- Show instances
-    deriving instance Show (PrimaryKey $(t) Identity)
-    deriving instance Show (PrimaryKey $(t) Filter)
-    deriving instance Show (PrimaryKey $(t) Maybe)
-
-    -- Eq instances
-    deriving instance Eq (PrimaryKey $(t) Identity)
-    deriving instance Eq (PrimaryKey $(t) Filter)
-    deriving instance Eq (PrimaryKey $(t) Maybe)
-
-    -- JSON instances
-    instance ToJSON (PrimaryKey $(t) Identity)
-    instance ToJSON (PrimaryKey $(t) Maybe)
-    instance FromJSON (PrimaryKey $(t) Identity)
-    instance FromJSON (PrimaryKey $(t) Maybe)
-
-    -- Other instances
+    -- Basic instances
+    deriving instance Eq (Columnar f $(t0)) => Eq (PrimaryKey $(t) f)
+    deriving instance Show (Columnar f $(t0)) => Show (PrimaryKey $(t) f)
+    instance ToJSON (Columnar f $(t0)) => ToJSON (PrimaryKey $(t) f)
+    instance FromJSON (Columnar f $(t0)) => FromJSON (PrimaryKey $(t) f)
     instance FromQueryText (Columnar f $(t0)) => FromQueryText (PrimaryKey $(t) f)
     instance ToQueryText   (Columnar f $(t0)) => ToQueryText   (PrimaryKey $(t) f)
     instance ToParams lang ftype (Columnar f $(t0)) => ToParams lang ftype (PrimaryKey $(t) f)

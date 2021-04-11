@@ -34,21 +34,18 @@ import           Database.Beam
 import           Database.Beam.Backend.SQL      ( HasSqlValueSyntax(..) )
 import           Database.Beam.Backend.SQL.SQL92
                                                 ( intType )
-import           Database.Beam.Deriving         ( BeamEnum(..)
-                                                , BeamOrderBy(..)
-                                                )
+import           Database.Beam.Deriving
 import           Database.Beam.Migrate
 import           Database.Beam.Named
 import           Database.Beam.Postgres         ( Postgres )
 import           Database.Beam.Postgres.Syntax  ( PgValueSyntax )
 import           Database.Beam.Schema.Tables    ( Ignored(..) )
 import           GHC.Generics                   ( Generic )
+import           Generic.Data
 import           Servant.API                    ( FromHttpApiData
                                                 , ToHttpApiData
                                                 )
-import           Servant.Crud.Server.Deriving   ( JsonBody(..)
-                                                , QueryType(..)
-                                                )
+import           Servant.Crud.Server.Deriving
 import           Servant.Crud.Server.QueryOperator
 import           Servant.Docs
 
@@ -203,9 +200,9 @@ instance Table BlogT where
 
 -- | Here live all the tables in the database
 data AppDatabase f = AppDatabase
-  { _appDatabaseUsers         :: f (TableEntity UserT)
-  , _appDatabaseUserRoles     :: f (TableEntity UserRoleT)
-  , _appDatabaseBlogs         :: f (TableEntity BlogT)
+  { _appDatabaseUsers     :: f (TableEntity UserT)
+  , _appDatabaseUserRoles :: f (TableEntity UserRoleT)
+  , _appDatabaseBlogs     :: f (TableEntity BlogT)
   }
   deriving Generic
 
