@@ -53,6 +53,7 @@ import           Database.Beam.Backend.SQL.BeamExtensions
                                                 )
 import           Database.Beam.Query.Internal
 import           Database.Beam.Schema.Tables
+import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 
 -- | Saves all 'Just' fields in the database. This is useful for PATCH requests.
 --
@@ -75,7 +76,7 @@ patch
         -- ^ Table to update
   -> PrimaryKey t Identity
         -- ^ Primary key of the row
-  -> t Maybe
+  -> t MaybeLast
         -- ^ Value to set possibly, primary keys are ignored
   -> SqlUpdate be t
 patch table key v = updateTable
@@ -83,13 +84,13 @@ patch table key v = updateTable
   (setFieldsToMaybe v (val_ (changeBeamRep toNullable v)))
   (references_ (val_ key))
  where
-  toNullable :: Columnar' Maybe a -> Columnar' (Nullable Identity) a
-  toNullable ~(Columnar' x) = Columnar' x
+  toNullable :: Columnar' MaybeLast a -> Columnar' (Nullable Identity) a
+  toNullable ~(Columnar' (MaybeLast x)) = Columnar' x
 
   setFieldsToMaybe
     :: forall table be' table'
      . (Table table)
-    => table Maybe
+    => table MaybeLast
     -> forall s
      . table (Nullable (QExpr be' s))
     -> table (QFieldAssignment be' table')
@@ -108,7 +109,7 @@ patch table key v = updateTable
       (\_ (Columnar' x) -> do
         n <- get
         put (n + 1)
-        return (Columnar' (Const (n, isJust x)))
+        return (Columnar' (Const (n, isJust $ unMaybeLast x)))
       )
       (tblSkeleton :: TableSkeleton table)
       tbl
@@ -131,7 +132,7 @@ runPatch
         -- ^ Table to update
   -> PrimaryKey t Identity
         -- ^ Primary key of the row
-  -> t Maybe
+  -> t MaybeLast
         -- ^ Value to set possibly
   -> m ()
 runPatch tbl key v = runUpdate $ patch tbl key v

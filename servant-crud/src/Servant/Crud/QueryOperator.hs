@@ -116,6 +116,9 @@ import           Prelude
 import           Control.Applicative            ( empty
                                                 , Alternative(..)
                                                 )
+import           Data.Aeson                     ( FromJSON
+                                                , ToJSON
+                                                )
 import           Data.Default                   ( Default
                                                 , def
                                                 )
@@ -427,7 +430,7 @@ instance Default (TaggedBool a) where
 -- | A newtype wrapper around 'Maybe a' providing the same functionality as 'Maybe (Last a)'
 newtype MaybeLast a = MaybeLast { unMaybeLast :: Maybe a }
   deriving (Show, Eq)
-  deriving newtype (Functor, Applicative, Alternative, Default)
+  deriving newtype (Functor, Applicative, Alternative, Default,  ToJSON, FromJSON)
 
 instance Semigroup (MaybeLast a) where
   MaybeLast x <> MaybeLast y =

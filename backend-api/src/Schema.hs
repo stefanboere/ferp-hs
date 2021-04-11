@@ -75,7 +75,7 @@ data UserT f = User
   deriving (Generic, Beamable)
 
 type User = UserT Identity
-type UserPatch = UserT Maybe
+type UserPatch = UserT MaybeLast
 type UserId = PrimaryKey UserT Identity
 
 $(instances ''UserT)
@@ -150,7 +150,7 @@ $(instancesId ''UserRoleT ''Int64)
 instance ToSample (UserRoleTT PrimaryKey Identity) where
   toSamples _ = []
 
-instance ToSample (UserRoleTT PrimaryKey Maybe) where
+instance ToSample (UserRoleTT PrimaryKey MaybeLast) where
   toSamples _ = []
 
 instance ToSample (UserRoleTT Named Identity) where
@@ -173,7 +173,7 @@ data BlogT f = Blog
   deriving (Generic, Beamable)
 
 type Blog = BlogT Identity
-type BlogPatch = BlogT Maybe
+type BlogPatch = BlogT MaybeLast
 type BlogId = PrimaryKey BlogT Identity
 
 $(instances ''BlogT)

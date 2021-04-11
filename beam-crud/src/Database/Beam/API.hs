@@ -78,7 +78,9 @@ import           Servant.Crud.QueryObject       ( QObj
                                                 , Options(..)
                                                 , defaultOptions
                                                 )
-import           Servant.Crud.QueryOperator     ( Filter )
+import           Servant.Crud.QueryOperator     ( Filter
+                                                , MaybeLast
+                                                )
 
 
 -- | 'OrderBy' specialized for use with the Beam backend
@@ -105,7 +107,7 @@ type GetList be t = PathInfo :> QObj (View be t) :> GetList' (t Identity)
 type Get_ t = CaptureId t :> Get' (t Identity)
 
 -- | Regular patch requests
-type Patch_ t = CaptureId t :> Req' (t Maybe) :> Patch_'
+type Patch_ t = CaptureId t :> Req' (t MaybeLast) :> Patch_'
 
 -- | Regular put requests
 type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'

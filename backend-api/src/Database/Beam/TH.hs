@@ -63,7 +63,9 @@ import           Servant.Crud.Server.QueryObject
                                                 , ToQueryText
                                                 )
 import           Servant.Crud.Server.QueryOperator
-                                                ( Filter )
+                                                ( Filter
+                                                , MaybeLast
+                                                )
 
 -- | Creates instances for 'Eq', 'Show', 'FromJSON', 'ToJSON', 'FromQueryText'
 -- 'ToQueryText', 'ToParams' and 'ToSchema' for the 'NameT Identity' and 'NameT Maybe'
@@ -106,7 +108,7 @@ instancesSchema :: TypeQ -> DecsQ
 instancesSchema t =
   [d|
   deriving instance ToSchema ($(t) Identity)
-  deriving instance ToSchema ($(t) Maybe)
+  deriving instance ToSchema ($(t) MaybeLast)
   |]
 
 -- | Regular instances like 'Eq', 'Show' and JSON related instances

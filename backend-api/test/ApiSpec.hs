@@ -49,6 +49,10 @@ runClient mananger port f = do
   let clientEnv = mkClientEnv mananger url
   runClientM f clientEnv
 
+userPatch :: UserPatch
+userPatch =
+  User (pure 0) (pure "John Doe") (pure "This password will be changed")
+    <> User mempty mempty (pure "This is the  new password")
 
 getUsers :: ClientM [User]
 getUsers = getResponse <$> _getList userRoutes mempty

@@ -29,6 +29,8 @@ import           Servant.Auth.Swagger           ( )
 import           Servant.Docs
 import           Servant.Swagger
 import           Servant.Swagger.UI
+import           Servant.Crud.Server.QueryOperator
+                                                ( )
 
 import           Api                            ( api )
 import           Context
