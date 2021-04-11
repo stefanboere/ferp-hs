@@ -15,6 +15,7 @@ Description: Implements the basic auth check
 module Auth
   ( authCheck
   , AuthUser(..)
+  , AuthUserInfo(..)
   , Auth.Auth
   , Admin
   , AdminOrExtra
@@ -92,7 +93,7 @@ data AuthUser = AuthUser
   { getUserId    :: Int64
   , getUserRoles :: [Role]
   }
-  deriving (Show, Generic)
+  deriving (Show, Eq, Generic)
 
 instance ToJSON AuthUser where
   toJSON (AuthUser userid userroles) =
@@ -139,9 +140,10 @@ data AuthUserInfo = AuthUserInfo
   { authUser :: AuthUser
   , token    :: Text
   }
-  deriving Generic
+  deriving (Generic, Eq, Show)
 
 instance ToJSON AuthUserInfo
+instance FromJSON AuthUserInfo
 
 -- | Endpoint with data about the logged in user
 type AuthApi = Auth.Auth Everyone :> "self" :> Get '[JSON] AuthUserInfo

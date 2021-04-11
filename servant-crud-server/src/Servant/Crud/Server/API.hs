@@ -39,6 +39,7 @@ import           Servant.Crud.Server.OrderBy    ( OrderBy
 import           Servant.Crud.Server.QueryObject
                                                 ( ToParams(..) )
 import           Servant.Foreign                ( HasForeignType(..) )
+import           Test.QuickCheck                ( Arbitrary(..) )
 
 -- | Removes a Maybe at the cost of a 500 error
 justOr500 :: MonadError ServerError m => Text -> Maybe a -> m a
@@ -51,6 +52,12 @@ justOr404 :: MonadError ServerError m => Text -> Maybe a -> m a
 justOr404 _   (Just x) = pure x
 justOr404 err Nothing  = throwError $ err404 { errBody = Text.encodeUtf8 err }
 
+instance Arbitrary Page where
+  arbitrary = Page <$> arbitrary <*> arbitrary
+
+instance (Arbitrary Page, Selectors c r, Arbitrary filterType)
+  => Arbitrary (View' c r filterType) where
+  arbitrary = View <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance
     ( Selectors c r

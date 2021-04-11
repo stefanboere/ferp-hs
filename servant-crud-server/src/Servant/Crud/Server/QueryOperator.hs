@@ -51,6 +51,7 @@ import           Test.QuickCheck                ( Arbitrary
                                                 )
 deriving newtype instance ToSchema a => ToSchema (MaybeLast a)
 deriving newtype instance Docs.ToSample a => Docs.ToSample (MaybeLast a)
+deriving newtype instance Arbitrary a => Arbitrary (MaybeLast a)
 
 instance (HasForeignType lang ftype (Filter a), ToParamSchema a, ToParams lang ftype (FilterT a))
     => ToParams lang ftype (Filter a) where
