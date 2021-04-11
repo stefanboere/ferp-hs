@@ -34,7 +34,9 @@ module Database.Beam.API
   , Put_
   , Patch_
   , Delete_
+  , DeleteList_
   , Post_
+  , PostList
   , CaptureId
     -- * Utilities
   , runSetView
@@ -115,8 +117,15 @@ type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'
 -- | Regular delete requests
 type Delete_ t = CaptureId t :> Delete_'
 
+-- | Delete list requests
+type DeleteList_ t = Req' [PrimaryKey t Identity] :> Delete_'
+
 -- | Regular post requests
-type Post_ t = PathInfo :> Req' (t Identity) :> Post_'
+type Post_ t = PathInfo :> "0" :> Req' (t Identity) :> Post_'
+
+-- | Posting many records
+type PostList t
+  = ReqCSV' [t Identity] :> PostCreated '[JSON] [PrimaryKey t Identity]
 
 -- | Id in the request path
 type CaptureId t = Capture "id" (PrimaryKey t Identity)

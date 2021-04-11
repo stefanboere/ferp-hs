@@ -60,7 +60,11 @@ type BlogApi
       :<|>
       (Auth Admin :> Delete_ BlogT)
       :<|>
+      (Auth Admin :> DeleteList_ BlogT)
+      :<|>
       (Auth Admin :> Post_ BlogT)
+      :<|>
+      (Auth Admin :> PostList BlogT)
       :<|>
       (GetList Postgres BlogT)
 
@@ -73,7 +77,9 @@ blogServer =
     :<|> const (_put gBlog)
     :<|> const (_patch gBlog)
     :<|> const (_delete gBlog)
+    :<|> const (_deleteList gBlog)
     :<|> const (_post gBlog)
+    :<|> const (_postList gBlog)
     :<|> getBlogs
  where
   getBlogs :: AppServer (GetList Postgres BlogT)

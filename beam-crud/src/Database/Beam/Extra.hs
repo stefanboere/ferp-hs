@@ -24,8 +24,10 @@ module Database.Beam.Extra
     -- * Inserting
   , insertValues'
   , runInsertOne
+  , runInsertMany
     -- * Deleting
   , runDeleteKey
+  , runDeleteKeys
     -- * Utilities
   , ignorePrimary
   , countIn_
@@ -151,6 +153,20 @@ runDeleteKey
   -> m ()
 runDeleteKey tbl key = runDelete $ delete tbl (references_ (val_ key))
 
+-- | Delete rows using the primary key
+runDeleteKeys
+  :: forall db t be m
+   . ( Table t
+     , BeamSqlBackend be
+     , MonadBeam be m
+     , SqlValableTable be (PrimaryKey t)
+     , HasSqlInTable be
+     )
+  => DatabaseEntity be db (TableEntity t)
+  -> [PrimaryKey t Identity]
+  -> m ()
+runDeleteKeys tbl keys =
+  runDelete $ delete tbl (\t -> pk t `in_` fmap val_ keys)
 
 -- | Generate a 'SqlUpdate' that will update the given table row with the given value.
 --
@@ -239,13 +255,32 @@ runInsertOne
   -> t Identity
       -- ^ Value to insert
   -> m (Maybe (PrimaryKey t Identity))
-runInsertOne tbl v = do
-  inserted <- runInsertReturningList $ insert tbl $ insertValues' [v]
-  pure . fmap primaryKey $ headMaybe inserted
+runInsertOne tbl v = headMaybe <$> runInsertMany tbl [v]
  where
   headMaybe :: [a] -> Maybe a
   headMaybe []      = Nothing
   headMaybe (x : _) = Just x
+
+-- | Inserts a value and returns the primary key of the newly created value.
+--
+-- Returns 'Nothing' if the insert failed.
+runInsertMany
+  :: forall t db be m
+   . ( BeamSqlBackend be
+     , Table t
+     , MonadBeam be m
+     , MonadBeamInsertReturning be m
+     , FieldsFulfillConstraint (BeamSqlBackendCanSerialize be) t
+     , FromBackendRow be (t Identity)
+     )
+  => DatabaseEntity be db (TableEntity t)
+      -- ^ Table to update
+  -> [t Identity]
+      -- ^ Values to insert
+  -> m [PrimaryKey t Identity]
+runInsertMany tbl v = do
+  inserted <- runInsertReturningList $ insert tbl $ insertValues' v
+  pure $ fmap primaryKey inserted
 
 -- | Build a 'SqlInsertValues' from concrete table values, but ignores the primary keys.
 insertValues'

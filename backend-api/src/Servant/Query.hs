@@ -93,6 +93,8 @@ data CrudRoutes t t2 route = CrudRoutes
     , _delete :: route :- Delete_ t2
     , _post :: route :- Post_ t2
     , _getList :: route :- GetList Postgres t
+    , _deleteList :: route :- DeleteList_ t2
+    , _postList :: route :- PostList t2
     }
   deriving (Generic)
 
@@ -121,16 +123,18 @@ defaultCrud
   -> (forall s . Q Postgres db s (t (QExpr Postgres s))) -- ^ The collection
   -> CrudRoutes t t2 (AsServerT m1)
 defaultCrud runDB db coerce coll = CrudRoutes
-  { _get     = \key -> runDB (runLookupIn key coll) >>= notFound
-  , _put     = \key -> ifInView key . runSaveWithId db key
-  , _patch   = \key -> ifInView key . runPatch db key
-  , _delete  = \key -> ifInView key $ runDeleteKey db key
-  , _post    = \path x ->
-                 hLocation' path <$> (runDB (runInsertOne db x) >>= insertErr)
-  , _getList = \path view ->
-                 hTotalLink' path view
-                   <$> runDB (runCountInView view coll)
-                   <*> runDB (runSetView view coll)
+  { _get        = \key -> runDB (runLookupIn key coll) >>= notFound
+  , _put        = \key -> ifInView key . runSaveWithId db key
+  , _patch      = \key -> ifInView key . runPatch db key
+  , _delete     = \key -> ifInView key $ runDeleteKey db key
+  , _post       = \path x ->
+                    hLocation' path <$> (runDB (runInsertOne db x) >>= insertErr)
+  , _getList    = \path view ->
+                    hTotalLink' path view
+                      <$> runDB (runCountInView view coll)
+                      <*> runDB (runSetView view coll)
+  , _deleteList = runDB . runDeleteKeys db
+  , _postList   = runDB . runInsertMany db
   }
  where
   ifInView key fn = do
