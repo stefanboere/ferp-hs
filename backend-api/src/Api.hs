@@ -35,9 +35,7 @@ import           Servant.Docs                   ( DocQueryParam(..)
                                                 )
 import           Servant.Server.Generic         ( AsServerT )
 
-import qualified Servant.File                  as File
 import           Servant.Query
-import           System.FilePath                ( (</>) )
 
 import           Auth
 import           Context
@@ -65,8 +63,6 @@ type BlogApi
       (Auth Admin :> Post_ BlogT)
       :<|>
       (Auth Everyone :> GetList Postgres BlogT)
-      :<|>
-      (CaptureId BlogT :> "files" :> BlogFileApi)
 
 
 
@@ -79,7 +75,6 @@ blogServer =
     :<|> const (_delete gBlog)
     :<|> const (_post gBlog)
     :<|> getBlogs
-    :<|> blogFileServer
  where
   getBlogs :: AuthUser -> AppServer (GetList Postgres BlogT)
   getBlogs (AuthUser _ roles) pinfo v = _getList gBlog pinfo newView
@@ -106,32 +101,6 @@ blogServer =
   gBlog :: CrudRoutes BlogT BlogT (AsServerT App)
   gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id
     $ all_ (_appDatabaseBlogs appDatabase)
-
--- FILE SERVER
-
-type Img = File.ResizedImage '( 'Just 1024, 'Just 780)
-
--- brittany-disable-next-binding
-type BlogFileApi
-  = (Auth Admin :> File.Put_ File.SourceFormats Img)
-      :<|>
-      (Auth Admin :> File.Delete_)
-      :<|>
-      (Auth Admin :> File.Post_ File.SourceFormats Img)
-      :<|>
-      (Auth Everyone :> File.GetRaw File.SourceFormats Img)
-
-
-blogFileServer :: BlogId -> AppServer BlogFileApi
-blogFileServer (BlogId blogPk) =
-  const (File._put gFile)
-    :<|> const (File._delete gFile)
-    :<|> const (File._post gFile)
-    :<|> const (File._get gFile)
- where
-  gFile :: File.ImageRoutes '( 'Just 1024, 'Just 780) (AsServerT App)
-  gFile = File.defaultFileRoutes ("upload" </> "blog" </> show blogPk)
-
 
 instance ToParam (QueryParam "key" Text) where
   toParam _ = DocQueryParam "key" [] "An authorization key" Normal

@@ -256,8 +256,9 @@ type StrFilter = AddStrFilter (AddOrdFilter (AddEqFilter '[]))
 
 -- | Represents a single entry in the dictionary of operators.
 -- It stores the foo in @?title[contains]=foo@.
+-- brittany-disable-next-binding
 data OpEntry :: Symbol -> ParamKind -> Type -> Type where
-  E ::s k a ParamKindFunctor k a -> OpEntry s k a
+  E ::forall s k a . ParamKindFunctor k a -> OpEntry s k a
 
 -- | A list of query operators (names and result types)
 type OpMap = [(Symbol, ParamKind)]

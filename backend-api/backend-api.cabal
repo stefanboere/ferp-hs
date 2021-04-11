@@ -60,19 +60,14 @@ library
     , bytestring
     , data-default
     , dhall
-    , directory
     , ekg
     , fast-logger
-    , filepath
     , http-media
-    , JuicyPixels
-    , JuicyPixels-extra
     , microlens
     , monad-logger
     , monad-metrics
     , mtl
     , pwstore-fast
-    , random
     , resource-pool
     , servant
     , servant-ac
@@ -87,7 +82,6 @@ library
     , servant-docs
     , servant-ekg
     , servant-foreign
-    , servant-multipart
     , servant-options
     , servant-quickcheck
     , servant-server
@@ -110,7 +104,6 @@ library
     Database.Beam.TH
     Docs
     Schema
-    Servant.File
     Servant.Query
     Server
     Types

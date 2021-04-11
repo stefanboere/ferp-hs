@@ -1,6 +1,4 @@
---command="cabal new-repl --ghc-options=-Wwarn --enable-tests"
+--command="cabal repl --ghc-options=-Wwarn"
 --test="Server.update"
---lint
 --warnings
 --restart=./backend-api.cabal
---restart=./src
