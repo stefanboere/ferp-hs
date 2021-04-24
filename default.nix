@@ -50,6 +50,7 @@ let
         reflex-dom-contrib = doJailbreak
           (self.callCabal2nix "reflex-dom-contrib" sources.reflex-dom-contrib
             { });
+        oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
 
         servant-aeson-specs =
           dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));

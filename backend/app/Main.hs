@@ -3,4 +3,8 @@ module Main
   )
 where
 
-import           Backend                        ( main )
+import           Prelude                        ( IO )
+import           Server                         ( app )
+
+main :: IO ()
+main = app

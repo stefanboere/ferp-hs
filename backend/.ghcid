@@ -1,0 +1,4 @@
+--command="cabal repl --ghc-options=-Wwarn"
+--test="Server.update"
+--warnings
+--restart=./backend.cabal

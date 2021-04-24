@@ -37,11 +37,36 @@ common common-options
 library
   import:          common-options
   hs-source-dirs:  src
-  exposed-modules: Backend
+  exposed-modules:
+    Api
+    Context
+    OIDC
+    Server
+
   other-modules:
   build-depends:
+    , aeson
+    , backend-extra
+    , bytestring
     , common
+    , containers
+    , cookie
+    , data-default
+    , dhall
+    , http-client
+    , http-client-tls
+    , monad-logger
+    , mtl
+    , network-uri
+    , oidc-client
+    , random
     , reflex-dom
+    , servant
+    , servant-auth-server
+    , servant-server
+    , text
+    , wai-extra
+    , warp
 
 executable backend
   import:         common-options

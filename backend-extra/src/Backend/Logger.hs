@@ -13,6 +13,9 @@ module Backend.Logger
   , initLoggerStdout
   , logWithConfig
   , Environment(..)
+  -- # Re-exports
+  , TimedFastLogger
+  , LogLevel(..)
   )
 where
 
