@@ -23,24 +23,21 @@ module Server
   )
 where
 
+import qualified Backend.DevelMain             as DevelMain
+                                                ( update )
+import           Backend.Logger
 import           Control.Concurrent             ( ThreadId
                                                 , killThread
                                                 )
 import           Control.Exception              ( bracket )
-import           Control.Monad.Logger           ( LogLevel(..)
-                                                , defaultLoc
-                                                )
+import           Control.Monad.Logger           ( LogLevel(..) )
 import           Control.Monad.Metrics          ( initializeWith )
 import           Control.Monad.Metrics.Internal ( _metricsStore )
 import           Control.Monad.Reader           ( ReaderT(..) )
-import           Data.Char                      ( isLower
-                                                , toLower
-                                                )
 import           Data.Default                   ( def )
 import           Data.Pool                      ( Pool
                                                 , destroyAllResources
                                                 )
-import qualified Data.Text                     as Text
 import           Database.Beam.Backend          ( displaySyntax )
 import           Database.Beam.Migrate.Simple   ( VerificationResult(..)
                                                 , autoMigrate
@@ -50,11 +47,6 @@ import           Database.Beam.Migrate.Simple   ( VerificationResult(..)
 import           Database.Beam.Postgres         ( Connection )
 import           Database.Beam.Postgres.Migrate ( migrationBackend )
 import           Database.Beam.Postgres.Syntax  ( fromPgCommand )
-import           Dhall                          ( InterpretOptions(..)
-                                                , autoWith
-                                                , defaultInterpretOptions
-                                                , inputFile
-                                                )
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Metrics            ( metrics
                                                 , registerWaiMetrics
@@ -66,11 +58,6 @@ import           Network.Wai.Middleware.Cors    ( CorsResourcePolicy(..)
                                                 , simpleCorsResourcePolicy
                                                 )
 import           Network.Wai.Middleware.Gzip    ( gzip )
-import           Network.Wai.Middleware.RequestLogger
-                                                ( Destination(..)
-                                                , destination
-                                                , mkRequestLogger
-                                                )
 import           Network.Wai.Middleware.Servant.Options
                                                 ( provideOptions )
 import qualified Network.Wai.Middleware.Timeout
@@ -78,8 +65,6 @@ import qualified Network.Wai.Middleware.Timeout
                                                 ( timeout )
 import           Servant
 import qualified Servant.Auth.Server           as SAS
-import qualified Backend.DevelMain             as DevelMain
-                                                ( update )
 import           Servant.Crud.Server.Middleware ( allowHeaderMiddleware )
 import           Servant.Ekg                    ( monitorEndpoints )
 import           System.Environment             ( getArgs )
@@ -119,8 +104,8 @@ initialize cfg application = do
   verifyDatabase cfg
 
   -- Create request logger
-  requestLogger <- mkRequestLogger
-    $ def { destination = Callback $ simpleLog cfg LevelDebug }
+  requestLogger <- initRequestLogger (getLogger cfg)
+                                     (configInfo $ getConfig cfg)
 
   pure
     $ Timeout.timeout 65
@@ -249,40 +234,21 @@ withTestApplication = withApplication testApplication
 -- | Returns the config and the cleanup action for the logger and ekg server
 acquireConfig :: IO (AppConfig, IO ())
 acquireConfig = do
-  configFile <- cfgFile <$> getArgs
+  configFile              <- cfgFile <$> getArgs
 
   -- Load settings from config
-  settings   <- inputFile
-    (autoWith
-      (defaultInterpretOptions
-        { fieldModifier = decapitalize . Text.dropWhile isLower
-        }
-      )
-    )
-    configFile
+  settings                <- readDhallConfig configFile
 
   -- Setup the time cache
-  timeCache               <- newTimeCache simpleTimeFormat
-  (logger, cleanupLogger) <- newTimedFastLogger timeCache logStdout
-
-  logWithConfig logger settings defaultLoc "" LevelDebug "Obtained config"
+  (logger, cleanupLogger) <- initLoggerStdout
 
   -- Setup metrics
-  ekgServer <- forkServer "localhost" 3006
+  ekgServer               <- forkServer "localhost" 3006
   let store = serverMetricStore ekgServer
-  metr <- initializeWith store
-
-  logWithConfig logger settings defaultLoc "" LevelDebug "Initialized metrics"
+  metr  <- initializeWith store
 
   -- Get the database connection
-  pool <- initConnPool (configDatabase settings)
-
-  logWithConfig logger
-                settings
-                defaultLoc
-                ""
-                LevelDebug
-                "Initialized database pool"
+  pool  <- initConnPool (configDatabase settings)
 
   -- Generate JWT key
   myKey <- SAS.generateKey
@@ -297,10 +263,6 @@ acquireConfig = do
     , shutdownApp cleanupLogger (serverThreadId ekgServer) pool
     )
  where
-  decapitalize x = case Text.uncons x of
-    Just (z, zs) -> Text.cons (toLower z) zs
-    Nothing      -> Text.empty
-
   cfgFile []      = "config.dhall"
   cfgFile (x : _) = x
 

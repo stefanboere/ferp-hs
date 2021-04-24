@@ -15,23 +15,21 @@ module Context
   -- * App monad
     Config(..)
   , AppConfig(..)
+  , AppInfo(..)
   , App
   , AppT(..)
   , AppServer
-  , BaseUrl(..)
   , CorsOrigins(..)
   -- * Database
   , initConnPool
   , runDB
   , runDBinIO
-  -- * Logging
+   -- * Logging
   , simpleLog
-  , logStdout
-  , logWithConfig
-  , Environment(..)
   )
 where
 
+import           Backend.Logger
 import           Control.Monad.Except           ( ExceptT
                                                 , MonadError
                                                 )
@@ -42,10 +40,8 @@ import           Control.Monad.Metrics          ( Metrics
                                                 , getMetrics
                                                 )
 import           Control.Monad.Reader
-import           Data.Maybe                     ( fromMaybe )
 import           Data.Pool
 import qualified Data.Text.Encoding            as Text
-import           Data.Version
 import           Database.Beam.Postgres
 import           Dhall
 import           GHC.Word                       ( Word16 )
@@ -55,36 +51,17 @@ import           Servant
 import           Servant.Auth.Server            ( JWTSettings )
 import           Servant.Server                 ( ServerError )
 import           System.Log.FastLogger
-import           Text.ParserCombinators.ReadP
-import           Text.Read                      ( readMaybe )
 
 -- | App configuration which can be read (mostly) from the environment
 data Config = Config
-  { configTitle       :: Text
-  , configDescription :: Text
-  , configVersion     :: Version
+  { configInfo        :: AppInfo
   , configDatabase    :: ConnectInfo
-  , configEnvironment :: Environment
   , configPort        :: Port
-  , configLogLevel    :: LogLevel
-  , configBaseUrl     :: BaseUrl
   , configCorsOrigins :: CorsOrigins
   }
   deriving Generic
 
 instance Interpret Config
-
-instance Interpret Version where
-  autoWith cfg = readVersion <$> autoWith cfg
-
-readVersion :: String -> Version
-readVersion s = case [ x | (x, "") <- readP_to_S parseVersion s ] of
-  [x] -> x
-  _   -> error "Could not parse version"
-
-instance Interpret LogLevel where
-  autoWith cfg =
-    fromMaybe (error "Could not read loglevel") . readMaybe <$> autoWith cfg
 
 instance Interpret ConnectInfo
 
@@ -93,19 +70,6 @@ instance Interpret Word16 where
 
 instance Interpret Int where
   autoWith cfg = fromInteger <$> autoWith cfg
-
--- | Either 'Test', 'Development' or 'Production'
-data Environment = Production | Development | Test deriving (Show, Eq, Read, Ord)
-
-instance Interpret Environment where
-  autoWith cfg =
-    fromMaybe (error "Could not read Environment") . readMaybe <$> autoWith cfg
-
-
-newtype BaseUrl = BaseUrl { unBaseUrl :: Text }
-
-instance Interpret BaseUrl where
-  autoWith cfg = BaseUrl <$> autoWith cfg
 
 newtype CorsOrigins = CorsOrigins { unCorsOrigins :: [Origin] }
 
@@ -156,46 +120,13 @@ askLogger
 askLogger = do
   logger <- asks getLogger
   config <- asks getConfig
-  pure $ logWithConfig logger config
-
-logWithConfig
-  :: TimedFastLogger
-  -> Config
-  -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-logWithConfig logger config = \loc src lvl msg ->
-  if configLogLevel config <= lvl
-    then logger (logStr config loc src lvl msg)
-    else pure ()
- where
-  logStr
-    :: Config
-    -> Loc
-    -> LogSource
-    -> LogLevel
-    -> LogStr
-    -> FormattedTime
-    -> LogStr
-  logStr cfg loc src lvl msg now = toLogStr now <> " " <> defaultLogStr
-    loc
-    src
-    lvl
-    (envLogStr cfg <> ": " <> msg)
-
-  envLogStr :: Config -> LogStr
-  envLogStr cfg =
-    "{"
-      <> toLogStr (showVersion . configVersion $ cfg)
-      <> "-"
-      <> toLogStr (take 4 . show . configEnvironment $ cfg)
-      <> "}"
+  pure $ logWithConfig logger (configInfo config)
 
 -- | Simple standalone logger. Only needs the AppConfig
 simpleLog :: AppConfig -> LogLevel -> LogStr -> IO ()
-simpleLog cfg = logWithConfig (getLogger cfg) (getConfig cfg) defaultLoc ""
+simpleLog cfg =
+  logWithConfig (getLogger cfg) (configInfo $ getConfig cfg) defaultLoc ""
 
--- | Logger which logs to the stdout
-logStdout :: LogType
-logStdout = LogStdout defaultBufSize
 
 instance Monad m => MonadMetrics (AppT m) where
   getMetrics = asks getMetric
@@ -217,7 +148,7 @@ initConnPool info = createPool (connect info)
 runDB :: Pg b -> App b
 runDB query = do
   pool    <- asks getPool
-  envConf <- asks (configEnvironment . getConfig)
+  envConf <- asks (appEnvironment . configInfo . getConfig)
   logger  <- if envConf /= Production
     then do
       l <- askLoggerIO
@@ -230,7 +161,7 @@ runDB query = do
 runDBinIO :: AppConfig -> Pg b -> IO b
 runDBinIO cfg query = do
   let pool    = getPool cfg
-  let envConf = configEnvironment . getConfig $ cfg
+  let envConf = appEnvironment . configInfo . getConfig $ cfg
   let logger = if envConf /= Production
         then simpleLog cfg LevelDebug . toLogStr
         else const (pure ())

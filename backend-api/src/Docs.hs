@@ -26,11 +26,11 @@ import           Data.Version
 import           Servant
 import           Servant.Auth.Docs              ( )
 import           Servant.Auth.Swagger           ( )
+import           Servant.Crud.Server.QueryOperator
+                                                ( )
 import           Servant.Docs
 import           Servant.Swagger
 import           Servant.Swagger.UI
-import           Servant.Crud.Server.QueryOperator
-                                                ( )
 
 import           Api                            ( api )
 import           Context
@@ -44,7 +44,8 @@ type DocsApi = Get '[PlainText] API
 docsServer :: AppServer DocsApi
 docsServer = do
   config <- asks getConfig
-  return $ docsBS (configTitle config) (Text.lines (configDescription config))
+  return $ docsBS (appTitle . configInfo $ config)
+                  (Text.lines (appDescription . configInfo $ config))
  where
   docsBS :: Text -> [Text] -> API
   docsBS titl descr = docsWithIntros [intro] api
@@ -70,13 +71,13 @@ swaggerServer cfg = swaggerSchemaUIServer
 
   getInfo :: Config -> Info
   getInfo config = Info
-    { _infoTitle          = configTitle config
-    , _infoDescription    = Just (configDescription config)
+    { _infoTitle          = appTitle . configInfo $ config
+    , _infoDescription    = Just (appDescription . configInfo $ config)
     , _infoTermsOfService = Nothing
     , _infoContact        = Nothing
     , _infoLicense        = Just
       (License "BSD-3-Clause"
                (Just (URL "https://opensource.org/licenses/BSD-3-Clause"))
       )
-    , _infoVersion        = Text.pack . showVersion . configVersion $ config
+    , _infoVersion = Text.pack . showVersion . appVersion . configInfo $ config
     }
