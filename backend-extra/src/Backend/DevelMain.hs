@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-|
-Module: Servant.Crud.Server.DevelMain
+Module: Backend.DevelMain
 Description: Hot reloading
 
 Run your web server in GHCI.
@@ -20,7 +20,7 @@ More information is available at https://www.parsonsmatt.org/2018/05/19/ghcid_fo
 and also https://github.com/yesodweb/yesod/wiki/ghci.
 
 -}
-module Servant.Crud.Server.DevelMain
+module Backend.DevelMain
   ( update
   , shutdown
   )

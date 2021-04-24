@@ -78,7 +78,7 @@ import qualified Network.Wai.Middleware.Timeout
                                                 ( timeout )
 import           Servant
 import qualified Servant.Auth.Server           as SAS
-import qualified Servant.Crud.Server.DevelMain as DevelMain
+import qualified Backend.DevelMain             as DevelMain
                                                 ( update )
 import           Servant.Crud.Server.Middleware ( allowHeaderMiddleware )
 import           Servant.Ekg                    ( monitorEndpoints )

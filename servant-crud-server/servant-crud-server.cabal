@@ -29,7 +29,6 @@ library
   exposed-modules:
     Servant.Crud.Server.API
     Servant.Crud.Server.Deriving
-    Servant.Crud.Server.DevelMain
     Servant.Crud.Server.Headers
     Servant.Crud.Server.Middleware
     Servant.Crud.Server.OrderBy

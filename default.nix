@@ -9,6 +9,7 @@ let
     packages = {
       backend = ./backend;
       backend-api = ./backend-api;
+      backend-extra = ./backend-extra;
       beam-crud = ./beam-crud;
       common = ./common;
       frontend = ./frontend;
@@ -22,6 +23,7 @@ let
       ghc = [
         "backend"
         "backend-api"
+        "backend-extra"
         "beam-crud"
         "common"
         "frontend"

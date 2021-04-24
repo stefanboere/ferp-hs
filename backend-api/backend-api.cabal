@@ -53,6 +53,7 @@ library
   -- Add your dependencies below
   build-depends:
     , aeson
+    , backend-extra
     , beam-core
     , beam-crud               ^>=0.1
     , beam-migrate

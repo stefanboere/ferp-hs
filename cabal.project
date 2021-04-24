@@ -1,6 +1,7 @@
 packages:
   backend/
   backend-api/
+  backend-extra/
   beam-crud/
   common/
   frontend/
