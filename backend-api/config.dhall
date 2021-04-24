@@ -14,4 +14,5 @@
     }
 , port = +3005
 , corsOrigins = [ "http://localhost:3003" ]
+, oidcProviderUri     = "https://id.dev.boerevlist.nl/realms/ferp/"
 }

@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-|
 Module: Context
@@ -26,6 +27,9 @@ module Context
   , runDBinIO
    -- * Logging
   , simpleLog
+  -- * JWT
+  , discoverJWKs
+  , generateJwtSettings
   )
 where
 
@@ -40,30 +44,47 @@ import           Control.Monad.Metrics          ( Metrics
                                                 , getMetrics
                                                 )
 import           Control.Monad.Reader
+import qualified Crypto.JOSE                   as Jose
+import           Data.Aeson
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Pool
+import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
 import           Database.Beam.Postgres
-import           Dhall
+import           Dhall                   hiding ( maybe )
 import           GHC.Word                       ( Word16 )
+import           Network.HTTP.Client
+import           Network.HTTP.Client.TLS        ( tlsManagerSettings )
+import qualified Network.URI                   as Network
 import           Network.Wai.Handler.Warp       ( Port )
 import           Network.Wai.Middleware.Cors    ( Origin )
 import           Servant
-import           Servant.Auth.Server            ( JWTSettings )
+import           Servant.Auth.Server            ( JWTSettings
+                                                , defaultJWTSettings
+                                                , generateKey
+                                                , validationKeys
+                                                )
 import           Servant.Server                 ( ServerError )
-import           System.Log.FastLogger
 
 -- | App configuration which can be read (mostly) from the environment
 data Config = Config
-  { configInfo        :: AppInfo
-  , configDatabase    :: ConnectInfo
-  , configPort        :: Port
-  , configCorsOrigins :: CorsOrigins
+  { configInfo            :: AppInfo
+  , configDatabase        :: ConnectInfo
+  , configPort            :: Port
+  , configCorsOrigins     :: CorsOrigins
+  , configOidcProviderUri :: URI
   }
   deriving Generic
 
 instance Interpret Config
 
 instance Interpret ConnectInfo
+
+instance Interpret Network.URI where
+  autoWith cfg = go <$> autoWith cfg
+   where
+    go :: Text -> Network.URI
+    go = fromMaybe (error "") . Network.parseURI . Text.unpack
 
 instance Interpret Word16 where
   autoWith cfg = fromInteger <$> autoWith cfg
@@ -166,3 +187,31 @@ runDBinIO cfg query = do
         then simpleLog cfg LevelDebug . toLogStr
         else const (pure ())
   liftIO $ withResource pool $ \conn -> runBeamPostgresDebug logger conn query
+
+-- * JWT
+
+-- | Discover the JWK keys of the openid connect provider
+discoverJWKs :: URI -> IO Jose.JWKSet
+discoverJWKs uri = do
+  manager <- newManager tlsManagerSettings
+
+  cfgReq  <- requestFromURI uri
+    { uriPath = uriPath uri <> ".well-known/openid-configuration"
+    }
+  cfgResp  <- httpLbs cfgReq manager
+  jwksUri  <- either fail pure $ eitherDecode (responseBody cfgResp)
+
+  jwksReq  <- requestFromURI (jwks_uri jwksUri)
+  jwksResp <- httpLbs jwksReq manager
+  either fail pure $ eitherDecode (responseBody jwksResp)
+
+generateJwtSettings :: URI -> IO JWTSettings
+generateJwtSettings uri = do
+  myKey <- generateKey
+  jwks  <- discoverJWKs uri
+  pure $ (defaultJWTSettings myKey) { validationKeys = jwks }
+
+newtype JWKSUri = JWKSUri { jwks_uri :: URI } deriving (Eq, Show, Generic)
+
+instance FromJSON JWKSUri
+

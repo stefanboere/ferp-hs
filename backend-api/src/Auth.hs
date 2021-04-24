@@ -13,9 +13,9 @@ Module: Auth
 Description: Implements the basic auth check
 -}
 module Auth
-  ( authCheck
-  , AuthUser(..)
-  , AuthUserInfo(..)
+  ( AuthUser(..)
+  , Role(..)
+  , Roles(..)
   , Auth.Auth
   , Admin
   , AdminOrExtra
@@ -23,50 +23,36 @@ module Auth
   , Everyone
   , AuthApi
   , authServer
+  , getUserRoles
   )
 where
 
-
-import           Control.Monad.Reader           ( asks )
-import           Crypto.PasswordStore
+import qualified Crypto.JWT                    as Jose
 import           Data.Aeson
-import qualified Data.ByteString.Lazy          as BL
-import           Data.Int                       ( Int64 )
 import           Data.Maybe                     ( mapMaybe )
-import           Data.Pool                      ( Pool
-                                                , withResource
-                                                )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import qualified Data.Text.Encoding            as Text
-import           Database.Beam
-import           Database.Beam.Postgres         ( Connection
-                                                , Pg
-                                                , runBeamPostgres
-                                                )
+import           GHC.Exts                       ( toList )
 import           GHC.Generics                   ( Generic )
-
-import           Schema
+import           Lens.Micro                     ( (^.) )
 import           Servant                       as S
 import           Servant.AccessControl          ( Auth'
                                                 , Everyone
                                                 , HasAccessControl(..)
                                                 )
 import qualified Servant.Auth                  as SA
-                                                ( BasicAuth
-                                                , Cookie
+                                                ( Cookie
                                                 , JWT
                                                 )
 import           Servant.Auth.Server           as SAS
+import           Text.Read                      ( readMaybe )
 
-import           Context                        ( AppServer
-                                                , getJwtSettings
-                                                )
+import           Context                        ( AppServer )
 
 
 -- | Add this to the types to protect it with login
 -- > type ProtectedApi = Auth :> Api
-type Auth = Auth' '[SA.BasicAuth, SA.Cookie, SA.JWT] AuthUser
+type Auth = Auth' '[SA.Cookie, SA.JWT] AuthUser
 
 -- brittany-disable-next-binding
 data InRoles (roles :: [Role])
@@ -88,70 +74,68 @@ instance (KnownRole x, HasAccessControl AuthUser (InRoles xs))
 
 -- * Auth user
 
--- | How we represent a user.
-data AuthUser = AuthUser
-  { getUserId    :: Int64
-  , getUserRoles :: [Role]
-  }
-  deriving (Show, Eq, Generic)
+getUserRoles :: AuthUser -> [Role]
+getUserRoles = unRoles . authRealmAccess
 
-instance ToJSON AuthUser where
-  toJSON (AuthUser userid userroles) =
-    object ["userId" .= userid, "userRoles" .= userroles]
+-- | User information stored in the access token
+data AuthUser = AuthUser
+  { authName              :: Text
+  , authPreferredUsername :: Text
+  , authEmail             :: Text
+  , authEmailVerified     :: Bool
+  , authRealmAccess       :: Roles
+  }
+  deriving (Eq, Show, Generic)
+
+aesonOpts :: Options
+aesonOpts = defaultOptions { fieldLabelModifier = camelTo2 '_' . drop 4 }
 
 instance FromJSON AuthUser where
-  parseJSON = withObject "AuthUser"
-    $ \v -> AuthUser <$> v .: "userId" <*> v .: "userRoles"
+  parseJSON = genericParseJSON aesonOpts
 
-instance ToJWT AuthUser
-instance FromJWT AuthUser
+instance ToJSON AuthUser where
+  toJSON = genericToJSON aesonOpts
 
+instance FromJWT AuthUser where
+  decodeJWT m = case fromJSON (Object (m ^. Jose.unregisteredClaims)) of
+    Error   e -> Left $ Text.pack e
+    Success a -> Right a
 
--- | Checks if a BasicAuthData is a valid user
-authCheck :: Pool Connection -> BasicAuthData -> IO (AuthResult AuthUser)
-authCheck conns (BasicAuthData login password) = do
-  mUser <- withResource conns $ \conn -> runBeamPostgres conn userQuery
+instance ToJWT AuthUser where
+  encodeJWT m = case toJSON m of
+    Object x ->
+      foldr (\(a, b) c -> Jose.addClaim a b c) Jose.emptyClaimsSet (toList x)
+    _ -> Jose.emptyClaimsSet
 
-  pure $ case mUser of
-    [] -> SAS.NoSuchUser
-    (user, _) : _ ->
-      if verifyPassword password (Text.encodeUtf8 (userPassword user))
-        then SAS.Authenticated (AuthUser (userId user) (mapMaybe snd mUser))
-        else SAS.BadPassword
+newtype Roles = Roles { unRoles :: [ Role ] } deriving (Eq, Show)
 
- where
-  userQuery :: Pg [(User, Maybe Role)]
-  userQuery = runSelectReturningList $ select $ do
-    user <- all_ (_appDatabaseUsers appDatabase)
-    role <- leftJoin_ (all_ (_appDatabaseUserRoles appDatabase))
-                      (\role -> userRoleUser role `references_` user)
-    guard_ (userEmail user ==. val_ (Text.toLower . Text.decodeUtf8 $ login))
-    pure (user, userRoleRole role)
+instance FromJSON Roles where
+  parseJSON x = do
+    xs <- withObject "Roles" (.: "roles") x
+    pure $ Roles $ mapMaybe (readMaybe . Text.unpack . Text.toTitle) xs
+
+instance ToJSON Roles where
+  toJSON (Roles xs) = object ["roles" .= toJSON xs]
 
 
-type instance BasicAuthCfg = BasicAuthData -> IO (AuthResult AuthUser)
+data Role = Regular | Extra | Administrator
+  deriving (Show, Read, Enum, Bounded, Eq, Ord, Generic)
 
-instance FromBasicAuthData AuthUser where
-  fromBasicAuthData authData authCheckFunction = authCheckFunction authData
+instance ToJSON Role
 
+class KnownRole (r :: Role) where
+  roleVal :: Proxy r -> Role
 
--- | A user together with a JWT token
-data AuthUserInfo = AuthUserInfo
-  { authUser :: AuthUser
-  , token    :: Text
-  }
-  deriving (Generic, Eq, Show)
-
-instance ToJSON AuthUserInfo
-instance FromJSON AuthUserInfo
+instance KnownRole 'Administrator where
+  roleVal _ = Administrator
+instance KnownRole 'Extra where
+  roleVal _ = Extra
+instance KnownRole 'Regular where
+  roleVal _ = Regular
 
 -- | Endpoint with data about the logged in user
-type AuthApi = Auth.Auth Everyone :> "self" :> Get '[JSON] AuthUserInfo
+type AuthApi = Auth.Auth Everyone :> "self" :> Get '[JSON] AuthUser
 
 authServer :: AppServer AuthApi
-authServer u = do
-  jwtSettings <- asks getJwtSettings
-  ejwt        <- liftIO $ makeJWT u jwtSettings Nothing
-  case ejwt of
-    Right jwt -> pure $ AuthUserInfo u (Text.decodeUtf8 . BL.toStrict $ jwt)
-    Left  _   -> throwError $ err500 { errBody = "Internal server error" }
+authServer = pure
+

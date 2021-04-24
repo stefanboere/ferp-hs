@@ -66,7 +66,7 @@ type BlogApi
       :<|>
       (Auth Admin :> PostList BlogT)
       :<|>
-      (GetList Postgres BlogT)
+      (Auth Everyone :> GetList Postgres BlogT)
 
 
 
@@ -82,8 +82,8 @@ blogServer =
     :<|> const (_postList gBlog)
     :<|> getBlogs
  where
-  getBlogs :: AppServer (GetList Postgres BlogT)
-  getBlogs pinfo v = _getList gBlog pinfo newView
+  getBlogs :: AuthUser -> AppServer (GetList Postgres BlogT)
+  getBlogs user pinfo v = _getList gBlog pinfo newView
    where
     newView = v { filters = newFilt }
   --  newOrd  = ord { blogDate = Ordering Desc (-1) } -- Force the blogs to be ordered newest first
@@ -93,7 +93,7 @@ blogServer =
     maximumMaybe [] = Nothing
     maximumMaybe xs = Just $ maximum xs
 
-    newFilt = case maximumMaybe [] of
+    newFilt = case maximumMaybe (getUserRoles user) of
       Just Administrator -> filt
       Just Extra ->
         filt { blogIsPublished = setf @"" [True] $ blogIsPublished filt }

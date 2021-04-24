@@ -65,12 +65,15 @@ library
     , ekg
     , fast-logger
     , generic-data
+    , http-client
+    , http-client-tls
     , http-media
+    , jose
     , microlens
     , monad-logger
     , monad-metrics
     , mtl
-    , pwstore-fast
+    , network-uri
     , resource-pool
     , servant
     , servant-ac

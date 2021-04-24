@@ -156,9 +156,7 @@ verifyDatabase cfg = do
       runDBinIO cfg $ autoMigrate migrationBackend checkedAppDatabase
 
 
-type AuthContext
-  = '[SAS.JWTSettings, SAS.CookieSettings, BasicAuthData
-  -> IO (SAS.AuthResult AuthUser)]
+type AuthContext = '[SAS.JWTSettings, SAS.CookieSettings]
 
 -- | Combined api
 type TotalApi = Api :<|> DocsApi
@@ -188,14 +186,12 @@ serveApp cfg =
 -- | Create an auth context
 authContext :: AppConfig -> Context AuthContext
 authContext cfg =
-  let connPool  = getPool cfg
-      jwtCtx    = getJwtSettings cfg
-      authCtx   = authCheck connPool -- auth config
+  let jwtCtx    = getJwtSettings cfg
       cookieCtx = SAS.defaultCookieSettings
         { SAS.cookieXsrfSetting = Just $ def { SAS.xsrfExcludeGet = True }
         , SAS.cookieIsSecure    = SAS.NotSecure
         } -- cookie config
-  in  jwtCtx :. cookieCtx :. authCtx :. EmptyContext -- Context
+  in  jwtCtx :. cookieCtx :. EmptyContext -- Context
 
 
 -- | The actual web app
@@ -245,20 +241,20 @@ acquireConfig = do
   -- Setup metrics
   ekgServer               <- forkServer "localhost" 3006
   let store = serverMetricStore ekgServer
-  metr  <- initializeWith store
+  metr <- initializeWith store
 
   -- Get the database connection
-  pool  <- initConnPool (configDatabase settings)
+  pool <- initConnPool (configDatabase settings)
 
   -- Generate JWT key
-  myKey <- SAS.generateKey
+  jwt  <- generateJwtSettings (configOidcProviderUri settings)
 
   pure
     ( AppConfig { getConfig      = settings
                 , getPool        = pool
                 , getLogger      = logger
                 , getMetric      = metr
-                , getJwtSettings = SAS.defaultJWTSettings myKey  -- jwt Config
+                , getJwtSettings = jwt
                 }
     , shutdownApp cleanupLogger (serverThreadId ekgServer) pool
     )
