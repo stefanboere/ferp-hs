@@ -49,6 +49,7 @@ library
     Components.Input
     Components.Input.Basic
     Components.Input.Combobox
+    Components.Input.File
     Components.Input.Numeric
     Components.Navigation
     Components.Progress
@@ -75,8 +76,8 @@ library
     , http-api-data
     , http-types
     , jsaddle
-    , lens
     , megaparsec
+    , microlens
     , mmark
     , mtl
     , process
@@ -103,3 +104,12 @@ executable frontend
   if impl(ghcjs -any)
     ghc-options: -dedupe
     cpp-options: -DGHCJS_BROWSER
+
+executable frontend-css
+  import:         common-options
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: app
+  main-is:        Css.hs
+  build-depends:
+    , base
+    , frontend

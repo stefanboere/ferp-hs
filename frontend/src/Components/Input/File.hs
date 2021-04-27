@@ -18,14 +18,13 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import qualified Data.Map                      as Map
 import           Data.Text                      ( Text )
 import           GHCJS.DOM.File                 ( getName )
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
-import           Language.Javascript.JSaddle.Types
-                                                ( MonadJSM )
 import           Reflex
 import           Reflex.Dom              hiding ( fileInput )
 
@@ -48,13 +47,24 @@ fileDropzoneStyle = ".dropzone" ? do
 
 
 fileDropzone
-  :: (PostBuild t m, DomBuilder t m, MonadJSM m, MonadFix m, MonadHold t m)
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , Prerender js t m
+     , MonadFix m
+     , MonadHold t m
+     , MonadIO m
+     )
   => InputConfig t ()
   -> m (Dynamic t [DOM.File])
 fileDropzone cfg = labeled cfg fileDropzone'
 
 fileDropzone'
-  :: (PostBuild t m, DomBuilder t m, MonadJSM m, MonadFix m, MonadHold t m)
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , Prerender js t m
+     , MonadFix m
+     , MonadHold t m
+     )
   => Text
   -> InputConfig t ()
   -> m (Dynamic t [DOM.File])
@@ -90,7 +100,8 @@ fileDropzone' idStr cfg = do
 
     pure $ _inputElement_files n
 
-  _ <- el "ul" $ simpleList x $ \f -> dyn ((getName >=> el "li" . text) <$> f)
+  _ <- el "ul" $ simpleList x $ \f ->
+    dyn ((getName' >=> el "li" . dynText) <$> f)
 
   pure x
 
@@ -106,6 +117,8 @@ fileDropzone' idStr cfg = do
     ]
 
   initAttrs = "type" =: "file" <> "multiple" =: ""
+
+  getName' f = prerender (pure "?") (getName f)
 
 -- | Small snippet of javascript to place the dropped files into the file input
 fileDropzoneScript :: DomBuilder t m => m ()

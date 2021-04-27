@@ -15,24 +15,20 @@ import           Clay                    hiding ( button
                                                 , map
                                                 , script
                                                 )
-import           Control.Lens                   ( (^.) )
+import           Lens.Micro                     ( (^.) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Monoid                    ( All(..) )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
+import qualified GHCJS.DOM.Types               as DOM
 import           Language.Javascript.JSaddle
-import           Language.Javascript.JSaddle.Types
-                                                ( MonadJSM )
 import           Reflex.CodeMirror
 import           Reflex.Dom
 import           Reflex.Dom.MMark
 import qualified Text.MMark                    as MMark
 import qualified Text.Megaparsec               as M
-
-import           GHCJS.DOM.Element              ( IsElement )
-import qualified GHCJS.DOM.Types               as DOM
 
 import           Components.Input.Basic
 import           Nordtheme                      ( grey0' )
@@ -119,10 +115,9 @@ codeInput
      , DomBuilder t m
      , PostBuild t m
      , TriggerEvent t m
-     , MonadJSM m
      , PerformEvent t m
      , MonadIO (Performable m)
-     , IsElement (RawElement (DomBuilderSpace m))
+     , Prerender js t m
      )
   => Configuration
   -> Text
@@ -134,11 +129,10 @@ codeInput cfg initText setValueEv = do
   let initTextEv = initText <$ postBuildEvDelay
   let outsideEv  = leftmost [setValueEv, initTextEv]
 
-  textEv <- codemirror cfg { _configuration_value = Just initText }
-                       outsideEv
-                       never
+  dynTextEv <- prerender (pure never)
+    $ codemirror cfg { _configuration_value = Just initText } outsideEv never
 
-  holdDyn initText (leftmost [textEv, setValueEv])
+  holdDyn initText (leftmost [switchDyn dynTextEv, setValueEv])
 
 markdownInputStyle :: Css
 markdownInputStyle = do
@@ -167,11 +161,9 @@ markdownInput
      , PostBuild t m
      , MonadFix m
      , TriggerEvent t m
-     , MonadJSM m
      , PerformEvent t m
      , MonadIO (Performable m)
-     , IsElement (RawElement (DomBuilderSpace m))
-     , MonadJSM (Performable m)
+     , Prerender js t m
      )
   => SyntaxMap
   -> InputConfig t Text
@@ -201,7 +193,7 @@ markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
   statusMessageDiv (dynError <> _inputConfig_status cfg)
 
   delayEv <- delay 0.05 (updated textD)
-  _       <- performEvent (mathJaxTypeset <$ delayEv)
+  _ <- prerender_ blank $ performEvent (mathJaxTypeset <$ delayEv) >> pure ()
   pure dynMMarkWithError
  where
   config :: Configuration

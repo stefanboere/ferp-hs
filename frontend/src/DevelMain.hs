@@ -53,7 +53,7 @@ import           GHC.Word                       ( Word32 )
 import           System.Process                 ( readProcess
                                                 , callProcess
                                                 )
-import           Frontend                       ( main )
+import           Frontend                       ( mainWithHead )
 
 updateAndRefreshBrowser :: IO ()
 updateAndRefreshBrowser = do
@@ -107,7 +107,7 @@ update = do
     :: MVar () -- ^ Written to when the thread is killed.
     -> IO ThreadId
   start done = forkIO
-    (finally main
+    (finally mainWithHead
                       -- Note that this implies concurrency
                       -- between shutdownApp and the next app that is starting.
                       -- Normally this should be fine

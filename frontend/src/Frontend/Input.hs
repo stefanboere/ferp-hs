@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,8 +22,6 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import           Data.Time
-import           Language.Javascript.JSaddle.Types
-                                                ( MonadJSM )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -81,7 +80,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputTimeLink $ text "Time"
   ]
 
-inputHandler :: MonadWidget t m => RouteT InputApi m (Event t URI)
+inputHandler :: WidgetConstraint js t m => RouteT InputApi m (Event t URI)
 inputHandler =
   basicHandler
     :<|> checkboxHandler
@@ -276,9 +275,9 @@ fileHandler
   :: ( MonadIO m
      , PostBuild t m
      , DomBuilder t m
-     , MonadJSM m
      , MonadFix m
      , MonadHold t m
+     , Prerender js t m
      )
   => m (Event t URI)
 fileHandler = do
@@ -376,7 +375,7 @@ instance HasLabel ToplevelDomain where
   toLabel Com = ".com"
   toLabel Org = ".org"
 
-markdownHandler :: MonadWidget t m => m (Event t URI)
+markdownHandler :: WidgetConstraint js t m => m (Event t URI)
 markdownHandler = do
   headD <- codeInputScripts
   _     <- whenLoaded [headD] blank $ markdownInput

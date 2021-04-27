@@ -79,6 +79,9 @@ let
         --externs=${frontend}/bin/${pname}.jsexe/all.js.externs \
         > $out/all.min.js
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/all.min.js
+
+      ${frontend}/bin/frontend-css > $out/style.css
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/style.css
     '';
   };
 

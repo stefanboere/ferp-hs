@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -64,7 +65,8 @@ containerLinks dynUri = safelinkGroup
   , safelink dynUri containerTreeviewLink $ text "Treeview"
   ]
 
-containerHandler :: MonadWidget t m => RouteT ContainerApi m (Event t URI)
+containerHandler
+  :: WidgetConstraint js t m => RouteT ContainerApi m (Event t URI)
 containerHandler =
   containerAccordion
     :<|> containerCard

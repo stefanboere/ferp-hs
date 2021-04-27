@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
 module Components.Class
@@ -9,11 +11,14 @@ module Components.Class
   , marginAll
   , absoluteBlock
   , spantext
+  , WidgetConstraint
   )
 where
 
 
 import           Clay
+import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Text                      ( Text )
 import           Reflex.Dom
@@ -60,3 +65,15 @@ absoluteBlock = do
 
 spantext :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m ()
 spantext = el "span" . dynText
+
+type WidgetConstraint js t m
+  = ( MonadFix m
+    , MonadIO m
+    , DomBuilder t m
+    , PostBuild t m
+    , TriggerEvent t m
+    , PerformEvent t m
+    , MonadHold t m
+    , MonadIO (Performable m)
+    , Prerender js t m
+    )

@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,6 +9,9 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Frontend
   ( main
+  , mainWithHead
+  , renderCss
+  , mainBodyPrerender
   )
 where
 
@@ -16,11 +20,16 @@ import           Clay                    hiding ( icon
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.ByteString                ( ByteString )
 import           Data.Default
 import           Data.Either                    ( fromRight )
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import           Data.Text.Lazy                 ( toStrict )
+import qualified Data.Text.Lazy.IO             as LText
+                                                ( putStr )
+import           Language.Javascript.JSaddle.Types
+                                                ( MonadJSM )
 import           URI.ByteString
 import           Reflex
 import           Reflex.Dom              hiding ( rangeInput
@@ -39,12 +48,25 @@ import           Reflex.Markdown
 
 
 main :: IO ()
-main = mainWidgetWithHead headWidget $ withHeader mainPage
+main = mainWidget $ withHeader mainPage
+
+mainWithHead :: IO ()
+mainWithHead = mainWidgetWithHead headWidget $ withHeader mainPage
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do
   el "style" $ text (toStrict $ renderWith compact [] css)
   fileDropzoneScript
+
+renderCss :: IO ()
+renderCss = LText.putStr $ renderWith compact [] css
+
+mainBodyPrerender :: URI -> IO ByteString
+mainBodyPrerender uri = snd <$> renderStatic (withHeader page)
+ where
+  page = do
+    _ <- routeURI myApi handler . fixFragment $ uri
+    pure $ constDyn uri
 
 css :: Css
 css = do
@@ -83,7 +105,14 @@ withHeader x = do
     pure ()
 
 
-mainPage :: forall t m . MonadWidget t m => m (Dynamic t URI)
+mainPage
+  :: ( WidgetConstraint js t m
+     , MonadJSM (Performable m)
+     , MonadJSM m
+     , HasJSContext (Performable m)
+     , HasJSContext m
+     )
+  => m (Dynamic t URI)
 mainPage = do
   let routeHandler = route'
         (\_ uri -> fixFragment uri)
@@ -94,10 +123,9 @@ mainPage = do
       changeRoute  <- holdDyn never $ fmap (fromRight never) routeWasSet
   return $ fst <$> dynamicRoute
 
- where
-  fixFragment :: URI -> URI
-  fixFragment uri@URI { uriFragment = frag, ..} =
-    uri { uriPath = fromMaybe "/" frag }
+fixFragment :: URI -> URI
+fixFragment uri@URI { uriFragment = frag, ..} =
+  uri { uriPath = fromMaybe "/" frag }
 
 -- brittany-disable-next-binding
 type MyApi = InputApi
@@ -114,8 +142,6 @@ sideNav
 sideNav dynUri = leftmost
   <$> sequence [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri]
 
-handler :: MonadWidget t m => RouteT MyApi m (Event t URI)
+handler :: WidgetConstraint js t m => RouteT MyApi m (Event t URI)
 handler = inputHandler :<|> coreHandler :<|> containerHandler
-
-
 
