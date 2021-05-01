@@ -15,23 +15,23 @@ where
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
-import           Data.Proxy
 import qualified Data.Map                      as Map
+import           Data.Proxy
 import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import           Data.Time
-import           URI.ByteString
 import           Reflex
-import           Reflex.Dom              hiding ( rangeInput
+import           Reflex.Dom              hiding ( Link(..)
                                                 , fileInput
+                                                , rangeInput
                                                 , textInput
-                                                , Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
+import           URI.ByteString
 
 import           Components
 import           Reflex.Markdown
@@ -62,7 +62,7 @@ inputBasicLink :<|> inputCheckboxLink :<|> inputComboBoxLink :<|> inputDatalist 
 inputLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
-  -> m (Event t ())
+  -> m (Event t Link)
 inputLinks dynUri = safelinkGroup
   (text "Input elements")
   [ safelink dynUri inputBasicLink $ text "Basic"

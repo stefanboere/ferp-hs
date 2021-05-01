@@ -5,13 +5,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Frontend
   ( main
   , mainWithHead
   , renderCss
-  , mainBodyPrerender
   , Api
   , api
   , handler
@@ -24,25 +22,24 @@ import           Clay                    hiding ( icon
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
-import           Data.ByteString                ( ByteString )
 import           Data.Default
 import           Data.Either                    ( fromRight )
-import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import           Data.Text.Lazy                 ( toStrict )
 import qualified Data.Text.Lazy.IO             as LText
                                                 ( putStr )
 import           Language.Javascript.JSaddle.Types
                                                 ( MonadJSM )
-import           URI.ByteString
 import           Reflex
-import           Reflex.Dom              hiding ( rangeInput
-                                                , Link(..)
+import           Reflex.Dom              hiding ( Link(..)
+                                                , rangeInput
                                                 )
 import           Reflex.Dom.Contrib.Router
                                          hiding ( URI )
 import           Servant.API             hiding ( URI(..) )
+import           Servant.Links                  ( linkURI )
 import           Servant.Router
+import           URI.ByteString
 
 import           Components
 import           Frontend.Container
@@ -65,13 +62,6 @@ headWidget = do
 renderCss :: IO ()
 renderCss = LText.putStr $ renderWith compact [] css
 
-mainBodyPrerender :: URI -> IO ByteString
-mainBodyPrerender uri = snd <$> renderStatic (withHeader page)
- where
-  page = do
-    _ <- routeURI api handler . fixFragment $ uri
-    pure $ constDyn uri
-
 css :: Css
 css = do
   appStyle
@@ -91,10 +81,14 @@ css = do
 
 withHeader
   :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
-  => m (Dynamic t URI)
+  => (Event t Link -> m (Dynamic t URI))
   -> m ()
 withHeader x = do
-  rec dynUri <- app cfg (sideNav dynUri) (pure never) actions x
+  rec (clickEv, dynUri) <- app cfg
+                               (sideNav dynUri)
+                               (pure never)
+                               actions
+                               (x clickEv)
   pure ()
 
  where
@@ -103,8 +97,8 @@ withHeader x = do
                      }
   actions = do
     _ <- btnDropdown def (icon def cogIcon) $ do
-      accountEv <- ahref "#" (constDyn False) (text "Account")
-      logoutEv  <- ahref "#" (constDyn False) (text "Logout")
+      accountEv <- elAttrClick_ "a" ("href" =: "#") (text "Account")
+      logoutEv  <- elAttrClick_ "a" ("href" =: "#") (text "Logout")
       pure $ leftmost [accountEv, logoutEv]
     pure ()
 
@@ -116,20 +110,19 @@ mainPage
      , HasJSContext (Performable m)
      , HasJSContext m
      )
-  => m (Dynamic t URI)
-mainPage = do
-  let routeHandler = route'
-        (\_ uri -> fixFragment uri)
-        (\uri -> (fixFragment uri, routeURI api handler . fixFragment $ uri))
+  => Event t Link
+  -> m (Dynamic t URI)
+mainPage setRouteExtEv = do
+  let routeHandler =
+        route' (\_ uri -> uri) (\uri -> (uri, routeURI api handler uri))
 
-  rec dynamicRoute <- routeHandler (switch (current changeRoute))
-      routeWasSet  <- dyn (snd <$> dynamicRoute) -- Will fire on postbuild
-      changeRoute  <- holdDyn never $ fmap (fromRight never) routeWasSet
+  rec
+    dynamicRoute <- routeHandler changeRoute
+    routeSetEvEv <- dyn (snd <$> dynamicRoute) -- Will fire on postbuild
+    routeSetEv   <- switchHold never $ fmap (fromRight never) routeSetEvEv
+    let changeRoute =
+          leftmost [coerceUri . linkURI <$> setRouteExtEv, routeSetEv]
   return $ fst <$> dynamicRoute
-
-fixFragment :: URI -> URI
-fixFragment uri@URI { uriFragment = frag, ..} =
-  uri { uriPath = fromMaybe "/" frag }
 
 -- brittany-disable-next-binding
 type Api = InputApi
@@ -142,7 +135,7 @@ api = Proxy
 sideNav
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
-  -> m (Event t ())
+  -> m (Event t Link)
 sideNav dynUri = leftmost
   <$> sequence [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri]
 

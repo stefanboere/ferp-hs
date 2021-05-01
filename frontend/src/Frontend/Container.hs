@@ -15,19 +15,19 @@ where
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
-import           Data.Proxy
 import qualified Data.Map                      as Map
+import           Data.Proxy
 import           Data.Text                      ( pack )
 import           Data.Time                      ( fromGregorian )
-import           URI.ByteString
 import           Reflex
-import           Reflex.Dom              hiding ( rangeInput
+import           Reflex.Dom              hiding ( Link(..)
+                                                , rangeInput
                                                 , textInput
-                                                , Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
+import           URI.ByteString
 
 import           Components
 
@@ -52,7 +52,7 @@ containerAccordionLink :<|> containerCardLink :<|> containerModalLink :<|> conta
 containerLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
-  -> m (Event t ())
+  -> m (Event t Link)
 containerLinks dynUri = safelinkGroup
   (text "Containers")
   [ safelink dynUri containerAccordionLink $ text "Accordion"

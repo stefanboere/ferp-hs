@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Components.Navigation
   ( HeaderConfig(..)
   , NavigationPattern(..)
@@ -9,19 +10,16 @@ module Components.Navigation
   , tabs
   , tabsVertical
   -- * Helpers
-  , ahref
-  , liahref
   , navGroup
   , treeview
   , leaf
+  , elAttrClick_
+  , coerceUri
   , safelink
   , safelinkGroup
   )
 where
 
-import           Prelude                 hiding ( rem
-                                                , (**)
-                                                )
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
 import           Control.Monad                  ( when )
@@ -36,21 +34,24 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import qualified Data.Text                     as Text
-import           Reflex.Dom              hiding ( display )
-import qualified Servant.Links                 as L
-                                                ( uriPath
-                                                , Link
-                                                , linkURI
+import           Prelude                 hiding ( (**)
+                                                , rem
                                                 )
-import           URI.ByteString                 ( URI
+import           Reflex.Dom              hiding ( display )
+import           Servant.API                    ( toUrlPiece )
+import qualified Servant.Links                 as L
+                                                ( Link
+                                                , URI(..)
+                                                , linkURI
                                                 , uriPath
                                                 )
+import           URI.ByteString
 
 import           Components.Class
-import           Components.Input.Basic         ( randomId
-                                                , checkboxInputSimple
-                                                )
 import           Components.Icon
+import           Components.Input.Basic         ( checkboxInputSimple
+                                                , randomId
+                                                )
 import           Nordtheme
 
 appStyle :: Css
@@ -164,30 +165,16 @@ typographyStyle = do
 tshow :: String -> Text
 tshow = pack . show
 
-ahref
-  :: (PostBuild t m, DomBuilder t m)
+elAttrClick_
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
   => Text
-  -> Dynamic t Bool
+  -> Map Text Text
   -> m ()
   -> m (Event t ())
-ahref ref activ cnt = do
-  (e, _) <- elDynAttr'
-    "a"
-    ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty
-     )
-    <$> activ
-    )
-    cnt
-
+elAttrClick_ elName attrs cnt = do
+  (e, _) <- elAttr' elName attrs cnt
   pure $ domEvent Click e
-
-liahref
-  :: (PostBuild t m, DomBuilder t m)
-  => Text
-  -> Dynamic t Bool
-  -> m ()
-  -> m (Event t ())
-liahref ref activ = el "li" . ahref ref activ
 
 navGroup
   :: (MonadIO m, PostBuild t m, DomBuilder t m)
@@ -224,27 +211,97 @@ navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
 
     el "ul" cnt
 
+ahrefPreventDefault
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
+  => Text
+  -> Dynamic t Bool
+  -> m ()
+  -> m (Event t ())
+ahrefPreventDefault ref activ cnt = do
+  (e, _) <- elDynAttrEventSpec'
+    (addEventSpecFlags (Nothing :: Maybe (DomBuilderSpace m))
+                       Click
+                       (const preventDefault)
+    )
+    "a"
+    ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty
+     )
+    <$> activ
+    )
+    cnt
+
+  pure $ domEvent Click e
+
+-- elDynAttr' which prevents default
+elDynAttrEventSpec'
+  :: (DomBuilder t m, PostBuild t m)
+  => (  EventSpec (DomBuilderSpace m) EventResult
+     -> EventSpec (DomBuilderSpace m) EventResult
+     )
+  -> Text
+  -> Dynamic t (Map Text Text)
+  -> m a
+  -> m (Element EventResult (DomBuilderSpace m) t, a)
+elDynAttrEventSpec' evSpec elementTag attrs child = do
+  modifyAttrs <- dynamicAttributesToModifyAttributes attrs
+  let cfg = ElementConfig
+        { _elementConfig_namespace         = Nothing
+        , _elementConfig_initialAttributes = mempty
+        , _elementConfig_modifyAttributes  = Just $ fmapCheap
+                                               mapKeysToAttributeName
+                                               modifyAttrs
+        , _elementConfig_eventSpec         = evSpec def
+        }
+  result    <- Reflex.Dom.element elementTag cfg child
+  postBuild <- getPostBuild
+  notReadyUntil postBuild
+  return result
+
 safelink
   :: (DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> L.Link
   -> m ()
-  -> m (Dynamic t Bool, Event t ())
+  -> m (Dynamic t Bool, Event t L.Link)
 safelink dynLoc lnk cnt = do
-  closeEv <- ahref frag isActiveDyn cnt
-  pure (isActiveDyn, closeEv)
+  closeEv <- ahrefPreventDefault ("/" <> toUrlPiece lnk) isActiveDyn cnt
+  pure (isActiveDyn, lnk <$ closeEv)
  where
-  isActiveDyn = (frag' ==) . uriPath <$> dynLoc
-  frag'       = "/" <> B.pack (L.uriPath uri)
-  uri         = L.linkURI lnk
-  frag        = "#/" <> pack (show uri)
+  isActiveDyn = (lUriPath lnk ==) . uriPath <$> dynLoc
+  lUriPath    = ("/" <>) . B.pack . L.uriPath . L.linkURI
+
+
+coerceUri :: L.URI -> URI
+coerceUri uri = URI { uriScheme    = scheme (L.uriScheme uri)
+                    , uriAuthority = Nothing
+                    , uriPath      = "/" <> B.pack (L.uriPath uri)
+                    , uriQuery     = parseQuery (L.uriQuery uri)
+                    , uriFragment  = parseFragment (L.uriFragment uri)
+                    }
+ where
+  scheme "" = Scheme "http"
+  scheme x  = Scheme $ B.pack x
+  parseFragment ('#' : xs) = Just $ B.pack xs
+  parseFragment _          = Nothing
+  parseQuery = Query . fmap toPair . wordsWhen (== '&') . dropWhile (== '?')
+
+  toPair x =
+    let (x1, x2) = break (== '=') x
+    in  (B.pack x1, B.pack . dropWhile (== '=') $ x2)
+
+  wordsWhen :: (Char -> Bool) -> String -> [String]
+  wordsWhen prd str = case dropWhile prd str of
+    "" -> []
+    s' -> w : wordsWhen prd s'' where (w, s'') = break prd s'
+
 
 -- | A group of links which automatically opens if one child is active
 safelinkGroup
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => m ()
-  -> [m (Dynamic t Bool, Event t ())]
-  -> m (Event t ())
+  -> [m (Dynamic t Bool, Event t L.Link)]
+  -> m (Event t L.Link)
 safelinkGroup lbl childs = do
   rec closeEvs <- navGroup (leftmost [initActive, updated anyActive]) lbl
         $ sequence childs
@@ -257,25 +314,27 @@ safelinkGroup lbl childs = do
 app
   :: (MonadFix m, PostBuild t m, DomBuilder t m)
   => HeaderConfig t
-  -> m (Event t ())
-  -> m (Event t ())
+  -> m (Event t a)
+  -> m (Event t a)
   -> m ()
-  -> m a
-  -> m a
+  -> m c
+  -> m (Event t a, c)
 app cfg primary secondary actions page = do
-  appHeader cfg primary actions
+  evA <- appHeader cfg primary actions
 
-  case _headerConfig_navigationPattern cfg of
-    Header        -> pure ()
+  evB <- case _headerConfig_navigationPattern cfg of
+    Header        -> pure never
     Subnav        -> primaryNavigation (subNav primary)
     Sidenav       -> primaryNavigation (sideNav primary)
     HeaderSubnav  -> secondaryNavigation (subNav secondary)
     HeaderSidenav -> secondaryNavigation (sideNav secondary)
     SubnavSidenav -> do
-      primaryNavigation (subNav primary)
-      secondaryNavigation (sideNav secondary)
+      evBa <- primaryNavigation (subNav primary)
+      evBb <- secondaryNavigation (sideNav secondary)
+      pure $ leftmost [evBa, evBb]
 
-  elClass "article" "main-content" page
+  pg <- elClass "article" "main-content" page
+  pure (leftmost [evA, evB], pg)
 
 navigationCheckbox :: (DomBuilder t m) => Text -> Event t Bool -> m ()
 navigationCheckbox idStr setOpen =
@@ -283,18 +342,22 @@ navigationCheckbox idStr setOpen =
     >> pure ()
 
 primaryNavigation
-  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()
+  :: (MonadFix m, PostBuild t m, DomBuilder t m)
+  => m (Event t a)
+  -> m (Event t a)
 primaryNavigation x = do
   rec navigationCheckbox "nav-primary" (False <$ closeEv)
       closeEv <- x
-  pure ()
+  pure closeEv
 
 secondaryNavigation
-  :: (MonadFix m, PostBuild t m, DomBuilder t m) => m (Event t ()) -> m ()
+  :: (MonadFix m, PostBuild t m, DomBuilder t m)
+  => m (Event t a)
+  -> m (Event t a)
 secondaryNavigation x = do
   rec navigationCheckbox "nav-secondary" (False <$ closeEv)
       closeEv <- x
-  pure ()
+  pure closeEv
 
 data NavigationPattern = Header -- ^ Menu items in the main header
                        | Subnav  -- ^ A bar below the main header
@@ -308,7 +371,7 @@ instance Default NavigationPattern where
   def = HeaderSubnav
 
 data HeaderConfig t = HeaderConfig
-  { _headerConfig_appname :: Dynamic t Text
+  { _headerConfig_appname           :: Dynamic t Text
   , _headerConfig_navigationPattern :: NavigationPattern
   }
 
@@ -433,9 +496,9 @@ headerSeparatorStyle = do
 appHeader
   :: (MonadFix m, PostBuild t m, DomBuilder t m)
   => HeaderConfig t
-  -> m (Event t ())
+  -> m (Event t a)
   -> m ()
-  -> m ()
+  -> m (Event t a)
 appHeader HeaderConfig {..} primary actions =
   elClass "header" "app-header" $ do
     elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger")
@@ -444,12 +507,13 @@ appHeader HeaderConfig {..} primary actions =
       icon def { _iconConfig_size = 2 } ferpIcon
       dynText _headerConfig_appname
 
-    when
-        (      _headerConfig_navigationPattern
-        `elem` [Header, HeaderSubnav, HeaderSidenav]
-        )
-      $ primaryNavigation
-      $ elClass "nav" "main-nav" primary
+    lnkEv <-
+      if _headerConfig_navigationPattern
+         `elem` [Header, HeaderSubnav, HeaderSidenav]
+      then
+        primaryNavigation $ elClass "nav" "main-nav" primary
+      else
+        pure never
 
     elClass "div" "header-actions" $ do
       actions
@@ -460,6 +524,8 @@ appHeader HeaderConfig {..} primary actions =
           )
         $ elAttr "label" ("for" =: "nav-secondary" <> "class" =: "hamburger")
         $ icon def { _iconConfig_size = 1.5 } ellipsisVerticalIcon
+
+    pure lnkEv
 
 flexRowLeft :: Css
 flexRowLeft = do

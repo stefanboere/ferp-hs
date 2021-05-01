@@ -81,7 +81,7 @@ prerenderApp page = do
       script_ [src_ "/static/all.min.js"] ("" :: ByteString)
     body_ $ toHtmlRaw body
  where
-  page' = do
+  page' _ = do
     x <- page
     holdDyn
       (URI { uriScheme    = Scheme "http"

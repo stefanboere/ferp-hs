@@ -17,13 +17,14 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import           Data.Text                      ( pack )
-import           URI.ByteString
 import           Reflex
-import           Reflex.Dom              hiding ( rangeInput
-                                                , Link(..)
+import           Reflex.Dom              hiding ( Link(..)
+                                                , rangeInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
+import           URI.ByteString
+
 import           Servant.Router
 
 import           Components
@@ -44,7 +45,7 @@ coreButtonLink :<|> coreAlertLink :<|> coreProgressLink :<|> coreTagLink =
 coreLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
-  -> m (Event t ())
+  -> m (Event t Link)
 coreLinks dynUri = safelinkGroup
   (text "Core components")
   [ safelink dynUri coreAlertLink $ text "Alert"
