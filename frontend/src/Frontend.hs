@@ -52,7 +52,10 @@ main :: IO ()
 main = mainWidget $ withHeader mainPage
 
 mainWithHead :: IO ()
-mainWithHead = mainWidgetWithHead headWidget $ withHeader mainPage
+mainWithHead = mainWidgetWithHead headWidget $ do
+  withHeader mainPage
+  _ <- codeInputScripts
+  pure ()
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do

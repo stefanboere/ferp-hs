@@ -11,6 +11,8 @@ let
       hooks.nixfmt.enable = true;
       src = self.gitignoreSource ../.;
     };
+    customNodePackages = pkgs.lib.dontRecurseIntoAttrs
+      (self.callPackage ./node { nodejs = self.nodejs; });
   };
 in import sources.nixpkgs {
   overlays = [ overlay ];

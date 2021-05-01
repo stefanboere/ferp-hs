@@ -377,8 +377,7 @@ instance HasLabel ToplevelDomain where
 
 markdownHandler :: WidgetConstraint js t m => m (Event t URI)
 markdownHandler = do
-  headD <- codeInputScripts
-  _     <- whenLoaded [headD] blank $ markdownInput
+  _ <- markdownInput
     Map.empty
     (inputConfig
       "# Markdown editor\n\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: `$x^2$`"

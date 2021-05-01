@@ -1,4 +1,16 @@
 {
+    "MathJax": {
+        "branch": "master",
+        "description": "Beautiful and accessible math in all browsers",
+        "homepage": "http://www.mathjax.org/",
+        "owner": "mathjax",
+        "repo": "MathJax",
+        "rev": "be11806df1ae075508e33500c990497062ef3c5a",
+        "sha256": "1rvg27yq01njks21yvbrwcra7iw52zryb9kx8k6cl0jl23rj08dy",
+        "type": "tarball",
+        "url": "https://github.com/mathjax/MathJax/archive/be11806df1ae075508e33500c990497062ef3c5a.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "gitignore": {
         "branch": "master",
         "description": "Nix function for filtering local git sources",
