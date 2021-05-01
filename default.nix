@@ -13,7 +13,6 @@ let
       beam-crud = ./beam-crud;
       common = ./common;
       frontend = ./frontend;
-      reflex-dom-mmark = ./reflex-dom-mmark;
       servant-ac = ./servant-ac;
       servant-crud = ./servant-crud;
       servant-crud-server = ./servant-crud-server;
@@ -27,7 +26,6 @@ let
         "beam-crud"
         "common"
         "frontend"
-        "reflex-dom-mmark"
         "servant-ac"
         "servant-crud"
         "servant-crud-server"
@@ -52,12 +50,13 @@ let
             { });
         oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
 
+        reflex-dom-pandoc =
+          self.callCabal2nix "reflex-dom-pandoc" ../reflex-dom-pandoc { };
         servant-aeson-specs =
           dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
         servant-quickcheck =
           doJailbreak (unmarkBroken (super.servant-quickcheck));
         dhall = doJailbreak (super.dhall);
-        mmark = dontHaddock super.mmark;
       };
   });
 

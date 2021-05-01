@@ -70,6 +70,9 @@ library
     , bytestring
     , clay
     , common
+    , commonmark
+    , commonmark-extensions
+    , commonmark-pandoc
     , containers
     , data-default
     , foreign-store
@@ -78,17 +81,16 @@ library
     , http-api-data
     , http-types
     , jsaddle
-    , megaparsec
     , microlens
-    , mmark
     , mtl
+    , pandoc-types
     , process
     , random
     , reflex
     , reflex-codemirror
     , reflex-dom
     , reflex-dom-contrib
-    , reflex-dom-mmark
+    , reflex-dom-pandoc
     , servant
     , text
     , time

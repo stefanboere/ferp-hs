@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 module Reflex.Markdown
   ( codeInputScripts
   , whenLoaded
@@ -15,20 +16,27 @@ import           Clay                    hiding ( button
                                                 , map
                                                 , script
                                                 )
-import           Lens.Micro                     ( (^.) )
+import           Commonmark
+import           Commonmark.Extensions
+import           Commonmark.Pandoc
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.Foldable                  ( toList )
+import           Data.Functor.Identity          ( Identity(..) )
 import           Data.Monoid                    ( All(..) )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import qualified GHCJS.DOM.Types               as DOM
 import           Language.Javascript.JSaddle
+import           Lens.Micro                     ( (^.) )
 import           Reflex.CodeMirror
 import           Reflex.Dom
-import           Reflex.Dom.MMark
-import qualified Text.MMark                    as MMark
-import qualified Text.Megaparsec               as M
+import           Reflex.Dom.Pandoc
+import           Text.Pandoc.Builder            ( Blocks
+                                                , Inlines
+                                                )
+import           Text.Pandoc.Definition
 
 import           Components.Input.Basic
 import           Nordtheme                      ( grey0' )
@@ -167,14 +175,7 @@ markdownInput
      )
   => SyntaxMap
   -> InputConfig t Text
-  -> m
-       ( Dynamic
-           t
-           ( Either
-               (M.ParseErrorBundle Text MMark.MMarkErr)
-               MMark.MMark
-           )
-       )
+  -> m (Dynamic t (Either ParseError Pandoc))
 markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
   textD <- elClass "div" "code-editor"
     $ codeInput
@@ -182,19 +183,23 @@ markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
         (_inputConfig_initialValue cfg)
         (_inputConfig_setValue cfg)
 
-  let dynMMarkWithError = MMark.parse "" <$> textD
-  dynMark <- improvingMaybe (either (const Nothing) pure <$> dynMMarkWithError)
-  let dynError =
-        either (InputError . pack . M.errorBundlePretty) def
-          <$> dynMMarkWithError
+  let dynMarkWithError = parseMarkdown <$> textD
+  mDynMark <- improvingMaybe (either (const Nothing) pure <$> dynMarkWithError)
+  let dynError = either (InputError . pack . show) def <$> dynMarkWithError
 
-  elClass "div" "code-view" $ renderDom syntaxMap dynMark
+  dynMark <- maybeDyn mDynMark
+
+  _       <- elClass "div" "code-view" $ dyn
+    (   maybe (pure (constDyn ()))
+              (elPandoc defaultConfig { _config_syntaxMap = syntaxMap })
+    <$> dynMark
+    )
 
   statusMessageDiv (dynError <> _inputConfig_status cfg)
 
   delayEv <- delay 0.05 (updated textD)
   _ <- prerender_ blank $ performEvent (mathJaxTypeset <$ delayEv) >> pure ()
-  pure dynMMarkWithError
+  pure dynMarkWithError
  where
   config :: Configuration
   config = def { _configuration_theme          = Just "nord"
@@ -207,6 +212,16 @@ markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
     mathjax <- jsg ("MathJax" :: Text)
     mathjax ^. js0 ("typeset" :: Text)
 
+  ext =
+    mathSpec
+      <> footnoteSpec
+      <> smartPunctuationSpec
+      <> gfmExtensions
+      <> defaultSyntaxSpec
+  parseMarkdown =
+    fmap (Pandoc mempty . toList . unCm)
+      . runIdentity
+      . commonmarkWith @Identity @(Cm () Inlines) @(Cm () Blocks) ext ""
 
 
 skylightingStyle :: Css

@@ -5,7 +5,6 @@ packages:
   beam-crud/
   common/
   frontend/
-  reflex-dom-mmark/
   servant-ac/
   servant-crud/
   servant-crud-server/
