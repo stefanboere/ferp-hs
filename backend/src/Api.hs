@@ -27,6 +27,7 @@ import qualified Data.ByteString.Lazy.Char8    as BL
                                                 ( fromStrict )
 import qualified Frontend
 import           Lucid
+import           Lucid.Base                     ( makeAttribute )
 import           Network.HTTP.Media             ( (//)
                                                 , (/:)
                                                 )
@@ -51,7 +52,8 @@ instance MimeRender HTML (Html ()) where
 
 -- | The api
 -- brittany-disable-next-binding
-type Api = "static" :> RawM
+type Api = "favicon.ico" :> Get '[JSON] NoContent
+  :<|> "static" :> RawM
   :<|> Frontend.Api
 
 -- | A proxy of the api
@@ -60,7 +62,11 @@ api = Proxy
 
 -- | The combined server
 server :: AppServer Api
-server = staticEndpoint :<|> frontendServer
+server = faviconEndpoint :<|> staticEndpoint :<|> frontendServer
+
+faviconEndpoint :: AppServer (Get '[] NoContent)
+faviconEndpoint =
+  throwError err302 { errHeaders = [("Location", "/static/favicon.ico")] }
 
 staticEndpoint :: AppServer RawM
 staticEndpoint =
@@ -75,11 +81,26 @@ prerenderApp
   :: StaticWidget x (Event (SpiderTimeline Global) URI) -> App (Html ())
 prerenderApp page = do
   (_, body) <- liftIO $ renderStatic (Frontend.withHeader page')
-  pure $ doctypehtml_ $ do
-    head_ $ do
-      link_ [href_ "/static/style.css", rel_ "stylesheet", type_ "text/css"]
-      script_ [src_ "/static/all.min.js"] ("" :: ByteString)
-    body_ $ toHtmlRaw body
+  pure $ do
+    doctype_
+    html_ [lang_ "en"] $ do
+      head_ $ do
+        title_ "Ferp-hs"
+        meta_ [charset_ "UTF-8"]
+        meta_
+          [name_ "viewport", content_ "width=device-width, initial-scale=1.0"]
+        link_ [rel_ "shortcut icon", href_ "/static/favicon.ico"]
+        link_ [href_ "/static/style.css", rel_ "stylesheet", type_ "text/css"]
+        link_
+          [ href_ "/static/all.min.js"
+          , rel_ "preload"
+          , makeAttribute "as" "script"
+          ]
+      body_ $ do
+        toHtmlRaw body
+        script_
+          [src_ "/static/all.min.js", type_ "text/javascript", defer_ "defer"]
+          ("" :: ByteString)
  where
   page' _ = do
     x <- page

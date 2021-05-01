@@ -82,6 +82,8 @@ let
 
       ${frontend}/bin/frontend-css > $out/style.css
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/style.css
+
+      cp ${./assets/favicon.ico} $out/favicon.ico
     '';
   };
 
