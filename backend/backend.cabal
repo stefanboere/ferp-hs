@@ -53,8 +53,11 @@ library
     , cookie
     , data-default
     , dhall
+    , frontend
     , http-client
     , http-client-tls
+    , http-media
+    , lucid
     , monad-logger
     , mtl
     , network-uri
@@ -63,8 +66,10 @@ library
     , reflex-dom
     , servant
     , servant-auth-server
+    , servant-rawm
     , servant-server
     , text
+    , uri-bytestring
     , wai-extra
     , warp
 

@@ -78,6 +78,7 @@ class HasRouter layout where
   type RouteT layout (m :: * -> *) a :: *
   -- | Create a constant route handler that returns @a@
   constHandler :: Monad m => Proxy layout -> Proxy m -> a -> RouteT layout m a
+  hoistRoute :: Proxy layout -> (m a -> n b) -> RouteT layout m a -> RouteT layout n b
   -- | Transform a route handler into a 'Router'.
   route :: Proxy layout -> Proxy m -> Proxy a -> RouteT layout m a -> Router m a
   -- | Create a 'Router' from a constant.
@@ -88,6 +89,8 @@ instance (HasRouter x, HasRouter y) => HasRouter (x :<|> y) where
   type RouteT (x :<|> y) m a = RouteT x m a :<|> RouteT y m a
   constHandler _ m a =
     constHandler (Proxy :: Proxy x) m a :<|> constHandler (Proxy :: Proxy y) m a
+  hoistRoute _ nt (a :<|> b) =
+    hoistRoute (Proxy :: Proxy x) nt a :<|> hoistRoute (Proxy :: Proxy y) nt b
   route _ (m :: Proxy m) (a :: Proxy a) ((x :: RouteT x m a) :<|> (y :: RouteT
       y
       m
@@ -98,6 +101,7 @@ instance (HasRouter sublayout, FromHttpApiData x)
          => HasRouter (Capture sym x :> sublayout) where
   type RouteT (Capture sym x :> sublayout) m a = x -> RouteT sublayout m a
   constHandler _ m a _ = constHandler (Proxy :: Proxy sublayout) m a
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f = RCapture (route (Proxy :: Proxy sublayout) m a . f)
 
 instance (HasRouter sublayout, FromHttpApiData x, KnownSymbol sym)
@@ -105,6 +109,7 @@ instance (HasRouter sublayout, FromHttpApiData x, KnownSymbol sym)
   type RouteT (QueryParam sym x :> sublayout) m a
     = Maybe x -> RouteT sublayout m a
   constHandler _ m a _ = constHandler (Proxy :: Proxy sublayout) m a
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f = RQueryParam (Proxy :: Proxy sym)
                               (route (Proxy :: Proxy sublayout) m a . f)
 
@@ -112,6 +117,7 @@ instance (HasRouter sublayout, FromHttpApiData x, KnownSymbol sym)
          => HasRouter (QueryParams sym x :> sublayout) where
   type RouteT (QueryParams sym x :> sublayout) m a = [x] -> RouteT sublayout m a
   constHandler _ m a _ = constHandler (Proxy :: Proxy sublayout) m a
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f =
     RQueryParams (Proxy :: Proxy sym) (route (Proxy :: Proxy sublayout) m a . f)
 
@@ -119,6 +125,7 @@ instance (HasRouter sublayout, KnownSymbol sym)
          => HasRouter (QueryFlag sym :> sublayout) where
   type RouteT (QueryFlag sym :> sublayout) m a = Bool -> RouteT sublayout m a
   constHandler _ m a _ = constHandler (Proxy :: Proxy sublayout) m a
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f =
     RQueryFlag (Proxy :: Proxy sym) (route (Proxy :: Proxy sublayout) m a . f)
 
@@ -126,12 +133,14 @@ instance (HasRouter sublayout, KnownSymbol path)
          => HasRouter (path :> sublayout) where
   type RouteT (path :> sublayout) m a = RouteT sublayout m a
   constHandler _ = constHandler (Proxy :: Proxy sublayout)
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt s
   route _ m a page =
     RPath (Proxy :: Proxy path) (route (Proxy :: Proxy sublayout) m a page)
 
 instance HasRouter View where
   type RouteT View m a = m a
   constHandler _ _ = return
+  hoistRoute _ nt s = nt s
   route _ _ _ = RPage
 
 -- | Use a handler to route a 'URIRef'.

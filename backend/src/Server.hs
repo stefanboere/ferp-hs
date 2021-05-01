@@ -34,7 +34,7 @@ import           Data.Default                   ( def )
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Middleware.Autohead
                                                 ( autohead )
-import           Network.Wai.Middleware.Gzip    ( gzip )
+import           Network.Wai.Middleware.Gzip
 import qualified Network.Wai.Middleware.Timeout
                                                as Timeout
                                                 ( timeout )
@@ -76,7 +76,9 @@ initialize cfg application = do
   requestLogger <- initRequestLogger (getLogger cfg)
                                      (configInfo $ getConfig cfg)
 
-  pure $ Timeout.timeout 65 $ requestLogger $ autohead $ gzip def application
+  pure $ Timeout.timeout 65 $ requestLogger $ autohead $ gzip
+    (def { gzipFiles = GzipPreCompressed GzipCompress })
+    application
 
 
 type AuthContext = '[SAS.JWTSettings, SAS.CookieSettings]

@@ -41,6 +41,7 @@ data Config = Config
   { configInfo        :: AppInfo
   , configPort        :: Port
   , configOidc :: OIDCConfig
+  , configStaticDirectory :: FilePath
   }
   deriving Generic
 

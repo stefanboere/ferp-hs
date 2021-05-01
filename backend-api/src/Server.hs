@@ -111,7 +111,7 @@ initialize cfg application = do
     $ Timeout.timeout 65
     $ requestLogger
     $ autohead
-    $ gzip def
+    $ gzip def { gzipFiles = GzipPreCompressed GzipCompress }
     $ allowHeaderMiddleware api
     $ cors (const $ Just policy)
     $ provideOptions api

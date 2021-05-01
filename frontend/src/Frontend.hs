@@ -12,6 +12,10 @@ module Frontend
   , mainWithHead
   , renderCss
   , mainBodyPrerender
+  , Api
+  , api
+  , handler
+  , withHeader
   )
 where
 
@@ -65,7 +69,7 @@ mainBodyPrerender :: URI -> IO ByteString
 mainBodyPrerender uri = snd <$> renderStatic (withHeader page)
  where
   page = do
-    _ <- routeURI myApi handler . fixFragment $ uri
+    _ <- routeURI api handler . fixFragment $ uri
     pure $ constDyn uri
 
 css :: Css
@@ -116,7 +120,7 @@ mainPage
 mainPage = do
   let routeHandler = route'
         (\_ uri -> fixFragment uri)
-        (\uri -> (fixFragment uri, routeURI myApi handler . fixFragment $ uri))
+        (\uri -> (fixFragment uri, routeURI api handler . fixFragment $ uri))
 
   rec dynamicRoute <- routeHandler (switch (current changeRoute))
       routeWasSet  <- dyn (snd <$> dynamicRoute) -- Will fire on postbuild
@@ -128,12 +132,12 @@ fixFragment uri@URI { uriFragment = frag, ..} =
   uri { uriPath = fromMaybe "/" frag }
 
 -- brittany-disable-next-binding
-type MyApi = InputApi
+type Api = InputApi
     :<|> CoreApi
     :<|> ContainerApi
 
-myApi :: Proxy MyApi
-myApi = Proxy
+api :: Proxy Api
+api = Proxy
 
 sideNav
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -142,6 +146,6 @@ sideNav
 sideNav dynUri = leftmost
   <$> sequence [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri]
 
-handler :: WidgetConstraint js t m => RouteT MyApi m (Event t URI)
+handler :: WidgetConstraint js t m => RouteT Api m (Event t URI)
 handler = inputHandler :<|> coreHandler :<|> containerHandler
 

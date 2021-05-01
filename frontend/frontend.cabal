@@ -37,7 +37,10 @@ common common-options
 library
   import:          common-options
   hs-source-dirs:  src
-  exposed-modules: Frontend
+  exposed-modules:
+    Frontend
+    Servant.Router
+
   other-modules:
     Components
     Components.Accordion
@@ -62,7 +65,6 @@ library
     Frontend.Input
     Nordtheme
     Reflex.Markdown
-    Servant.Router
 
   build-depends:
     , bytestring
