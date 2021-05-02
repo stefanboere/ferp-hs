@@ -139,8 +139,11 @@ routeRedirect _ context subserver = route
     => (Either OidcResult v -> ServerT api Handler)
     -> (Either OidcResult v, SetHeaderList xs)
     -> new
-  go fn (authResult, cookies) = addSetHeaders cookies $ fn authResult
+  go fn (authResult, SetHeaderCons p x xs) =
+    addSetHeaders (SetHeaderCons p (clear x) xs) $ fn authResult
 
+  clear :: Maybe a -> Maybe a
+  clear _ = Nothing
 
 data HTML
 

@@ -200,13 +200,14 @@ authCheck pauth context = withRequest $ \req -> liftIO $ do
   makeCookies :: AuthResult v -> IO (SetHeaderList '[HSetCookie, HSetCookie])
   makeCookies authResult = do
     xsrf <- makeXsrfCookie cookieSettings
-    fmap (SetHeaderCons pCookie (Just xsrf)) $ case authResult of
+    let xsrfcookie = SetHeaderCons pCookie (Just xsrf) SetHeaderNil
+    case authResult of
       (Authenticated v) -> do
         ejwt <- makeSessionCookie cookieSettings jwtSettings v
         case ejwt of
-          Nothing  -> return $ SetHeaderCons pCookie Nothing SetHeaderNil
-          Just jwt -> return $ SetHeaderCons pCookie (Just jwt) SetHeaderNil
-      _ -> return $ SetHeaderCons pCookie Nothing SetHeaderNil
+          Nothing  -> return $ SetHeaderCons pCookie Nothing xsrfcookie
+          Just jwt -> return $ SetHeaderCons pCookie (Just jwt) xsrfcookie
+      _ -> return $ SetHeaderCons pCookie Nothing xsrfcookie
 
 
 instance HasEndpoint (sub :: *) => HasEndpoint (Auth' t a r :> sub) where
