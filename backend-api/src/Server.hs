@@ -34,10 +34,13 @@ import           Control.Monad.Logger           ( LogLevel(..) )
 import           Control.Monad.Metrics          ( initializeWith )
 import           Control.Monad.Metrics.Internal ( _metricsStore )
 import           Control.Monad.Reader           ( ReaderT(..) )
+import qualified Crypto.JWT                    as Jose
+import           Data.Aeson
 import           Data.Default                   ( def )
 import           Data.Pool                      ( Pool
                                                 , destroyAllResources
                                                 )
+import qualified Data.Text                     as Text
 import           Database.Beam.Backend          ( displaySyntax )
 import           Database.Beam.Migrate.Simple   ( VerificationResult(..)
                                                 , autoMigrate
@@ -47,6 +50,8 @@ import           Database.Beam.Migrate.Simple   ( VerificationResult(..)
 import           Database.Beam.Postgres         ( Connection )
 import           Database.Beam.Postgres.Migrate ( migrationBackend )
 import           Database.Beam.Postgres.Syntax  ( fromPgCommand )
+import           GHC.Exts                       ( toList )
+import           Lens.Micro                     ( (^.) )
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Metrics            ( metrics
                                                 , registerWaiMetrics
@@ -77,7 +82,7 @@ import           System.Remote.Monitoring       ( forkServer
 import qualified Api                            ( Api
                                                 , server
                                                 )
-import           Auth
+import           Common.Auth
 import           Context
 import           Docs
 import           Schema
@@ -90,7 +95,19 @@ api :: Proxy Api
 api = Proxy
 
 server :: AppServer Api
-server = Api.server :<|> authServer
+server = Api.server :<|> pure
+
+instance SAS.FromJWT AuthUser where
+  decodeJWT m = case fromJSON (Object (m ^. Jose.unregisteredClaims)) of
+    Error   e -> Left $ Text.pack e
+    Success a -> Right a
+
+instance SAS.ToJWT AuthUser where
+  encodeJWT m = case toJSON m of
+    Object x ->
+      foldr (\(a, b) c -> Jose.addClaim a b c) Jose.emptyClaimsSet (toList x)
+    _ -> Jose.emptyClaimsSet
+
 
 -- | Registers the wai metrics and does the database migrations
 initialize :: AppConfig -> Application -> IO Application

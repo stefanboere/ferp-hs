@@ -37,5 +37,16 @@ common common-options
 library
   import:          common-options
   hs-source-dirs:  src
-  exposed-modules: Common
+  exposed-modules:
+    Common
+    Common.Auth
+
   other-modules:
+  build-depends:
+    , aeson
+    , jose
+    , microlens
+    , servant
+    , servant-ac
+    , servant-auth
+    , text

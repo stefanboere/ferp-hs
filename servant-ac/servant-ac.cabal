@@ -29,7 +29,6 @@ library
   exposed-modules: Servant.AccessControl
   build-depends:
     , servant
-    , servant-aeson-specs
     , servant-auth
     , servant-auth-client
     , servant-client-core

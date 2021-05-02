@@ -19,12 +19,12 @@ where
 import           Prelude                 hiding ( div )
 
 import           Data.Text                      ( Text )
-
 import           Data.Default
 import           Database.Beam
 import           Database.Beam.API
 import           Database.Beam.Postgres         ( Postgres )
 import           Servant
+import           Servant.AccessControl.Server
 import           Servant.Crud.Server.API
 import           Servant.Crud.Server.QueryOperator
                                          hiding ( ParamKind(..) )
@@ -37,7 +37,7 @@ import           Servant.Server.Generic         ( AsServerT )
 
 import           Servant.Query
 
-import           Auth
+import           Common.Auth
 import           Context
 import           Schema
 

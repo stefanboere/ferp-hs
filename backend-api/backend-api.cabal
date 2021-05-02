@@ -60,6 +60,7 @@ library
     , beam-postgres
     , bytestring
     , cassava
+    , common
     , data-default
     , dhall
     , ekg
@@ -104,7 +105,6 @@ library
 
   exposed-modules:
     Api
-    Auth
     Context
     Database.Beam.Named
     Database.Beam.TH

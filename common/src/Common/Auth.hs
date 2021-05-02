@@ -12,31 +12,29 @@
 Module: Auth
 Description: Implements the basic auth check
 -}
-module Auth
+module Common.Auth
   ( AuthUser(..)
   , Role(..)
   , Roles(..)
-  , Auth.Auth
+  , Common.Auth.Auth
   , Admin
   , AdminOrExtra
   , InRoles
   , Everyone
   , AuthApi
-  , authServer
   , getUserRoles
   )
 where
 
-import qualified Crypto.JWT                    as Jose
+
 import           Data.Aeson
 import           Data.Maybe                     ( mapMaybe )
+import           Data.Proxy
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import           GHC.Exts                       ( toList )
 import           GHC.Generics                   ( Generic )
-import           Lens.Micro                     ( (^.) )
-import           Servant                       as S
-import           Servant.AccessControl.Server   ( Auth'
+import           Servant.API                   as S
+import           Servant.AccessControl          ( Auth'
                                                 , Everyone
                                                 , HasAccessControl(..)
                                                 )
@@ -44,10 +42,7 @@ import qualified Servant.Auth                  as SA
                                                 ( Cookie
                                                 , JWT
                                                 )
-import           Servant.Auth.Server           as SAS
 import           Text.Read                      ( readMaybe )
-
-import           Context                        ( AppServer )
 
 
 -- | Add this to the types to protect it with login
@@ -96,17 +91,6 @@ instance FromJSON AuthUser where
 instance ToJSON AuthUser where
   toJSON = genericToJSON aesonOpts
 
-instance FromJWT AuthUser where
-  decodeJWT m = case fromJSON (Object (m ^. Jose.unregisteredClaims)) of
-    Error   e -> Left $ Text.pack e
-    Success a -> Right a
-
-instance ToJWT AuthUser where
-  encodeJWT m = case toJSON m of
-    Object x ->
-      foldr (\(a, b) c -> Jose.addClaim a b c) Jose.emptyClaimsSet (toList x)
-    _ -> Jose.emptyClaimsSet
-
 newtype Roles = Roles { unRoles :: [ Role ] } deriving (Eq, Show)
 
 instance FromJSON Roles where
@@ -134,8 +118,6 @@ instance KnownRole 'Regular where
   roleVal _ = Regular
 
 -- | Endpoint with data about the logged in user
-type AuthApi = Auth.Auth Everyone :> "self" :> Get '[JSON] AuthUser
+type AuthApi = Common.Auth.Auth Everyone :> "self" :> Get '[JSON] AuthUser
 
-authServer :: AppServer AuthApi
-authServer = pure
 
