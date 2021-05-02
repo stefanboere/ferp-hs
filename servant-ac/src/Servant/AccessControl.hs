@@ -71,6 +71,8 @@ module Servant.AccessControl
   , Nobody
   , AuthData(..)
   , ToWwwAuthenticate(..)
+  -- * Re-exports
+  , Token(..)
   )
 where
 
@@ -79,7 +81,7 @@ import           Prelude
 import           Data.Kind                      ( Constraint )
 import           Data.Proxy
 import           Servant.API
-import           Servant.Auth.Client            ( Token )
+import           Servant.Auth.Client            ( Token(..) )
 import           Servant.Auth                   ( Auth
                                                 , JWT
                                                 , Cookie

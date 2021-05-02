@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-|
 Module: Servant.Crud.Headers
 Description: Common headers for Crud applications
@@ -22,13 +23,19 @@ where
 import           Prelude
 
 import           Data.Default                   ( Default(..) )
-import           Data.Maybe                     ( fromMaybe )
+import           Data.Maybe                     ( fromMaybe
+                                                , listToMaybe
+                                                )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Semigroup                 ( Min(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           GHC.Generics                   ( Generic )
-import           Servant.API
+import           Network.HTTP.Link              ( Link(..)
+                                                , parseLinkHeader'
+                                                , parseLinkHeaderBS'
+                                                )
+import           Servant.API             hiding ( Link )
 import           Servant.Client.Core            ( HasClient(..) )
 
 import           Servant.Crud.QueryObject       ( FromQueryText
@@ -101,3 +108,13 @@ instance FromHttpApiData TotalCount where
 
 instance ToHttpApiData TotalCount where
   toUrlPiece = toUrlPiece . unTotalCount
+
+instance FromHttpApiData [Link] where
+  parseUrlPiece = either (Left . Text.pack) Right . parseLinkHeader'
+  parseHeader   = either (Left . Text.pack) Right . parseLinkHeaderBS'
+
+instance FromHttpApiData Link where
+  parseUrlPiece r =
+    parseUrlPiece r >>= maybe (Left "No link found") Right . listToMaybe
+  parseHeader r =
+    parseHeader r >>= maybe (Left "No link found") Right . listToMaybe

@@ -31,9 +31,7 @@ where
 
 import           Prelude
 
-import           Data.Maybe                     ( fromMaybe
-                                                , listToMaybe
-                                                )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy                     ( Proxy )
 import           Data.Swagger                   ( ToParamSchema(..) )
 import           Data.Text                      ( Text )
@@ -42,8 +40,6 @@ import qualified Data.Text.Encoding            as Text
                                                 ( decodeUtf8 )
 import           Network.HTTP.Link              ( Link(..)
                                                 , LinkParam(Rel)
-                                                , parseLinkHeader'
-                                                , parseLinkHeaderBS'
                                                 )
 import           Network.HTTP.Types             ( QueryText
                                                 , queryTextToQuery
@@ -187,16 +183,6 @@ instance ToSample Link where
 
 instance ToParamSchema Link where
   toParamSchema _ = mempty -- TODO
-
-instance FromHttpApiData [Link] where
-  parseUrlPiece = either (Left . Text.pack) Right . parseLinkHeader'
-  parseHeader   = either (Left . Text.pack) Right . parseLinkHeaderBS'
-
-instance FromHttpApiData Link where
-  parseUrlPiece r =
-    parseUrlPiece r >>= maybe (Left "No link found") Right . listToMaybe
-  parseHeader r =
-    parseHeader r >>= maybe (Left "No link found") Right . listToMaybe
 
 -- | Add Link headers based on the limit, offset, and other query parameters, such as
 -- the current filtering and ordering, to the next and previous page.
