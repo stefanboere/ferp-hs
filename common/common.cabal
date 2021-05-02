@@ -40,13 +40,20 @@ library
   exposed-modules:
     Common
     Common.Auth
+    Common.Schema
 
-  other-modules:
+  other-modules:   Common.Schema.TH
   build-depends:
     , aeson
+    , beam-core
+    , beam-crud         ^>=0.1
+    , generic-data
     , jose
     , microlens
     , servant
     , servant-ac
     , servant-auth
+    , servant-crud
+    , template-haskell
     , text
+    , time

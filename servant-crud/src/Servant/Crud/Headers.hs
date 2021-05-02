@@ -29,9 +29,7 @@ import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           GHC.Generics                   ( Generic )
 import           Servant.API
-import           Servant.Aeson.Internal         ( HasGenericSpecs(..) )
 import           Servant.Client.Core            ( HasClient(..) )
-import           Servant.Foreign                ( HasForeign(..) )
 
 import           Servant.Crud.QueryObject       ( FromQueryText
                                                 , ToQueryText
@@ -58,15 +56,6 @@ instance ToHttpApiData PathInfo where
 instance FromHttpApiData PathInfo where
   parseUrlPiece =
     pure . PathInfo . filter (not . Text.null) . Text.split (== '/')
-
-instance HasGenericSpecs api => HasGenericSpecs (PathInfo :> api) where
-  collectRoundtripSpecs settings Proxy =
-    collectRoundtripSpecs settings (Proxy :: Proxy api)
-
-instance HasForeign lang ftype api => HasForeign lang ftype (PathInfo :> api) where
-  type Foreign ftype (PathInfo :> api) = Foreign ftype api
-
-  foreignFor lang ftype Proxy = foreignFor lang ftype (Proxy :: Proxy api)
 
 instance HasClient m api => HasClient m (PathInfo :> api) where
   type Client m (PathInfo :> api) = Client m api

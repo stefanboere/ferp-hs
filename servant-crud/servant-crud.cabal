@@ -38,17 +38,13 @@ library
   -- other-modules:
   build-depends:
     , aeson
-    , cassava
     , data-default
     , generic-aeson
     , generic-deriving
     , http-link-header
     , http-types
     , servant
-    , servant-aeson-specs
-    , servant-cassava
     , servant-client-core
-    , servant-foreign
     , text
 
 test-suite spec

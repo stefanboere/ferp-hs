@@ -102,9 +102,6 @@ module Servant.Crud.QueryObject
   -- * Generics
   , GFromQueryText
   , GToQueryText
-  -- * Re-Exports
-  , NoTypes
-  , NoContent
   )
 where
 
@@ -115,10 +112,10 @@ import qualified Data.Bifunctor                 ( first )
 import           Data.Either                    ( partitionEithers )
 import qualified Data.List                     as L
 
-import           Data.Text                      ( Text )
-import qualified Data.Text                     as Text
 import           Data.Maybe                     ( mapMaybe )
 import           Data.Proxy                     ( Proxy(..) )
+import           Data.Text                      ( Text )
+import qualified Data.Text                     as Text
 import           Data.Typeable                  ( Typeable )
 import           GHC.Generics
 import           GHC.TypeLits                   ( KnownSymbol
@@ -126,25 +123,10 @@ import           GHC.TypeLits                   ( KnownSymbol
                                                 , symbolVal
                                                 )
 import           Network.HTTP.Types             ( QueryText )
-import           Servant.Aeson.Internal         ( HasGenericSpecs(..) )
 import           Servant.API
-import           Servant.Client.Core            ( appendToQueryString
-                                                , HasClient(..)
+import           Servant.Client.Core            ( HasClient(..)
+                                                , appendToQueryString
                                                 )
-import           Servant.Foreign                ( HasForeign
-                                                , foreignFor
-                                                , Foreign
-                                                , Req(..)
-                                                , Url(..)
-                                                , QueryArg(..)
-                                                , NoTypes
-                                                , NoContent
-                                                , HasForeignType(..)
-                                                , Arg(..)
-                                                , PathSegment(..)
-                                                )
-import qualified Servant.Foreign               as Foreign
-                                                ( ArgType(..) )
 
 -- | This type replaces 'QueryParam' or 'QueryFlag' or 'QueryParams'
 --
@@ -556,27 +538,3 @@ instance (HasClient m api, ToQueryText a, KnownSymbol sym)
     hoistClientMonad pm (Proxy :: Proxy api) f (cl as)
 
 
-instance (KnownSymbol sym, HasForeignType lang ftype a, HasForeign lang ftype api)
-  => HasForeign lang ftype (QueryObject sym a :> api) where
-  type Foreign ftype (QueryObject sym a :> api) = Foreign ftype api
-
-  foreignFor lang ftype Proxy req =
-    foreignFor lang ftype (Proxy :: Proxy api) $ req
-      { _reqUrl = (_reqUrl req) { _queryStr = _queryStr (_reqUrl req) ++ args }
-      }
-   where
-    args =
-      [ QueryArg
-          { _queryArgName = Arg
-            { _argName = PathSegment
-                           (Text.pack (symbolVal (Proxy :: Proxy sym)))
-            , _argType = typeFor lang ftype (Proxy :: Proxy a)
-            }
-          , _queryArgType = Foreign.Normal
-          }
-      ]
-
-instance HasGenericSpecs api
-    => HasGenericSpecs (QueryObject sym x :> api) where
-  collectRoundtripSpecs settings Proxy =
-    collectRoundtripSpecs settings (Proxy :: Proxy api)

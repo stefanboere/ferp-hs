@@ -31,15 +31,15 @@ where
 
 import           Prelude
 
-import           Data.Proxy                     ( Proxy )
 import           Data.Maybe                     ( fromMaybe
                                                 , listToMaybe
                                                 )
+import           Data.Proxy                     ( Proxy )
+import           Data.Swagger                   ( ToParamSchema(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
                                                 ( decodeUtf8 )
-import           Data.Swagger                   ( ToParamSchema(..) )
 import           Network.HTTP.Link              ( Link(..)
                                                 , LinkParam(Rel)
                                                 , parseLinkHeader'
@@ -49,32 +49,35 @@ import           Network.HTTP.Types             ( QueryText
                                                 , queryTextToQuery
                                                 , renderQuery
                                                 )
-import           Network.URI                    ( parseRelativeReference
+import           Network.URI                    ( URI(..)
                                                 , URIAuth(..)
-                                                , URI(..)
+                                                , parseRelativeReference
                                                 )
 import           Network.Wai                    ( rawPathInfo )
 import           Servant                 hiding ( Link )
+import           Servant.Aeson.Internal         ( HasGenericSpecs(..) )
 import           Servant.Crud.Server.QueryObject
                                                 ( ToParams(..)
                                                 , addDocPrefix
                                                 )
-import           Servant.Docs                   ( HasDocs(..)
-                                                , ToSample(..)
-                                                , singleSample
+import           Servant.Docs                   ( DocCapture(..)
                                                 , DocQueryParam(..)
+                                                , HasDocs(..)
                                                 , ParamKind(..)
                                                 , ToCapture(..)
-                                                , DocCapture(..)
+                                                , ToSample(..)
+                                                , singleSample
                                                 )
 import           Servant.Ekg                    ( HasEndpoint(..) )
-import           Servant.Foreign                ( HasForeignType(..) )
+import           Servant.Foreign                ( HasForeign(..)
+                                                , HasForeignType(..)
+                                                )
+import           Servant.QuickCheck.Internal.HasGenRequest
+                                                ( HasGenRequest(..) )
 import           Servant.Server                 ( HasServer(..) )
 import           Servant.Server.Internal.Delayed
                                                 ( passToServer )
 import           Servant.Swagger.Internal       ( HasSwagger(..) )
-import           Servant.QuickCheck.Internal.HasGenRequest
-                                                ( HasGenRequest(..) )
 
 import           Servant.Crud.API               ( View'(..) )
 import           Servant.Crud.Headers
@@ -118,6 +121,14 @@ instance HasGenRequest api
     => HasGenRequest (PathInfo :> api) where
   genRequest _ = genRequest (Proxy :: Proxy api)
 
+instance HasGenericSpecs api => HasGenericSpecs (PathInfo :> api) where
+  collectRoundtripSpecs settings Proxy =
+    collectRoundtripSpecs settings (Proxy :: Proxy api)
+
+instance HasForeign lang ftype api => HasForeign lang ftype (PathInfo :> api) where
+  type Foreign ftype (PathInfo :> api) = Foreign ftype api
+
+  foreignFor lang ftype Proxy = foreignFor lang ftype (Proxy :: Proxy api)
 
 -- | Adds a location header for a route PathInfo and a newly created id
 --

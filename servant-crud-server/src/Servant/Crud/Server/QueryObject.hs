@@ -32,6 +32,8 @@ module Servant.Crud.Server.QueryObject
   , GToParams
   -- * Re-Exports
   , module Servant.Crud.QueryObject
+  , NoContent
+  , NoTypes
   )
 where
 
@@ -67,6 +69,7 @@ import           Network.HTTP.Types             ( parseQueryText
                                                 )
 import           Network.Wai                    ( rawQueryString )
 import           Servant
+import           Servant.Aeson.Internal         ( HasGenericSpecs(..) )
 import           Servant.Docs                   ( DocQueryParam(..)
                                                 , HasDocs(..)
                                                 , ParamKind(..)
@@ -76,11 +79,16 @@ import           Servant.Docs                   ( DocQueryParam(..)
 import           Servant.Ekg                    ( HasEndpoint(..) )
 import qualified Servant.Foreign               as Foreign
 import           Servant.Foreign                ( Arg(..)
+                                                , Foreign
+                                                , HasForeign
                                                 , HasForeignType(..)
                                                 , NoContent
                                                 , NoTypes
                                                 , PathSegment(..)
                                                 , QueryArg(..)
+                                                , Req(..)
+                                                , Url(..)
+                                                , foreignFor
                                                 )
 import           Servant.QuickCheck.Internal.HasGenRequest
                                                 ( HasGenRequest(..) )
@@ -310,6 +318,31 @@ instance (HasGenRequest api, Arbitrary a, ToQueryText a, KnownSymbol sym)
     new         = arbitrary :: Gen a
     toQueryString =
       renderQuery False . queryTextToQuery . toQueryText paramname
+
+instance (KnownSymbol sym, HasForeignType lang ftype a, HasForeign lang ftype api)
+  => HasForeign lang ftype (QueryObject sym a :> api) where
+  type Foreign ftype (QueryObject sym a :> api) = Foreign ftype api
+
+  foreignFor lang ftype Proxy req =
+    foreignFor lang ftype (Proxy :: Proxy api) $ req
+      { _reqUrl = (_reqUrl req) { _queryStr = _queryStr (_reqUrl req) ++ args }
+      }
+   where
+    args =
+      [ QueryArg
+          { _queryArgName = Arg
+            { _argName = PathSegment
+                           (Text.pack (symbolVal (Proxy :: Proxy sym)))
+            , _argType = typeFor lang ftype (Proxy :: Proxy a)
+            }
+          , _queryArgType = Foreign.Normal
+          }
+      ]
+
+instance HasGenericSpecs api
+    => HasGenericSpecs (QueryObject sym x :> api) where
+  collectRoundtripSpecs settings Proxy =
+    collectRoundtripSpecs settings (Proxy :: Proxy api)
 
 instance HasEndpoint api
     => HasEndpoint (QueryObject sym a :> api) where

@@ -9,20 +9,11 @@ where
 
 import           Data.Csv
 import           Data.Time                      ( Day
-                                                , UTCTime
-                                                , formatTime
                                                 , defaultTimeLocale
+                                                , formatTime
                                                 , parseTimeM
                                                 )
-import           Servant.Crud.Server.QueryOperator
-                                                ( DefaultFilters
-                                                , OrdFilter
-                                                )
 -- * Date orphans
-
-type instance DefaultFilters Day = OrdFilter
-type instance DefaultFilters UTCTime = OrdFilter
-
 
 instance ToField Bool where
   toField True  = "true"

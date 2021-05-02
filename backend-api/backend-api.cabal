@@ -65,7 +65,6 @@ library
     , dhall
     , ekg
     , fast-logger
-    , generic-data
     , http-client
     , http-client-tls
     , http-media
@@ -78,19 +77,14 @@ library
     , resource-pool
     , servant
     , servant-ac-server
-    , servant-aeson-specs
     , servant-auth
-    , servant-auth-client
     , servant-auth-docs
     , servant-auth-server
     , servant-auth-swagger
-    , servant-client-core
     , servant-crud-server     ^>=0.1
     , servant-docs
     , servant-ekg
-    , servant-foreign
     , servant-options
-    , servant-quickcheck
     , servant-server
     , servant-swagger
     , servant-swagger-ui

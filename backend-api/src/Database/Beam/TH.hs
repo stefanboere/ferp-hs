@@ -21,14 +21,6 @@ module Database.Beam.TH
   )
 where
 
-import qualified Data.Char                     as C
-                                                ( isUpper )
-import qualified Data.List                     as L
-                                                ( dropWhileEnd )
-
-import           Data.Aeson                     ( FromJSON
-                                                , ToJSON
-                                                )
 import           Data.ByteString                ( ByteString )
 import qualified Data.Csv                      as Csv
 import           Data.Swagger                   ( ToParamSchema
@@ -36,33 +28,20 @@ import           Data.Swagger                   ( ToParamSchema
                                                 , declareNamedSchema
                                                 , toParamSchema
                                                 )
-import           Data.Typeable                  ( Typeable )
-import           Database.Beam                  ( Beamable
-                                                , Columnar
+import           Database.Beam                  ( Columnar
                                                 , Identity
                                                 , PrimaryKey(..)
-                                                , QExpr
                                                 )
-import           Database.Beam.API              ( Orderable )
-import           Database.Beam.Backend.SQL      ( BeamSqlBackend )
-import           Database.Beam.Deriving         ( BeamOrderBy(..) )
 import           Database.Beam.Named            ( Full
                                                 , Named
                                                 )
 import           GHC.Generics                   ( Rep )
-import           Generic.Data
 import           Language.Haskell.TH
-import           Servant.API                    ( FromHttpApiData(..)
-                                                , ToHttpApiData(..)
-                                                )
 import           Servant.Crud.Server.Deriving
-import           Servant.Crud.Server.OrderBy    ( Selectors )
 import           Servant.Crud.Server.QueryObject
-                                                ( FromQueryText
+                                                ( ToParams
                                                 , NoContent
                                                 , NoTypes
-                                                , ToParams
-                                                , ToQueryText
                                                 )
 import           Servant.Crud.Server.QueryOperator
                                                 ( Filter
@@ -85,14 +64,8 @@ instancesT' n0 n = concat <$>
   sequence [ instancesBody  (t ''PrimaryKey) -- HaskellValue / Put / Post / Patch
            , instancesBody  (t n0)      -- Get / Filter object for Get
            , instancesSchema (t ''PrimaryKey)
-           , otherInstances
            ]
     where
-      otherInstances :: DecsQ
-      otherInstances = [d|
-          deriving instance Beamable ($(conT n) PrimaryKey)
-          deriving instance Beamable $(appT (conT n) (conT n0))
-        |]
       t :: Name -> TypeQ
       t n1 = appT (conT n) (conT n1)
 
@@ -118,24 +91,12 @@ instancesSchema t =
 instancesBody :: TypeQ -> DecsQ
 instancesBody t =
     [d|
-    deriving via (Generically ($(t) f)) instance GEq ($(t) f) => Eq ($(t) f)
-    deriving via (Generically ($(t) f)) instance GShow0 (Rep ($(t) f)) => Show ($(t) f)
-    deriving via (Generically ($(t) f)) instance Semigroup (Rep ($(t) f) ()) => Semigroup ($(t) f)
-    deriving via (Generically ($(t) f)) instance Monoid (Rep ($(t) f) ()) => Monoid ($(t) f)
-    deriving via (JsonBody ($(t) f)) instance GToJSON ($(t) f) => ToJSON ($(t) f)
-    deriving via (JsonBody ($(t) f)) instance GFromJSON ($(t) f) => FromJSON ($(t) f)
     deriving instance Csv.GToRecord (Rep ($(t) f)) (ByteString, ByteString) => Csv.ToNamedRecord ($(t) f)
     deriving instance Csv.GFromNamedRecord (Rep ($(t) f))  => Csv.FromNamedRecord ($(t) f)
     deriving instance Csv.GToNamedRecordHeader (Rep ($(t) f))  => Csv.DefaultOrdered ($(t) f)
 
     -- NameT Filter instances
-    deriving via (QueryType ($(t) Filter)) instance ToQueryText ($(t) Filter)
-    deriving via (QueryType ($(t) Filter)) instance FromQueryText ($(t) Filter)
     deriving via (QueryType ($(t) Filter)) instance ToParams NoTypes NoContent ($(t) Filter)
-
-    deriving via BeamOrderBy ($(t) (QExpr be s)) instance
-        (Typeable be, Typeable s, BeamSqlBackend be)
-      => Selectors (Orderable be) ($(t) (QExpr be s))
     |]
 
 -- | Creates relevant instances for 'NameId'
@@ -144,12 +105,6 @@ instancesBody t =
 instancesId :: Name -> Name -> DecsQ
 instancesId n n0 = [d|
     -- Basic instances
-    deriving instance Eq (Columnar f $(t0)) => Eq (PrimaryKey $(t) f)
-    deriving instance Show (Columnar f $(t0)) => Show (PrimaryKey $(t) f)
-    instance ToJSON (Columnar f $(t0)) => ToJSON (PrimaryKey $(t) f)
-    instance FromJSON (Columnar f $(t0)) => FromJSON (PrimaryKey $(t) f)
-    instance FromQueryText (Columnar f $(t0)) => FromQueryText (PrimaryKey $(t) f)
-    instance ToQueryText   (Columnar f $(t0)) => ToQueryText   (PrimaryKey $(t) f)
     instance ToParams lang ftype (Columnar f $(t0)) => ToParams lang ftype (PrimaryKey $(t) f)
 
     instance ToSchema (Columnar f $(t0)) => ToSchema (PrimaryKey $(conT n) f) where
@@ -163,16 +118,7 @@ instancesId n n0 = [d|
         where
           unProxy :: proxy (PrimaryKey x f) -> proxy (Columnar f $(t0))
           unProxy _ = undefined
-
-    instance FromHttpApiData (Columnar f $(t0)) => FromHttpApiData (PrimaryKey $(conT n) f) where
-      parseQueryParam = fmap $(conE nameIdT) . parseQueryParam
-
-    instance ToHttpApiData (Columnar f $(t0)) => ToHttpApiData (PrimaryKey $(conT n) f) where
-      toQueryParam $(matchX) = toQueryParam x
     |]
     where
         t = conT n
         t0 = conT n0
-
-        nameIdT = mkName (L.dropWhileEnd C.isUpper (nameBase n) ++ "Id" )
-        matchX = conP nameIdT [varP (mkName "x") ]

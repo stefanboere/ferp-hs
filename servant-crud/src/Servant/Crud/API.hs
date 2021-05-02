@@ -22,17 +22,15 @@ module Servant.Crud.API
   -- * Other
   , View'(..)
   , Page(..)
+  , CSV
   )
 where
 
 import           Prelude
 
-import qualified Data.Csv                      as Csv
 import           Data.Default                   ( Default(..) )
-import           Data.Proxy                     ( Proxy(..) )
 import           Network.HTTP.Link.Types        ( Link )
 import           Servant.API             hiding ( Link )
-import qualified Servant.CSV.Cassava           as CSV
 import           Servant.Crud.Headers           ( Page(..)
                                                 , PathInfo
                                                 , TotalCount
@@ -45,21 +43,6 @@ import           Servant.Crud.QueryObject       ( FromQueryText(..)
                                                 )
 
 data CSV
-
-instance Accept CSV where
-  contentType _ = contentType (Proxy :: Proxy CSV.CSV)
-  contentTypes _ = contentTypes (Proxy :: Proxy CSV.CSV)
-
-instance (Csv.DefaultOrdered a, Csv.ToNamedRecord a) => MimeRender CSV [a] where
-  mimeRender _ = mimeRender (Proxy :: Proxy CSV.CSV)
-
-instance (Csv.FromNamedRecord a) => MimeUnrender CSV [a] where
-  mimeUnrender _ = fmap coerce . mimeUnrender (Proxy :: Proxy CSV.CSV)
-  mimeUnrenderWithType _ x =
-    fmap coerce . mimeUnrenderWithType (Proxy :: Proxy CSV.CSV) x
-
-coerce :: (Csv.Header, [a]) -> [a]
-coerce = snd
 
 -- | 'GET' which returns a JSON array of type @a@ with some extra headers
 type GetList' a

@@ -37,6 +37,7 @@ library
 
   -- other-modules:
   build-depends:
+    , cassava
     , foreign-store
     , http-client
     , http-link-header
@@ -45,6 +46,8 @@ library
     , mtl
     , network-uri
     , QuickCheck
+    , servant-aeson-specs
+    , servant-cassava
     , servant-crud
     , servant-docs
     , servant-ekg
