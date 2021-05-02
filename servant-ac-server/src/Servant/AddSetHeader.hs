@@ -74,7 +74,7 @@ data SetHeaderList (xs :: [(Symbol, *)]) :: * where
 
 -- | Adds a list of http headers to a response
 class AddSetHeaders xs orig new where
-  -- | Adds a list of headers to a orig 'ServerT' type to get a new type 
+  -- | Adds a list of headers to a orig 'ServerT' type to get a new type
   addSetHeaders :: SetHeaderList xs -> orig -> new
 
 instance {-# OVERLAPS #-} AddSetHeaders ('(sym, t) ': xs) oldb newb

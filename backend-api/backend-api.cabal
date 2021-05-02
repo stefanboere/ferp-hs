@@ -76,7 +76,7 @@ library
     , network-uri
     , resource-pool
     , servant
-    , servant-ac
+    , servant-ac-server
     , servant-aeson-specs
     , servant-auth
     , servant-auth-client

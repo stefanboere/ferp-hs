@@ -36,7 +36,7 @@ import           GHC.Exts                       ( toList )
 import           GHC.Generics                   ( Generic )
 import           Lens.Micro                     ( (^.) )
 import           Servant                       as S
-import           Servant.AccessControl          ( Auth'
+import           Servant.AccessControl.Server   ( Auth'
                                                 , Everyone
                                                 , HasAccessControl(..)
                                                 )

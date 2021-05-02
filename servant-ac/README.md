@@ -15,7 +15,7 @@ authentication process is `AuthUser`, then for convenience create the following 
 {-# LANGUAGE TypeOperators #-}
 ...
 import qualified Servant.Auth as SA
-import           Servant.AccessControl (Auth')
+import           Servant.AccessControl.Server (Auth')
 
 type Auth = Auth' '[SA.BasicAuth, SA.Cookie, SA.JWT] AuthUser
 ```
@@ -49,7 +49,7 @@ so we will need to jump through some type level hoops. But fear not.
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-import         Servant.AccessControl (HasAccessControl)
+import         Servant.AccessControl.Server (HasAccessControl)
 ...
 
 -- Create a type to express our logic.
@@ -93,7 +93,5 @@ And that's it, that is the entire library.
 
 ## Remarks
 
-This library is 'batteries included' and not split up into 'servant-ac-server'  and
-'servant-ac-client' libraries. I believe there is little gain in splitting it up,
-as this problem is, as far as I know, mostly a server side issue. Let me know if
-you believe otherwise.
+This library is split up into 'servant-ac'  and
+'servant-ac-server' libraries. The latter contains some orphan instances.

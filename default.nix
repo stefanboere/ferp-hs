@@ -14,6 +14,7 @@ let
       common = ./common;
       frontend = ./frontend;
       servant-ac = ./servant-ac;
+      servant-ac-server = ./servant-ac-server;
       servant-crud = ./servant-crud;
       servant-crud-server = ./servant-crud-server;
     };
@@ -27,6 +28,7 @@ let
         "common"
         "frontend"
         "servant-ac"
+        "servant-ac-server"
         "servant-crud"
         "servant-crud-server"
       ];

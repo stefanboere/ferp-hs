@@ -57,7 +57,7 @@ import           Network.Wai.Middleware.Cors    ( CorsResourcePolicy(..)
                                                 , cors
                                                 , simpleCorsResourcePolicy
                                                 )
-import           Network.Wai.Middleware.Gzip    ( gzip )
+import           Network.Wai.Middleware.Gzip
 import           Network.Wai.Middleware.Servant.Options
                                                 ( provideOptions )
 import qualified Network.Wai.Middleware.Timeout

@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               servant-ac
+name:               servant-ac-server
 version:            0.1.0.0
 synopsis:           Specify access control rules at the type level
 description:
@@ -26,10 +26,18 @@ common common
 library
   import:          common
   hs-source-dirs:  src
-  exposed-modules: Servant.AccessControl
+  exposed-modules: Servant.AccessControl.Server
+  other-modules:   Servant.AddSetHeader
   build-depends:
-    , servant
+    , http-types
+    , servant-ac
     , servant-aeson-specs
-    , servant-auth
-    , servant-auth-client
-    , servant-client-core
+    , servant-auth-server
+    , servant-docs
+    , servant-ekg
+    , servant-foreign
+    , servant-quickcheck
+    , servant-server
+    , servant-swagger
+    , tagged
+    , wai

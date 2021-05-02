@@ -6,5 +6,6 @@ packages:
   common/
   frontend/
   servant-ac/
+  servant-ac-server/
   servant-crud/
   servant-crud-server/
