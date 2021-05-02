@@ -226,7 +226,7 @@ expiredCookie :: ByteString -> SetCookie
 expiredCookie n = defaultSetCookie
   { setCookieName    = n
   , setCookieValue   = ""
-  , setCookieExpires = parseCookieExpires "Thu, 01 Jan 1970 00:00:00 GMT"
+  , setCookieExpires = parseCookieExpires "Thu, 01-Jan-1970 00:00:00 GMT"
   , setCookiePath    = Just "/"
   }
 
