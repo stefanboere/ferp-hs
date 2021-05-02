@@ -1,5 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -9,16 +8,17 @@ Module: Api
 Description: Specifies the combined api
 -}
 module Api
-  ( Api
-  , api
+  ( module Common.Api
   , server
+  , api
+  , Api
   )
 where
 
 import           Prelude                 hiding ( div )
 
-import           Data.Text                      ( Text )
 import           Data.Default
+import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.API
 import           Database.Beam.Postgres         ( Postgres )
@@ -36,37 +36,12 @@ import           Servant.Server.Generic         ( AsServerT )
 import           Servant.Query
 
 import           Auth
+import           Common.Api
 import           Context
 import           Schema
 
-{-# ANN module ("HLint: ignore Redundant bracket" :: String) #-}
--- | The api
-type Api = ("blogs" :> BlogApi)
-
--- BLOGS
-
--- | A slightly different api than the generic crud api. This is because we
--- need to handle the permissions differently.
--- It really is a different api therefore, but we can still reuse our existing generic implementation
--- brittany-disable-next-binding
-type BlogApi
-  = (Auth Admin :> Get_ BlogT)
-      :<|>
-      (Auth Admin :> Put_ BlogT)
-      :<|>
-      (Auth Admin :> Patch_ BlogT)
-      :<|>
-      (Auth Admin :> Delete_ BlogT)
-      :<|>
-      (Auth Admin :> DeleteList_ BlogT)
-      :<|>
-      (Auth Admin :> Post_ BlogT)
-      :<|>
-      (Auth Admin :> PostList BlogT)
-      :<|>
-      (Auth Everyone :> GetList Postgres BlogT)
-
-
+type Api = Api' Postgres
+type BlogApi = BlogApi' Postgres
 
 -- | The blog server
 blogServer :: AppServer BlogApi
@@ -80,8 +55,8 @@ blogServer =
     :<|> const (_postList gBlog)
     :<|> getBlogs
  where
-  getBlogs :: AuthUser -> AppServer (GetList Postgres BlogT)
-  getBlogs user pinfo v = _getList gBlog pinfo newView
+  getBlogs :: AppServer (GetList Postgres BlogT)
+  getBlogs pinfo v = _getList gBlog pinfo newView
    where
     newView = v { filters = newFilt }
   --  newOrd  = ord { blogDate = Ordering Desc (-1) } -- Force the blogs to be ordered newest first
@@ -91,7 +66,7 @@ blogServer =
     maximumMaybe [] = Nothing
     maximumMaybe xs = Just $ maximum xs
 
-    newFilt = case maximumMaybe (getUserRoles user) of
+    newFilt = case maximumMaybe [] of
       Just Administrator -> filt
       Just Extra ->
         filt { blogIsPublished = setf @"" [True] $ blogIsPublished filt }

@@ -39,6 +39,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Common
+    Common.Api
     Common.Auth
     Common.Schema
 
