@@ -11,16 +11,21 @@ module OIDC
   ( OIDCConfig(..)
   , OIDCEnv(..)
   , IdentityApi
-  , handleLogin
+  , genOIDCURL
   , handleLoginSuccess
   , handleLoginFailed
   , initOIDC
+  , setCookieBs
+  -- * JWT
+  , discoverJWKs
+  , generateJwtSettings
   )
 where
 
 
 
 import           Control.Monad.Except
+import qualified Crypto.JOSE                   as Jose
 import           Data.Aeson                     ( FromJSON(..)
                                                 , ToJSON(..)
                                                 )
@@ -39,21 +44,23 @@ import qualified Data.List                     as List
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
+import           Data.String                    ( IsString(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           Data.Text.Encoding            as Text
 import           Dhall                          ( Generic
                                                 , Interpret(..)
                                                 )
-import           Network.HTTP.Client            ( Manager
-                                                , newManager
-                                                )
+import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS        ( tlsManagerSettings )
 import qualified Network.URI                   as Network
 import           Servant
+import           Servant.Auth.Server
+import           Servant.Auth.Server.Internal.Cookie
 import qualified System.Random                 as Random
 import           Web.Cookie                     ( SetCookie(..)
                                                 , defaultSetCookie
+                                                , parseCookieExpires
                                                 , parseCookies
                                                 , renderSetCookie
                                                 )
@@ -85,10 +92,11 @@ instance Interpret Network.URI where
 instance Interpret OIDCConfig
 
 data OIDCEnv = OIDCEnv
-  { oidcCredentials :: O.OIDC
-  , oidcManager     :: Manager
-  , oidcGenState    :: IO ByteString
-  , oidcState       :: IORef SessionStateMap
+  { oidcCredentials    :: O.OIDC
+  , oidcManager        :: Manager
+  , oidcGenState       :: IO ByteString
+  , oidcState          :: IORef SessionStateMap
+  , oidcCookieSettings :: CookieSettings
   }
 
 type SessionStateMap = Map Text (O.State, O.Nonce)
@@ -102,30 +110,35 @@ initOIDC OIDCConfig {..} = do
                               (unClientSecret oidcClientSecret)
                               (B.pack . show $ oidcRedirectUri)
                               (O.newOIDC prov)
-  return OIDCEnv { oidcCredentials = oidc
-                 , oidcManager     = mgr
-                 , oidcGenState    = genRandomBS
-                 , oidcState       = ssm
-                 }
+  return OIDCEnv
+    { oidcCredentials    = oidc
+    , oidcManager        = mgr
+    , oidcGenState       = genRandomBS
+    , oidcState          = ssm
+    , oidcCookieSettings = defaultCookieSettings
+                             { cookieXsrfSetting = Just $ def
+                                                     { xsrfExcludeGet = True
+                                                     }
+                             , cookieIsSecure    = NotSecure
+                             } -- cookie config
+    }
 
-
--- brittany-disable-next-binding
-type Login = "login" :> Get '[JSON] NoContent
 
 -- brittany-disable-next-binding
 type LoginSuccess = "return"
   :> QueryParam' '[Required] "code"  Text
   :> QueryParam' '[Required] "state"  Text
   :> Header "cookie" SessionCookie
-  :> Get '[JSON] User
+  :> Header "cookie" RedirectCookie
+  :> Get '[JSON] NoContent
 
 -- brittany-disable-next-binding
 type LoginError = "return"
   :> QueryParam' '[Required] "error" Text
-  :> Get '[JSON] User
+  :> Get '[JSON] NoContent
 
 -- brittany-disable-next-binding
-type IdentityApi = Login :<|> LoginSuccess :<|> LoginError
+type IdentityApi = LoginSuccess :<|> LoginError
 
 data Message = Message
   { message :: Text
@@ -141,34 +154,29 @@ newtype SessionCookie = SessionCookie
 
 instance FromHttpApiData SessionCookie where
   parseUrlPiece = parseHeader . Text.encodeUtf8
-  parseHeader bs = case lookup "session" (parseCookies bs) of
-    Nothing  -> Left "session cookie missing"
+  parseHeader bs = case lookup "oidc-session" (parseCookies bs) of
+    Nothing  -> Left "oidc-session cookie missing"
     Just val -> Right (SessionCookie val)
 
--- Redirect the user to the provider.
-handleLogin
-  :: (MonadError ServerError m, MonadIO m) => OIDCEnv -> ServerT Login m
-handleLogin oidcEnv = do
-  (loc, sid) <- liftIO (genOIDCURL oidcEnv)
-  let cookie =
-        defaultSetCookie { setCookieName = "session", setCookieValue = sid }
-  throwError err302
-    { errHeaders = [ ("Location", loc)
-                   , ( "Set-Cookie"
-                     , BL.toStrict (toLazyByteString (renderSetCookie cookie))
-                     )
-                   ]
-    }
+-- | Route to redirect to on succesful login
+newtype RedirectCookie = RedirectCookie
+  { getRedirectCookie :: ByteString
+  }
+
+instance FromHttpApiData RedirectCookie where
+  parseUrlPiece = parseHeader . Text.encodeUtf8
+  parseHeader bs = case lookup "redirect" (parseCookies bs) of
+    Nothing  -> Right (RedirectCookie "/")
+    Just val -> Right (RedirectCookie val)
 
 genOIDCURL :: OIDCEnv -> IO (ByteString, ByteString)
 genOIDCURL env@OIDCEnv {..} = do
   sid <- oidcGenState
   let store = sessionStore env (Text.decodeUtf8 sid)
-  loc <- O.prepareAuthenticationRequestUrl
-    store
-    oidcCredentials
-    [O.openId, O.email, O.profile, "roles"]
-    []
+  loc <- O.prepareAuthenticationRequestUrl store
+                                           oidcCredentials
+                                           [O.openId, O.email, O.profile]
+                                           []
   return (B.pack $ show loc, sid)
 
 sessionStore :: OIDCEnv -> Text -> O.SessionStore IO
@@ -210,16 +218,26 @@ instance FromJSON AuthInfo where
 instance ToJSON AuthInfo where
   toJSON = Aeson.genericToJSON aesonCamel
 
-data User = User
-  { userEmail        :: Maybe Text
-  , userFullname     :: Maybe Text
-  , userUsername     :: Maybe Text
-  , userAccessToken  :: Text
-  , userRefreshToken :: Maybe Text
-  }
-  deriving (Show, Eq, Ord, Generic)
 
-instance ToJSON User
+setCookieBs :: SetCookie -> ByteString
+setCookieBs = BL.toStrict . toLazyByteString . renderSetCookie
+
+expiredCookie :: ByteString -> SetCookie
+expiredCookie n = defaultSetCookie
+  { setCookieName    = n
+  , setCookieValue   = ""
+  , setCookieExpires = parseCookieExpires "Thu, 01 Jan 1970 00:00:00 GMT"
+  , setCookiePath    = Just "/"
+  }
+
+expiredCookieHeader :: IsString a => ByteString -> (a, ByteString)
+expiredCookieHeader n = ("Set-Cookie", setCookieBs (expiredCookie n))
+
+makeSessionCookieBs :: CookieSettings -> ByteString -> SetCookie
+makeSessionCookieBs cookieSettings jwt =
+  applySessionCookieSettings cookieSettings
+    $ applyCookieSettings cookieSettings
+    $ def { setCookieValue = jwt }
 
 handleLoginSuccess
   :: (MonadError ServerError m, MonadIO m)
@@ -227,8 +245,9 @@ handleLoginSuccess
   -> Text -- ^ code
   -> Text -- ^ state
   -> Maybe SessionCookie
-  -> m User
-handleLoginSuccess oidcenv oauthCode state (Just cookie) = do
+  -> Maybe RedirectCookie
+  -> m NoContent
+handleLoginSuccess oidcenv oauthCode state (Just cookie) mredir = do
   let sid   = Text.decodeUtf8 $ getSessionCookie cookie
   let store = sessionStore oidcenv sid
   tokens <- liftIO $ O.getValidTokens store
@@ -240,29 +259,37 @@ handleLoginSuccess oidcenv oauthCode state (Just cookie) = do
   let authInfo = O.otherClaims idToken
   if emailVerified authInfo
     then do
-      pure $ User { userEmail        = email authInfo
-                  , userFullname     = name authInfo
-                  , userUsername     = preferredUsername authInfo
-                  , userAccessToken  = O.accessToken tokens
-                  , userRefreshToken = O.refreshToken tokens
-                  }
+      let sessionCookie =
+            makeSessionCookieBs (oidcCookieSettings oidcenv)
+              $ Text.encodeUtf8
+              $ O.accessToken tokens
+      throwError err302
+        { errHeaders = [ ("Location"  , maybe "/" getRedirectCookie mredir)
+                       , ("Set-Cookie", setCookieBs sessionCookie)
+                       , expiredCookieHeader "redirect"
+                       , expiredCookieHeader "oidc-session"
+                       ]
+        }
     else forbidden "Please verify your email"
  where
   setType :: O.Tokens AuthInfo -> O.Tokens AuthInfo
   setType = id
 
-handleLoginSuccess _ _ _ Nothing = forbidden "Session cookie missing"
+handleLoginSuccess _ _ _ Nothing _ = forbidden "Session cookie missing"
 
 handleLoginFailed
   :: (MonadError ServerError m)
   => Text -- ^ error
-  -> m User
+  -> m NoContent
 handleLoginFailed = forbidden
 
 appToErr :: ServerError -> Text -> ServerError
 appToErr x msg = x
   { errBody    = Aeson.encode (Message msg (Text.pack $ errReasonPhrase x))
-  , errHeaders = [("Content-Type", "text/json")]
+  , errHeaders = [ ("Content-Type", "text/json")
+                 , expiredCookieHeader "redirect"
+                 , expiredCookieHeader "oidc-session"
+                 ]
   }
 
 forbidden :: (MonadError ServerError m) => Text -> m a
@@ -291,3 +318,32 @@ genRandomBS = do
         block = take blocksize str
         rest  = drop blocksize str
     in  if List.null rest then str else block <> "-" <> readable (i + 1) rest
+
+
+-- * JWT
+
+-- | Discover the JWK keys of the openid connect provider
+discoverJWKs :: URI -> IO Jose.JWKSet
+discoverJWKs uri = do
+  manager <- newManager tlsManagerSettings
+
+  cfgReq  <- requestFromURI uri
+    { uriPath = uriPath uri <> ".well-known/openid-configuration"
+    }
+  cfgResp  <- httpLbs cfgReq manager
+  jwksUri  <- either fail pure $ Aeson.eitherDecode (responseBody cfgResp)
+
+  jwksReq  <- requestFromURI (jwks_uri jwksUri)
+  jwksResp <- httpLbs jwksReq manager
+  either fail pure $ Aeson.eitherDecode (responseBody jwksResp)
+
+generateJwtSettings :: URI -> IO JWTSettings
+generateJwtSettings uri = do
+  myKey <- generateKey
+  jwks  <- discoverJWKs uri
+  pure $ (defaultJWTSettings myKey) { validationKeys = jwks }
+
+newtype JWKSUri = JWKSUri { jwks_uri :: URI } deriving (Eq, Show, Generic)
+
+instance FromJSON JWKSUri
+

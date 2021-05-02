@@ -39,6 +39,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Api
+    Auth
     Context
     OIDC
     Server
@@ -57,7 +58,9 @@ library
     , http-client
     , http-client-tls
     , http-media
+    , jose
     , lucid
+    , microlens
     , monad-logger
     , mtl
     , network-uri
@@ -65,11 +68,13 @@ library
     , random
     , reflex-dom
     , servant
+    , servant-ac-server
     , servant-auth-server
     , servant-rawm
     , servant-server
     , text
     , uri-bytestring
+    , wai
     , wai-extra
     , warp
 

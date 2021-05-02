@@ -23,32 +23,18 @@ import           Control.Monad.Reader           ( asks
                                                 , liftIO
                                                 )
 import           Data.ByteString                ( ByteString )
-import qualified Data.ByteString.Lazy.Char8    as BL
-                                                ( fromStrict )
 import qualified Frontend
 import           Lucid
 import           Lucid.Base                     ( makeAttribute )
-import           Network.HTTP.Media             ( (//)
-                                                , (/:)
-                                                )
 import           Reflex.Dom
 import           Servant                 hiding ( URI(..) )
 import           Servant.RawM                  as RawM
 import           Servant.Router
 import           URI.ByteString
 
+import           Auth                           ( )
 import           Context
 
-data HTML
-
-instance Accept HTML where
-  contentType _ = "text" // "html" /: ("charset", "utf-8")
-
-instance MimeRender HTML ByteString where
-  mimeRender _ = BL.fromStrict
-
-instance MimeRender HTML (Html ()) where
-  mimeRender _ = renderBS
 
 -- | The api
 -- brittany-disable-next-binding
@@ -133,10 +119,3 @@ prerenderApp page = do
            }
       )
       x
-
-instance HasServer View context where
-  type ServerT View m = m (Html ())
-  hoistServerWithContext _ _ nt s = nt s
-
-  route Proxy cnt action =
-    Servant.route (Proxy :: Proxy (Get '[HTML] (Html ()))) cnt action

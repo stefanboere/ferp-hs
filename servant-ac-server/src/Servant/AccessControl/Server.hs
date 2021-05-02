@@ -34,6 +34,7 @@ module Servant.AccessControl.Server
   -- * HasServer instance helpers
   , ForceAuthConstraints
   , routeForceAuth
+  , authCheck
   )
 where
 
@@ -145,7 +146,9 @@ routeForceAuth
 routeForceAuth _ context subserver = route
   (Proxy :: Proxy (AddSetHeadersApi xs api))
   context
-  (fmap (go . forceAuth) subserver `addAuthCheck` authCheck)
+  (              fmap (go . forceAuth) subserver
+  `addAuthCheck` authCheck (Proxy :: Proxy auths) context
+  )
 
  where
   forceAuth :: (v -> Server api) -> AuthResult v -> Server api
@@ -159,11 +162,30 @@ routeForceAuth _ context subserver = route
       }
     )
 
-  authCheck :: DelayedIO (AuthResult v, SetHeaderList '[HSetCookie, HSetCookie])
-  authCheck = withRequest $ \req -> liftIO $ do
-    authResult <- runAuthCheck (runAuths (Proxy :: Proxy auths) context) req
-    cookies    <- makeCookies authResult
-    return (authResult, cookies)
+  hAuth = toWwwAuthenticate (Proxy :: Proxy (Auth' auths v r))
+
+  go
+    :: (new ~ ServerT (AddSetHeadersApi xs api) Handler)
+    => (AuthResult v -> ServerT api Handler)
+    -> (AuthResult v, SetHeaderList xs)
+    -> new
+  go fn (authResult, cookies) = addSetHeaders cookies $ fn authResult
+
+authCheck
+  :: forall auths cntx v
+   . ( AreAuths auths cntx v
+     , ToJWT v
+     , HasContextEntry cntx JWTSettings
+     , HasContextEntry cntx CookieSettings
+     )
+  => Proxy (auths :: [*])
+  -> Context cntx
+  -> DelayedIO (AuthResult v, SetHeaderList '[HSetCookie, HSetCookie])
+authCheck pauth context = withRequest $ \req -> liftIO $ do
+  authResult <- runAuthCheck (runAuths pauth context) req
+  cookies    <- makeCookies authResult
+  return (authResult, cookies)
+ where
 
   jwtSettings :: JWTSettings
   jwtSettings = getContextEntry context
@@ -174,7 +196,6 @@ routeForceAuth _ context subserver = route
   pCookie :: Proxy "Set-Cookie"
   pCookie = Proxy
 
-  hAuth   = toWwwAuthenticate (Proxy :: Proxy (Auth' auths v r))
 
   makeCookies :: AuthResult v -> IO (SetHeaderList '[HSetCookie, HSetCookie])
   makeCookies authResult = do
@@ -187,12 +208,6 @@ routeForceAuth _ context subserver = route
           Just jwt -> return $ SetHeaderCons pCookie (Just jwt) SetHeaderNil
       _ -> return $ SetHeaderCons pCookie Nothing SetHeaderNil
 
-  go
-    :: (new ~ ServerT (AddSetHeadersApi xs api) Handler)
-    => (AuthResult v -> ServerT api Handler)
-    -> (AuthResult v, SetHeaderList xs)
-    -> new
-  go fn (authResult, cookies) = addSetHeaders cookies $ fn authResult
 
 instance HasEndpoint (sub :: *) => HasEndpoint (Auth' t a r :> sub) where
   getEndpoint _ = getEndpoint (Proxy :: Proxy sub)

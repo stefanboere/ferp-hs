@@ -24,8 +24,8 @@ module Server
   )
 where
 
-import           Backend.Logger
 import qualified Backend.DevelMain             as DevelMain
+import           Backend.Logger
 import           Control.Exception              ( bracket )
 import           Control.Monad.Reader           ( ReaderT(..)
                                                 , asks
@@ -59,15 +59,11 @@ server :: AppServer Api
 server = Api.server :<|> identityServer
 
 identityServer :: AppServer IdentityApi
-identityServer = handleLogin' :<|> handleLoggedIn' :<|> handleLoginFailed
+identityServer = handleLoggedIn' :<|> handleLoginFailed
  where
-  handleLogin' = do
+  handleLoggedIn' a b c d = do
     env <- asks getOIDC
-    handleLogin env
-
-  handleLoggedIn' a b c = do
-    env <- asks getOIDC
-    handleLoginSuccess env a b c
+    handleLoginSuccess env a b c d
 
 -- | Registers the wai metrics and does the database migrations
 initialize :: AppConfig -> Application -> IO Application
@@ -81,7 +77,7 @@ initialize cfg application = do
     application
 
 
-type AuthContext = '[SAS.JWTSettings, SAS.CookieSettings]
+type AuthContext = '[OIDCEnv, SAS.JWTSettings, SAS.CookieSettings]
 
 -- | Bootstrap a wai app
 serveApp :: AppConfig -> Application
@@ -97,12 +93,10 @@ serveApp cfg =
 -- | Create an auth context
 authContext :: AppConfig -> Context AuthContext
 authContext cfg =
-  let jwtCtx    = getJwtSettings cfg
-      cookieCtx = SAS.defaultCookieSettings
-        { SAS.cookieXsrfSetting = Just $ def { SAS.xsrfExcludeGet = True }
-        , SAS.cookieIsSecure    = SAS.NotSecure
-        } -- cookie config
-  in  jwtCtx :. cookieCtx :. EmptyContext -- Context
+  let oidcCtx   = getOIDC cfg
+      jwtCtx    = getJwtSettings cfg
+      cookieCtx = oidcCookieSettings oidcCtx
+  in  oidcCtx :. jwtCtx :. cookieCtx :. EmptyContext -- Context
 
 
 -- | The actual web app
@@ -142,12 +136,12 @@ acquireConfig = do
   oidc                    <- initOIDC (configOidc settings)
 
   -- Generate JWT key
-  myKey                   <- SAS.generateKey
+  jwt <- generateJwtSettings (oidcProviderUri $ configOidc settings)
 
   pure
     ( AppConfig { getConfig      = settings
                 , getLogger      = logger
-                , getJwtSettings = SAS.defaultJWTSettings myKey  -- jwt Config
+                , getJwtSettings = jwt
                 , getOIDC        = oidc
                 }
     , cleanupLogger
