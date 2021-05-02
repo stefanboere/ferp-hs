@@ -105,6 +105,7 @@ library
 
   exposed-modules:
     Api
+    Auth
     Context
     Database.Beam.Named
     Database.Beam.TH

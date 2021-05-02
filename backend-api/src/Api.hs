@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -24,7 +23,6 @@ import           Database.Beam
 import           Database.Beam.API
 import           Database.Beam.Postgres         ( Postgres )
 import           Servant
-import           Servant.AccessControl.Server
 import           Servant.Crud.Server.API
 import           Servant.Crud.Server.QueryOperator
                                          hiding ( ParamKind(..) )
@@ -37,7 +35,7 @@ import           Servant.Server.Generic         ( AsServerT )
 
 import           Servant.Query
 
-import           Common.Auth
+import           Auth
 import           Context
 import           Schema
 
