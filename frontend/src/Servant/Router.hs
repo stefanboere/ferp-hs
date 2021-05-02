@@ -28,6 +28,7 @@ import qualified Data.Text                     as T
 import           Data.Text.Encoding
 import           GHC.TypeLits
 import           Network.HTTP.Types             ( decodePathSegments )
+import           Servant.AccessControl
 import           Servant.API             hiding ( URI(..) )
 import           URI.ByteString
 import           Web.HttpApiData
@@ -128,6 +129,13 @@ instance (HasRouter sublayout, KnownSymbol sym)
   hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f =
     RQueryFlag (Proxy :: Proxy sym) (route (Proxy :: Proxy sublayout) m a . f)
+
+instance (HasRouter sublayout)
+         => HasRouter (Auth' auths v r :> sublayout) where
+  type RouteT (Auth' auths v r :> sublayout) m a = RouteT sublayout m a
+  constHandler _ = constHandler (Proxy :: Proxy sublayout)
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt s
+  route _ m a page = route (Proxy :: Proxy sublayout) m a page
 
 instance (HasRouter sublayout, KnownSymbol path)
          => HasRouter (path :> sublayout) where

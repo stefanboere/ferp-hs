@@ -63,6 +63,7 @@ library
     Frontend.Container
     Frontend.Core
     Frontend.Input
+    Frontend.Protected
     Nordtheme
     Reflex.Markdown
 
@@ -92,6 +93,7 @@ library
     , reflex-dom-contrib
     , reflex-dom-pandoc
     , servant
+    , servant-ac
     , text
     , time
     , uri-bytestring

@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 {-|
 Module: Servant.AccessControl
 Description: Types for inline, type level, access control rules
@@ -130,6 +129,10 @@ instance (ToWwwAuthenticate x, ToWwwAuthenticate (Auth' (y ': xs) v r))
    where
     mx  = toWwwAuthenticate (Proxy :: Proxy x)
     mxs = toWwwAuthenticate (Proxy :: Proxy (Auth' (y ': xs) v r))
+
+instance HasLink sub => HasLink (Auth' auths v r :> sub)  where
+  type MkLink (Auth' auths v r :> sub) a = MkLink sub a
+  toLink toA _ = toLink toA (Proxy :: Proxy sub)
 
 type family HasJWT xs :: Constraint where
   HasJWT (JWT ': xs) = ()

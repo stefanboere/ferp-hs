@@ -45,6 +45,7 @@ import           Components
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
+import           Frontend.Protected
 import           Reflex.Markdown
 
 
@@ -131,6 +132,7 @@ mainPage setRouteExtEv = do
 type Api = InputApi
     :<|> CoreApi
     :<|> ContainerApi
+    :<|> ProtectedApi
 
 api :: Proxy Api
 api = Proxy
@@ -139,9 +141,14 @@ sideNav
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
-sideNav dynUri = leftmost
-  <$> sequence [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri]
+sideNav dynUri = leftmost <$> sequence
+  [ coreLinks dynUri
+  , inputLinks dynUri
+  , containerLinks dynUri
+  , protectedLinks dynUri
+  ]
 
 handler :: WidgetConstraint js t m => RouteT Api m (Event t URI)
-handler = inputHandler :<|> coreHandler :<|> containerHandler
+handler =
+  inputHandler :<|> coreHandler :<|> containerHandler :<|> protectedHandler
 
