@@ -94,5 +94,17 @@
         "type": "tarball",
         "url": "https://github.com/reflex-frp/reflex-platform/archive/f019863c21ee85498e6a6e0072e617b2462b70ed.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "servant-reflex": {
+        "branch": "master",
+        "description": "Generate reflex client functions for querying a servant API",
+        "homepage": null,
+        "owner": "imalsogreg",
+        "repo": "servant-reflex",
+        "rev": "20e2621cc2eca5fe38f8a01c7a159b0b9be524ea",
+        "sha256": "0aqyk04yg39xj40aj86hr6gwbzvj6i2fxi8zznmfl5fay8l96b4g",
+        "type": "tarball",
+        "url": "https://github.com/imalsogreg/servant-reflex/archive/20e2621cc2eca5fe38f8a01c7a159b0b9be524ea.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

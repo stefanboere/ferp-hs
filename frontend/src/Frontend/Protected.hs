@@ -18,13 +18,18 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
+import           Servant.Crud.API               ( View'(..)
+                                                , Page(..)
+                                                )
+import           Servant.Common.Req             ( reqSuccess )
 import           Servant.Links           hiding ( URI(..) )
 import           URI.ByteString                 ( URI )
-import           Common.Auth
 
 import           Servant.Router
 
+import           Common.Auth
 import           Components
+import           Frontend.Api
 
 
 type ProtectedApi = Auth Everyone :> "user" :> "self" :> View
@@ -47,9 +52,21 @@ protectedHandler
   :: WidgetConstraint js t m => RouteT ProtectedApi m (Event t URI)
 protectedHandler = protectedSelf
 
-protectedSelf :: (DomBuilder t m) => m (Event t URI)
+protectedSelf
+  :: forall js t m
+   . (DomBuilder t m, PostBuild t m, MonadHold t m, Prerender js t m)
+  => m (Event t URI)
 protectedSelf = do
   el "h1" $ text "Current User"
 
+  getBtn <- btn def (text "Fetch blogs")
+
+  rEv <- prerender (pure never) $ fmapMaybe reqSuccess <$> getBlogs' vw getBtn
+  r <- holdDyn Nothing (Just . getResponse <$> switchDyn rEv)
+  display r
+
   pure never
+  where vw = mempty { page = Page Nothing (Just 10) }
+
+
 

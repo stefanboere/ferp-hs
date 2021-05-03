@@ -60,6 +60,7 @@ library
     Components.Tag
     Components.Timeline
     DevelMain
+    Frontend.Api
     Frontend.Container
     Frontend.Core
     Frontend.Input
@@ -94,6 +95,8 @@ library
     , reflex-dom-pandoc
     , servant
     , servant-ac
+    , servant-crud
+    , servant-reflex
     , text
     , time
     , uri-bytestring

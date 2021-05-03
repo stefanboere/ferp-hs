@@ -23,6 +23,14 @@ module Servant.Crud.API
   , View'(..)
   , Page(..)
   , CSV
+  , TotalHdr
+  , LinkHdr
+  , LocationHdr
+  , GetListHeaders
+  -- * Re-exports
+  , Link
+  , TotalCount
+  , PathInfo
   )
 where
 
@@ -44,16 +52,16 @@ import           Servant.Crud.QueryObject       ( FromQueryText(..)
 
 data CSV
 
+type TotalHdr = Header "X-Total-Count" TotalCount
+
+type LinkHdr = Header "Link" Link
+
+type LocationHdr = Header "Location" PathInfo
+
+type GetListHeaders a = Headers '[TotalHdr, LinkHdr, LinkHdr] [a]
+
 -- | 'GET' which returns a JSON array of type @a@ with some extra headers
-type GetList' a
-  = Get
-      '[JSON, CSV]
-      ( Headers
-          '[Header "X-Total-Count" TotalCount, Header "Link" Link, Header
-            "Link"
-            Link]
-          [a]
-      )
+type GetList' a = Get '[JSON, CSV] (GetListHeaders a)
 
 -- | Get with return type JSON
 type Get' = Get '[JSON]
@@ -65,7 +73,7 @@ type Req' = ReqBody '[JSON]
 type ReqCSV' = ReqBody '[JSON, CSV]
 
 -- | Empty response with status 201 with the link of the just created resource in the Location header
-type Post_' = PostCreated '[JSON] (Headers '[Header "Location" PathInfo] ())
+type Post_' = PostCreated '[JSON] (Headers '[LocationHdr] ())
 
 -- | 'DELETE' status 204
 type Delete_' = DeleteNoContent '[JSON] ()

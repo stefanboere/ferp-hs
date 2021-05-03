@@ -5,6 +5,8 @@ module Common.Api
   , BlogApi'
   , ClientApi
   , clientApi
+  , Be
+  , View
   )
 where
 
@@ -48,7 +50,9 @@ type BlogApi' be
       (GetList be BlogT)
 
 
-type ClientApi = Api' (MockSqlBackend SqlSyntaxBuilder)
+type ClientApi = Api' Be
+
+type Be = MockSqlBackend SqlSyntaxBuilder
 
 clientApi :: Proxy ClientApi
 clientApi = Proxy
