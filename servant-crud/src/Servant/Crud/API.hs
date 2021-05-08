@@ -73,16 +73,16 @@ type Req' = ReqBody '[JSON]
 type ReqCSV' = ReqBody '[JSON, CSV]
 
 -- | Empty response with status 201 with the link of the just created resource in the Location header
-type Post_' = PostCreated '[JSON] (Headers '[LocationHdr] ())
+type Post_' = PostCreated '[JSON] (Headers '[LocationHdr] NoContent)
 
 -- | 'DELETE' status 204
-type Delete_' = DeleteNoContent '[JSON] ()
+type Delete_' = DeleteNoContent '[JSON] NoContent
 
 -- | 'PUT' status 204
-type Put_' = PutNoContent '[JSON] ()
+type Put_' = PutNoContent '[JSON] NoContent
 
 -- | 'PATCH' status 204
-type Patch_' = PatchNoContent '[JSON] ()
+type Patch_' = PatchNoContent '[JSON] NoContent
 
 -- | All user supplied info about the results they want
 data View' c r filterType = View

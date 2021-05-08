@@ -18,9 +18,6 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
-import           Servant.Crud.API               ( View'(..)
-                                                , Page(..)
-                                                )
 import           Servant.Links           hiding ( URI(..) )
 import           URI.ByteString                 ( URI )
 
@@ -64,15 +61,22 @@ protectedSelf
 protectedSelf = do
   el "h1" $ text "Current User"
 
-  getBtn <- btn def (text "Fetch blogs")
+  getBtn   <- btn def (text "Fetch blogs")
 
-  rEv    <- orAlert
-    $ getBlog (constDyn $ Token "") (constDyn . pure $ BlogId 1) getBtn
-  r <- holdDyn Nothing (Just <$> rEv)
+  patchBtn <- btn def (text "Patch blogs")
+
+  rEv      <- orAlert $ getBlog (constDyn . pure $ BlogId 1) getBtn
+  r        <- holdDyn Nothing (Just <$> rEv)
   display r
 
+  _ <- orAlert $ patchBlog (constDyn . pure $ BlogId 1)
+                           (constDyn . pure $ blogpatch)
+                           patchBtn
+
   pure never
---  where vw = mempty { page = Page Nothing (Just 10) }
+ where
+  blogpatch =
+    mempty { blogDescription = pure "This is my first blog (edited)" }
 
-
+--  vw = mempty { page = Page Nothing (Just 10) }
 

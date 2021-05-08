@@ -124,19 +124,21 @@ defaultCrud
   -> CrudRoutes t t2 (AsServerT m1)
 defaultCrud runDB db coerce coll = CrudRoutes
   { _get        = \key -> runDB (runLookupIn key coll) >>= notFound
-  , _put        = \key -> ifInView key . runSaveWithId db key
-  , _patch      = \key -> ifInView key . runPatch db key
-  , _delete     = \key -> ifInView key $ runDeleteKey db key
+  , _put        = \key -> ifInView_ key . runSaveWithId db key
+  , _patch      = \key -> ifInView_ key . runPatch db key
+  , _delete     = \key -> ifInView_ key $ runDeleteKey db key
   , _post       = \path x ->
                     hLocation' path <$> (runDB (runInsertOne db x) >>= insertErr)
   , _getList    = \path view ->
                     hTotalLink' path view
                       <$> runDB (runCountInView view coll)
                       <*> runDB (runSetView view coll)
-  , _deleteList = runDB . runDeleteKeys db
+  , _deleteList = noc . runDB . runDeleteKeys db
   , _postList   = runDB . runInsertMany db
   }
  where
+  noc = fmap (const NoContent)
+  ifInView_ key = noc . ifInView key
   ifInView key fn = do
     found <- runDB $ runIsInView (coerce key) coll
     unless found throwNotFound

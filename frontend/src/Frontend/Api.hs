@@ -25,14 +25,19 @@ module Frontend.Api
   )
 where
 
+import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
+import qualified Data.Map                      as Map
 import           Data.Proxy
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import qualified Data.Text.Encoding            as Text
 import           GHC.TypeLits                   ( KnownSymbol
                                                 , symbolVal
                                                 )
+import           GHCJS.DOM                     as DOM
+import           GHCJS.DOM.Document            as DOM
+import           GHCJS.DOM.Window              as DOM
+import           Language.Javascript.JSaddle    ( MonadJSM )
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
@@ -57,12 +62,9 @@ import           Components.Alert
 import           Components.Class
 
 instance (Reflex t, HasClient t m api tag) => HasClient t m (Auth' auths a v :> api) tag where
-  type Client t m (Auth' auths a v :> api) tag
-    = Dynamic t Token -> Client t m api tag
-  clientWithRouteAndResultHandler Proxy q t req burl opts wrp dynTok =
-    clientWithRouteAndResultHandler (Proxy :: Proxy api) q t req' burl opts wrp
-   where
-    req' = Servant.Reflex.addHeader "Authorization" (Right <$> dynTok) req
+  type Client t m (Auth' auths a v :> api) tag = Client t m api tag
+  clientWithRouteAndResultHandler Proxy q t req burl opts wrp =
+    clientWithRouteAndResultHandler (Proxy :: Proxy api) q t req burl opts wrp
 
 instance (HasClient t m api tag) => HasClient t m (PathInfo :> api) tag where
   type Client t m (PathInfo :> api) tag = Client t m api tag
@@ -83,53 +85,42 @@ instance (Reflex t, HasClient t m api tag, ToQueryText a, KnownSymbol sym)
 
     paramname = Text.pack $ symbolVal (Proxy :: Proxy sym)
 
-instance ToHttpApiData Token where
-  toHeader   = ("Bearer " <>) . getToken
-  toUrlPiece = Text.decodeUtf8 . toHeader
-
 -- * BLOGS
 getBlog
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text BlogId)
+  => Dynamic t (Either Text BlogId)
   -> Event t ()
   -> m (Event t (ReqResult () Blog))
 putBlog
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text BlogId)
+  => Dynamic t (Either Text BlogId)
   -> Dynamic t (Either Text Blog)
   -> Event t ()
-  -> m (Event t (ReqResult () ()))
+  -> m (Event t (ReqResult () NoContent))
 patchBlog
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text BlogId)
+  => Dynamic t (Either Text BlogId)
   -> Dynamic t (Either Text BlogPatch)
   -> Event t ()
-  -> m (Event t (ReqResult () ()))
+  -> m (Event t (ReqResult () NoContent))
 deleteBlog
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text BlogId)
+  => Dynamic t (Either Text BlogId)
   -> Event t ()
-  -> m (Event t (ReqResult () ()))
+  -> m (Event t (ReqResult () NoContent))
 deleteBlogs
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text [BlogId])
+  => Dynamic t (Either Text [BlogId])
   -> Event t ()
-  -> m (Event t (ReqResult () ()))
+  -> m (Event t (ReqResult () NoContent))
 postBlog
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text Blog)
+  => Dynamic t (Either Text Blog)
   -> Event t ()
-  -> m (Event t (ReqResult () (Headers '[LocationHdr] ())))
+  -> m (Event t (ReqResult () (Headers '[LocationHdr] NoContent)))
 postBlogs
   :: SupportsServantReflex t m
-  => Dynamic t Token
-  -> Dynamic t (Either Text [Blog])
+  => Dynamic t (Either Text [Blog])
   -> Event t ()
   -> m (Event t (ReqResult () [BlogId]))
 getBlogs
@@ -138,8 +129,9 @@ getBlogs
   -> Event t ()
   -> m (Event t (ReqResult () (GetListHeaders Blog)))
 getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
-  = client clientApi Proxy (Proxy :: Proxy ()) (constDyn url)
-  where url = BasePath "/api"
+  = clientWithOpts clientApi Proxy (Proxy :: Proxy ()) (constDyn url)
+    $ ClientOptions (withCredentials (const (pure True)) >=> withXsrfHeader)
+  where url = BaseFullUrl Http "localhost" 3005 ""
 
 orAlert
   :: ( Prerender js t m
@@ -155,4 +147,25 @@ orAlert reqEv = do
   let (errEv, rEv) = fanReqResult $ switchDyn resultEv
   alerts def { _alertConfig_status = Danger } errEv
   pure rEv
+
+withXsrfHeader :: MonadJSM m => XhrRequest a -> m (XhrRequest a)
+withXsrfHeader r@(XhrRequest _ _ cfg) = do
+  cookie <- findCookie "XSRF-TOKEN"
+  let addXsrf = maybe id (Map.insert "X-XSRF-TOKEN") cookie
+  let c' = cfg
+        { _xhrRequestConfig_headers = addXsrf (_xhrRequestConfig_headers cfg)
+        }
+  pure $ r { _xhrRequest_config = c' }
+
+findCookie :: MonadJSM m => Text -> m (Maybe Text)
+findCookie x = do
+  window  <- DOM.currentWindowUnchecked
+  doc     <- DOM.getDocument window
+  cookies <- DOM.getCookie doc
+  let cs =
+        fmap (fmap (Text.dropWhile (== '=')) . Text.span (/= '=') . Text.strip)
+          . Text.splitOn ";"
+          $ cookies
+
+  pure (lookup x cs)
 

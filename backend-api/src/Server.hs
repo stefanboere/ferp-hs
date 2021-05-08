@@ -120,7 +120,7 @@ initialize cfg application = do
 
  where
   policy = simpleCorsResourcePolicy
-    { corsRequestHeaders = ["content-type", "Authorization"]
+    { corsRequestHeaders = ["content-type", "Authorization", "X-XSRF-TOKEN"]
     , corsExposedHeaders = Just ["Link", "Location", "X-Total-Count"]
     , corsMethods        = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
     , corsOrigins        = Just

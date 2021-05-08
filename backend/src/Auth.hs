@@ -94,13 +94,13 @@ routeRedirect
 routeRedirect _ context subserver = route
   (Proxy :: Proxy (AddSetHeadersApi xs api))
   context
-  (fmap (go . forceAuth) subserver `addAuthCheck` combinedCheck)
+  (fmap (go . forceAuth') subserver `addAuthCheck` combinedCheck)
 
  where
-  forceAuth :: Server api -> Either OidcResult v -> Server api
-  forceAuth server (Right v) =
+  forceAuth' :: Server api -> Either OidcResult v -> Server api
+  forceAuth' server (Right v) =
     if hasAccess (Proxy :: Proxy r) v then server else throwAll err403
-  forceAuth _ (Left oidcR) = throwAll err302
+  forceAuth' _ (Left oidcR) = throwAll err302
     { errHeaders = [ ("Location"  , oidcResult_location oidcR)
                    , ("Set-Cookie", setCookieBs (oidcResult_session oidcR))
                    , ("Set-Cookie", setCookieBs (oidcResult_redirect oidcR))
