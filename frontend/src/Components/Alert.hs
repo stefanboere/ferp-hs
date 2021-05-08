@@ -1,8 +1,10 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Components.Alert
   ( AlertConfig(..)
   , alert
+  , alerts
   , alertAppLevel
   , alertStyle
   , closeBtn
@@ -12,7 +14,9 @@ where
 import           Prelude                 hiding ( rem )
 
 import           Clay                    hiding ( icon )
+import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
+import qualified Data.Map                      as Map
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -192,6 +196,25 @@ alert AlertConfig {..} msg actions = elClass "div" classStr $ do
     , pack . show $ _alertConfig_size
     , pack . show $ _alertConfig_status
     ]
+
+alerts
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => AlertConfig
+  -> Event t Text
+  -> m ()
+alerts cfg addMsg = do
+  rec msgs <- foldDyn ($) (mempty :: Map.Map Integer Text)
+        $ leftmost [appnd <$> addMsg, delete <$> rmEv]
+      rmEv <- listViewWithKey msgs
+        $ \_ dynMsg -> snd <$> alert cfg dynMsg (pure ())
+
+  pure ()
+ where
+  appnd msg m =
+    let k = maybe 0 ((+ 1) . fst) (Map.lookupMax m) in Map.insert k msg m
+
+  delete toDel m = Map.difference m toDel
+
 
 alertContent
   :: (PostBuild t m, DomBuilder t m) => Status -> Dynamic t Text -> m ()

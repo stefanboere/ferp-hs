@@ -21,7 +21,6 @@ import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( View'(..)
                                                 , Page(..)
                                                 )
-import           Servant.Common.Req             ( reqSuccess )
 import           Servant.Links           hiding ( URI(..) )
 import           URI.ByteString                 ( URI )
 
@@ -54,15 +53,20 @@ protectedHandler = protectedSelf
 
 protectedSelf
   :: forall js t m
-   . (DomBuilder t m, PostBuild t m, MonadHold t m, Prerender js t m)
+   . ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , Prerender js t m
+     , MonadFix m
+     )
   => m (Event t URI)
 protectedSelf = do
   el "h1" $ text "Current User"
 
   getBtn <- btn def (text "Fetch blogs")
 
-  rEv <- prerender (pure never) $ fmapMaybe reqSuccess <$> getBlogs' vw getBtn
-  r <- holdDyn Nothing (Just . getResponse <$> switchDyn rEv)
+  rEv    <- orAlert $ getBlogs vw getBtn
+  r      <- holdDyn Nothing (Just . getResponse <$> rEv)
   display r
 
   pure never

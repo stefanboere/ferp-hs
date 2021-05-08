@@ -11,16 +11,21 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Frontend.Api
   ( getBlog
-  , putBlog'
-  , patchBlog'
-  , deleteBlog'
-  , deleteBlogs'
-  , postBlog'
-  , postBlogs'
-  , getBlogs'
+  , putBlog
+  , patchBlog
+  , deleteBlog
+  , deleteBlogs
+  , postBlog
+  , postBlogs
+  , getBlogs
+  -- * Utils
+  , orAlert
+  -- * Re-exports
+  , Token(..)
   )
 where
 
+import           Control.Monad.Fix              ( MonadFix )
 import           Data.Proxy
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
@@ -32,10 +37,13 @@ import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
                                                 )
+import qualified Reflex.Dom.Prerender          as Prerender
+                                                ( Client )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Auth'
                                                 , Token(..)
                                                 )
+import           Servant.Common.Req             ( fanReqResult )
 import           Servant.Crud.API
 import           Servant.Crud.QueryObject       ( QueryObject
                                                 , ToQueryText(..)
@@ -45,6 +53,8 @@ import           Servant.Reflex
 
 import           Common.Api
 import           Common.Schema
+import           Components.Alert
+import           Components.Class
 
 instance (Reflex t, HasClient t m api tag) => HasClient t m (Auth' auths a v :> api) tag where
   type Client t m (Auth' auths a v :> api) tag
@@ -83,61 +93,68 @@ instance ToHttpApiData Token where
 getBlog
   :: SupportsServantReflex t m
   => Dynamic t Token
-  -> Dynamic t BlogId
-  -> Event t ()
-  -> m (Event t Blog)
-getBlog t x ev = fmapMaybe reqSuccess <$> getBlog' t (Right <$> x) ev
-
-getBlog'
-  :: SupportsServantReflex t m
-  => Dynamic t Token
   -> Dynamic t (Either Text BlogId)
   -> Event t ()
   -> m (Event t (ReqResult () Blog))
-putBlog'
+putBlog
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text BlogId)
   -> Dynamic t (Either Text Blog)
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-patchBlog'
+patchBlog
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text BlogId)
   -> Dynamic t (Either Text BlogPatch)
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-deleteBlog'
+deleteBlog
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text BlogId)
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-deleteBlogs'
+deleteBlogs
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text [BlogId])
   -> Event t ()
   -> m (Event t (ReqResult () ()))
-postBlog'
+postBlog
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text Blog)
   -> Event t ()
   -> m (Event t (ReqResult () (Headers '[LocationHdr] ())))
-postBlogs'
+postBlogs
   :: SupportsServantReflex t m
   => Dynamic t Token
   -> Dynamic t (Either Text [Blog])
   -> Event t ()
   -> m (Event t (ReqResult () [BlogId]))
-getBlogs'
+getBlogs
   :: SupportsServantReflex t m
   => View Be BlogT
   -> Event t ()
   -> m (Event t (ReqResult () (GetListHeaders Blog)))
-getBlog' :<|> putBlog' :<|> patchBlog' :<|> deleteBlog' :<|> deleteBlogs' :<|> postBlog' :<|> postBlogs' :<|> getBlogs'
+getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
   = client clientApi Proxy (Proxy :: Proxy ()) (constDyn url)
   where url = BaseFullUrl Http "localhost" 3005 ""
+
+orAlert
+  :: ( Prerender js t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     )
+  => Prerender.Client m (Event t (ReqResult tag a))
+  -> m (Event t a)
+orAlert reqEv = do
+  resultEv <- prerender (pure never) reqEv
+  let (errEv, rEv) = fanReqResult $ switchDyn resultEv
+  alerts def { _alertConfig_status = Danger } errEv
+  pure rEv
 
