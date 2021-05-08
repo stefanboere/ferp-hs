@@ -71,17 +71,15 @@ instance (HasClient t m api tag) => HasClient t m (PathInfo :> api) tag where
 
 instance (Reflex t, HasClient t m api tag, ToQueryText a, KnownSymbol sym)
     => HasClient t m (QueryObject sym a :> api) tag where
-  type Client t m (QueryObject sym a :> api) tag = a -> Client t m api tag
+  type Client t m (QueryObject sym a :> api) tag
+    = Dynamic t (Either Text a) -> Client t m api tag
 
   clientWithRouteAndResultHandler Proxy q t req burl opts wrp param =
     clientWithRouteAndResultHandler (Proxy :: Proxy api) q t req' burl opts wrp
    where
-    req' = req { qParams = ps ++ qParams req }
+    req'      = req { qParams = ps : qParams req }
 
-    ps   = fmap toQueryPart <$> toQueryText paramname param
-
-    toQueryPart Nothing = QueryPartFlag (constDyn True)
-    toQueryPart x       = QueryPartParam (constDyn (Right x))
+    ps        = ("", QueryPartObject $ fmap (toQueryText paramname) <$> param)
 
     paramname = Text.pack $ symbolVal (Proxy :: Proxy sym)
 
@@ -136,7 +134,7 @@ postBlogs
   -> m (Event t (ReqResult () [BlogId]))
 getBlogs
   :: SupportsServantReflex t m
-  => View Be BlogT
+  => Dynamic t (Either Text (View Be BlogT))
   -> Event t ()
   -> m (Event t (ReqResult () (GetListHeaders Blog)))
 getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs

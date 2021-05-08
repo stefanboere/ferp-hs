@@ -56,7 +56,7 @@ let
           self.callCabal2nix "servant-reflex" sources.servant-reflex { };
 
         reflex-dom-pandoc =
-          self.callCabal2nix "reflex-dom-pandoc" ../reflex-dom-pandoc { };
+          self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };
         servant-aeson-specs =
           dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
         servant-quickcheck =

@@ -83,6 +83,12 @@
         "url": "https://github.com/reflex-frp/reflex-dom-contrib/archive/09d1223a3eadda768a6701410b4532fda8c7033d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "reflex-dom-pandoc": {
+        "type": "git",
+        "repo": "/home/stefan/Projects/reflex-dom-pandoc",
+        "branch": "master",
+        "rev": "6b7933d2932aba61e1d94e7411c71c6bcfd349bc"
+    },
     "reflex-platform": {
         "branch": "develop",
         "description": "A curated package set and set of tools that let you build Haskell packages so they can run on a variety of platforms. reflex-platform is built on top of the nix package manager.",
@@ -96,15 +102,9 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "servant-reflex": {
+        "type": "git",
+        "repo": "/home/stefan/Projects/servant-reflex",
         "branch": "master",
-        "description": "Generate reflex client functions for querying a servant API",
-        "homepage": null,
-        "owner": "imalsogreg",
-        "repo": "servant-reflex",
-        "rev": "20e2621cc2eca5fe38f8a01c7a159b0b9be524ea",
-        "sha256": "0aqyk04yg39xj40aj86hr6gwbzvj6i2fxi8zznmfl5fay8l96b4g",
-        "type": "tarball",
-        "url": "https://github.com/imalsogreg/servant-reflex/archive/20e2621cc2eca5fe38f8a01c7a159b0b9be524ea.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+        "rev": "7406be93f3c0c5ba5ac808260cf617949d130bc2"
     }
 }

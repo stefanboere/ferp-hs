@@ -65,7 +65,7 @@ protectedSelf = do
 
   getBtn <- btn def (text "Fetch blogs")
 
-  rEv    <- orAlert $ getBlogs vw getBtn
+  rEv    <- orAlert $ getBlogs (constDyn . pure $ vw) getBtn
   r      <- holdDyn Nothing (Just . getResponse <$> rEv)
   display r
 
