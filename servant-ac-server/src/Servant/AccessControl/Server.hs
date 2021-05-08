@@ -35,6 +35,7 @@ module Servant.AccessControl.Server
   , ForceAuthConstraints
   , routeForceAuth
   , authCheck
+  , forceAuth
   )
 where
 
@@ -143,26 +144,14 @@ routeForceAuth
   -> Context ctxs
   -> Delayed env (Server (Auth' auths v r :> api))
   -> Router env
-routeForceAuth _ context subserver = route
+routeForceAuth api context subserver = route
   (Proxy :: Proxy (AddSetHeadersApi xs api))
   context
-  (              fmap (go . forceAuth) subserver
+  (              fmap (go . forceAuth api) subserver
   `addAuthCheck` authCheck (Proxy :: Proxy auths) context
   )
 
  where
-  forceAuth :: (v -> Server api) -> AuthResult v -> Server api
-  forceAuth server (Authenticated v) =
-    if hasAccess (Proxy :: Proxy r) v then server v else throwAll err403
-  forceAuth _ _ = throwAll
-    (err401
-      { errHeaders = maybe []
-                           (\auth -> [("WWW-Authenticate", fromString auth)])
-                           hAuth
-      }
-    )
-
-  hAuth = toWwwAuthenticate (Proxy :: Proxy (Auth' auths v r))
 
   go
     :: (new ~ ServerT (AddSetHeadersApi xs api) Handler)
@@ -170,6 +159,28 @@ routeForceAuth _ context subserver = route
     -> (AuthResult v, SetHeaderList xs)
     -> new
   go fn (authResult, cookies) = addSetHeaders cookies $ fn authResult
+
+
+forceAuth
+  :: forall auths v r api
+   . ( ToWwwAuthenticate (Auth' auths v r)
+     , ThrowAll (ServerT api Handler)
+     , HasAccessControl v r
+     )
+  => Proxy (Auth' auths v r :> api)
+  -> (v -> Server api)
+  -> AuthResult v
+  -> Server api
+forceAuth _ server (Authenticated v) =
+  if hasAccess (Proxy :: Proxy r) v then server v else throwAll err403
+forceAuth _ _ _ = throwAll
+  (err401
+    { errHeaders = maybe []
+                         (\auth -> [("WWW-Authenticate", fromString auth)])
+                         hAuth
+    }
+  )
+  where hAuth = toWwwAuthenticate (Proxy :: Proxy (Auth' auths v r))
 
 authCheck
   :: forall auths cntx v

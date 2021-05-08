@@ -139,7 +139,7 @@ getBlogs
   -> m (Event t (ReqResult () (GetListHeaders Blog)))
 getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
   = client clientApi Proxy (Proxy :: Proxy ()) (constDyn url)
-  where url = BaseFullUrl Http "localhost" 3005 ""
+  where url = BasePath "/api"
 
 orAlert
   :: ( Prerender js t m

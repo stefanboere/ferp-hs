@@ -20,6 +20,8 @@ import           Lens.Micro                     ( (^.) )
 import           Servant
 import           Servant.AccessControl.Server
 import qualified Servant.Auth.Server           as SAS
+import           Servant.Server.Internal.Delayed
+                                                ( addAuthCheck )
 
 import           Common.Auth
 
@@ -31,7 +33,24 @@ instance (ForceAuthConstraints xs api ctxs auths v r)
   hoistServerWithContext _ pc nt s =
     hoistServerWithContext (Proxy :: Proxy api) pc nt . s
 
-  route = routeForceAuth
+  route api context subserver = route
+    (Proxy :: Proxy (AddSetHeadersApi xs api))
+    context
+    (              fmap (go . forceAuth api) subserver
+    `addAuthCheck` authCheck (Proxy :: Proxy auths) context
+    )
+
+   where
+    go
+      :: (new ~ ServerT (AddSetHeadersApi xs api) Handler)
+      => (SAS.AuthResult v -> ServerT api Handler)
+      -> (SAS.AuthResult v, SetHeaderList xs)
+      -> new
+    go fn (authResult, SetHeaderCons p x xs) =
+      addSetHeaders (SetHeaderCons p (clear x) xs) $ fn authResult
+
+    clear :: Maybe a -> Maybe a
+    clear _ = Nothing
 
 
 instance SAS.FromJWT AuthUser where

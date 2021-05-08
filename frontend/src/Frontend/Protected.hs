@@ -27,6 +27,7 @@ import           URI.ByteString                 ( URI )
 import           Servant.Router
 
 import           Common.Auth
+import           Common.Schema
 import           Components
 import           Frontend.Api
 
@@ -65,12 +66,13 @@ protectedSelf = do
 
   getBtn <- btn def (text "Fetch blogs")
 
-  rEv    <- orAlert $ getBlogs (constDyn . pure $ vw) getBtn
-  r      <- holdDyn Nothing (Just . getResponse <$> rEv)
+  rEv    <- orAlert
+    $ getBlog (constDyn $ Token "") (constDyn . pure $ BlogId 1) getBtn
+  r <- holdDyn Nothing (Just <$> rEv)
   display r
 
   pure never
-  where vw = mempty { page = Page Nothing (Just 10) }
+--  where vw = mempty { page = Page Nothing (Just 10) }
 
 
 
