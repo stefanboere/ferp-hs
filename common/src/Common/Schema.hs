@@ -9,7 +9,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-missing-export-lists -Wno-orphans #-}
-module Common.Schema where
+module Common.Schema
+  ( module Common.Schema
+   -- * Re-exports
+  , makePatch
+  )
+where
 
 import           Data.Int                       ( Int64 )
 import           Data.Text                      ( Text )
@@ -19,6 +24,7 @@ import           Data.Time                      ( Day
 import           Database.Beam
 import           Database.Beam.Deriving
 import           Database.Beam.Expand
+import           Database.Beam.Extra            ( makePatch )
 import           GHC.Generics                   ( Generic )
 import           Generic.Data
 import           Servant.Crud.Deriving
@@ -38,12 +44,12 @@ type instance DefaultFilters UTCTime = OrdFilter
 
 -- | The full user blog info
 data BlogT f = Blog
-  { blogId          :: C f Int64
-  , blogName        :: C f Text
-  , blogDescription :: C f Text
-  , blogIsExtra     :: C f Bool
-  , blogIsPublished :: C f Bool
-  , blogDate        :: C f Day
+  { _blogId          :: C f Int64
+  , _blogName        :: C f Text
+  , _blogDescription :: C f Text
+  , _blogIsExtra     :: C f Bool
+  , _blogIsPublished :: C f Bool
+  , _blogDate        :: C f Day
   }
   deriving (Generic, Beamable)
 
@@ -56,9 +62,9 @@ $(instances ''BlogT)
 $(instancesId ''BlogT ''Int64)
 
 instance ToName BlogT where
-  toName = blogName
+  toName = _blogName
 
 -- | Beam boilerplate
 instance Table BlogT where
   data PrimaryKey BlogT f = BlogId (Columnar f Int64) deriving (Generic, Beamable)
-  primaryKey = BlogId . blogId
+  primaryKey = BlogId . _blogId

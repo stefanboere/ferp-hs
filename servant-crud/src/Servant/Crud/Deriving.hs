@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-|
@@ -70,7 +71,7 @@ queryOptions = fromAesonOptions . aesonOptions
 -- lowercase the first letter, and drop all capital letters from the end.
 typeName :: Typeable a => Proxy a -> Text
 typeName =
-  Text.takeWhileEnd C.isUpper
+  Text.dropWhileEnd C.isUpper
     . Text.pack
     . lowerHead
     . L.takeWhile (/= ' ')
@@ -83,7 +84,7 @@ typeName =
 
 -- | Create a default instance for 'Settings' with the prefix dropped
 aesonSettings :: Typeable a => Proxy a -> Settings
-aesonSettings = Settings . Just . Text.unpack . typeName
+aesonSettings = Settings . Just . Text.unpack . ("_" <>) . typeName
 
 -- | Newtype for usage with -XDeriveVia to derive instances used for types which are
 -- used in request bodies.

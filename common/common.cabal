@@ -50,7 +50,7 @@ library
     , beam-crud         ^>=0.1
     , generic-data
     , jose
-    , microlens
+    , lens
     , servant
     , servant-ac
     , servant-auth

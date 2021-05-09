@@ -68,6 +68,14 @@ data ActionState = ActionAvailable -- ^ The call to action is available (this is
 instance Default ActionState where
   def = ActionAvailable
 
+instance Semigroup ActionState where
+  x <> ActionAvailable = x
+  _ <> x               = x
+
+instance Monoid ActionState where
+  mempty = def
+
+
 data ButtonConfig t = ButtonConfig
   { _buttonConfig_priority :: ButtonPriority
   , _buttonConfig_state :: Dynamic t ActionState

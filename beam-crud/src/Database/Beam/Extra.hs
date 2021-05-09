@@ -1,9 +1,10 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-|
 Module: Database.Beam.Extra
 Description: Extensions to the Beam EDSL
@@ -33,6 +34,7 @@ module Database.Beam.Extra
   , countIn_
   , runCountIn
   , runIsInView
+  , makePatch
   )
 where
 
@@ -138,6 +140,22 @@ runPatch
         -- ^ Value to set possibly
   -> m ()
 runPatch tbl key v = runUpdate $ patch tbl key v
+
+-- | Calculat the difference between two objects
+makePatch
+  :: forall t
+   . (FieldsFulfillConstraint Eq t, Beamable t)
+  => t Identity
+  -> t Identity
+  -> t MaybeLast
+makePatch old new = runIdentity $ zipBeamFieldsM
+  (\(Columnar' colOld) (Columnar' (WithConstraint colNew)) ->
+    pure . Columnar' . MaybeLast $ if colOld == colNew
+      then Nothing
+      else Just colNew
+  )
+  old
+  (withConstrainedFields @Eq new)
 
 -- | Delete a row using the primary key
 runDeleteKey

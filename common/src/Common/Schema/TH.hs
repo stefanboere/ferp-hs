@@ -22,6 +22,7 @@ module Common.Schema.TH
   )
 where
 
+import           Control.Lens                   ( makeLenses )
 import qualified Data.Char                     as C
                                                 ( isUpper )
 import qualified Data.List                     as L
@@ -57,7 +58,7 @@ import           Servant.Crud.QueryOperator     ( Filter )
 -- 'ToQueryText', 'ToParams' and 'ToSchema' for the 'NameT Identity' and 'NameT Maybe'
 -- Also creats relevant instances for 'NameT Filter'
 instances :: Name -> DecsQ
-instances n = instancesBody (conT n)
+instances n = concat <$> sequence [instancesBody (conT n), makeLenses n]
 
 -- | Like 'instances', but for types with an extra T
 -- The first argument should either be 'Named' or 'Id', depending if you plan to
@@ -68,6 +69,7 @@ instancesT' n0 n = concat <$>
   sequence [ instancesBody  (t ''PrimaryKey) -- HaskellValue / Put / Post / Patch
            , instancesBody  (t n0)      -- Get / Filter object for Get
            , otherInstances
+           , makeLenses n
            ]
     where
       otherInstances :: DecsQ

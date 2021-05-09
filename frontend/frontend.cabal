@@ -83,7 +83,7 @@ library
     , http-api-data
     , http-types
     , jsaddle
-    , microlens
+    , lens
     , mtl
     , pandoc-types
     , process

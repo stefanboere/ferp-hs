@@ -42,6 +42,10 @@ module Components.Icon
   , stepForwardIcon
   , angleDoubleIcon
   , viewColumnsIcon
+  , undoIcon
+  , redoIcon
+  , floppyIcon
+  , refreshIcon
   )
 where
 
@@ -389,3 +393,26 @@ viewColumnsIcon =
     $ path
         "M31,5H5A2,2,0,0,0,3,7V29a2,2,0,0,0,2,2H31a2,2,0,0,0,2-2V7A2,2,0,0,0,31,5ZM13,29H5V7h8Zm10,0H15V7h8Z"
 
+floppyIcon :: (PostBuild t m, DomBuilder t m) => m ()
+floppyIcon =
+  svg
+    $ path
+        "M27.36,4H6A2,2,0,0,0,4,6V30a2,2,0,0,0,2,2H30a2,2,0,0,0,2-2V8.78ZM25,30H11V22H25Zm5,0H27V22a2,2,0,0,0-2-2H11a2,2,0,0,0-2,2v8H6V6h4v6a2,2,0,0,0,2,2H24a2,2,0,0,0,2-2H12V6H26.51L30,9.59Z"
+
+refreshIcon :: (PostBuild t m, DomBuilder t m) => m ()
+refreshIcon =
+  svg
+    $ path
+        "M22.4,11.65a1.09,1.09,0,0,0,1.09,1.09H34.43V1.81a1.09,1.09,0,1,0-2.19,0V8.95a16.41,16.41,0,1,0,1.47,15.86,1.12,1.12,0,0,0-2.05-.9,14.18,14.18,0,1,1-1.05-13.36H23.5A1.09,1.09,0,0,0,22.4,11.65Z"
+
+undoIcon :: (PostBuild t m, DomBuilder t m) => m ()
+undoIcon =
+  svg
+    $ path
+        "M20.87,11.14h-13l5.56-5.49A1,1,0,0,0,12,4.22L4,12.13,12,20a1,1,0,0,0,1.41-1.42L7.86,13.14h13a9.08,9.08,0,0,1,9.13,9,9,9,0,0,1-5,8A1,1,0,0,0,25.93,32a11,11,0,0,0-5.06-20.82Z"
+
+redoIcon :: (PostBuild t m, DomBuilder t m) => m ()
+redoIcon =
+  svg
+    $ path
+        "M24,4.22a1,1,0,0,0-1.41,1.42l5.56,5.49h-13A11,11,0,0,0,10.07,32,1,1,0,0,0,11,30.18a9,9,0,0,1-5-8,9.08,9.08,0,0,1,9.13-9h13l-5.54,5.48A1,1,0,0,0,24,20l8-7.91Z"

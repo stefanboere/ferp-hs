@@ -69,12 +69,12 @@ blogServer =
     newFilt = case maximumMaybe [] of
       Just Administrator -> filt
       Just Extra ->
-        filt { blogIsPublished = setf @"" [True] $ blogIsPublished filt }
+        filt { _blogIsPublished = setf @"" [True] $ _blogIsPublished filt }
       Just Regular -> filt
-        { blogIsExtra     = setf @"" [False] $ blogIsExtra filt
-        , blogIsPublished = setf @"" [True] $ blogIsPublished filt
+        { _blogIsExtra     = setf @"" [False] $ _blogIsExtra filt
+        , _blogIsPublished = setf @"" [True] $ _blogIsPublished filt
         }
-      Nothing -> filt { blogIsPublished = def }
+      Nothing -> filt { _blogIsPublished = def }
 
   gBlog :: CrudRoutes BlogT BlogT (AsServerT App)
   gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id
