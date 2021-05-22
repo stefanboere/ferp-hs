@@ -19,6 +19,15 @@ module Frontend.Api
   , postBlog
   , postBlogs
   , getBlogs
+  -- * Free clients
+  , getBlogF
+  , putBlogF
+  , patchBlogF
+  , deleteBlogF
+  , deleteBlogsF
+  , postBlogF
+  , postBlogsF
+  , getBlogsF
   -- * Utils
   , orAlert
   , requestBtn
@@ -48,7 +57,9 @@ import           Reflex.Dom              hiding ( Client
 import qualified Reflex.Dom.Prerender          as Prerender
                                                 ( Client )
 import           Servant.API             hiding ( URI(..) )
-import           Servant.AccessControl          ( Auth' )
+import           Servant.AccessControl          ( Auth'
+                                                , Token
+                                                )
 import           Servant.Common.Req             ( fanReqResult' )
 import           Servant.Crud.API
 import           Servant.Crud.QueryObject       ( QueryObject
@@ -56,6 +67,8 @@ import           Servant.Crud.QueryObject       ( QueryObject
                                                 , toQueryText
                                                 )
 import           Servant.Reflex
+import qualified Servant.Subscriber.Reflex     as Sub
+import           Servant.Subscriber.Reflex      ( FreeClient )
 
 import           Common.Api
 import           Common.Schema
@@ -233,3 +246,13 @@ findCookie x = do
 
   pure (lookup x cs)
 
+getBlogF :: Token -> BlogId -> FreeClient Blog
+putBlogF :: Token -> BlogId -> Blog -> FreeClient NoContent
+patchBlogF :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
+deleteBlogF :: Token -> BlogId -> FreeClient NoContent
+deleteBlogsF :: Token -> [BlogId] -> FreeClient NoContent
+postBlogF :: Token -> Blog -> FreeClient (Headers '[LocationHdr] NoContent)
+postBlogsF :: Token -> [Blog] -> FreeClient [BlogId]
+getBlogsF :: View Be BlogT -> FreeClient (GetListHeaders Blog)
+getBlogF :<|> putBlogF :<|> patchBlogF :<|> deleteBlogF :<|> deleteBlogsF :<|> postBlogF :<|> postBlogsF :<|> getBlogsF
+  = Sub.client clientApi

@@ -17,6 +17,7 @@ let
       servant-ac-server = ./servant-ac-server;
       servant-crud = ./servant-crud;
       servant-crud-server = ./servant-crud-server;
+      servant-subscriber-reflex = ./servant-subscriber-reflex;
     };
 
     shells = {
@@ -31,8 +32,9 @@ let
         "servant-ac-server"
         "servant-crud"
         "servant-crud-server"
+        "servant-subscriber-reflex"
       ];
-      ghcjs = [ "common" "frontend" ];
+      ghcjs = [ "common" "frontend" "servant-subscriber-reflex" ];
     };
 
     shellToolOverrides = ghc: super: {
@@ -51,6 +53,8 @@ let
           (self.callCabal2nix "reflex-dom-contrib" sources.reflex-dom-contrib
             { });
         oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
+        servant-subscriber =
+          self.callHackage "servant-subscriber" "0.7.0.0" { };
 
         servant-reflex =
           self.callCabal2nix "servant-reflex" sources.servant-reflex { };

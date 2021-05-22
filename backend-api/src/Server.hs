@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -81,6 +82,7 @@ import           Common.Auth
 import           Context
 import           Docs
 import           Schema
+import           WebSocket
 
 -- * Total api
 
@@ -108,6 +110,7 @@ initialize cfg application = do
                                      (configInfo $ getConfig cfg)
 
   pure
+    $ serveSubscriber' (getSubscriber cfg)
     $ Timeout.timeout 65
     $ requestLogger
     $ autohead
@@ -249,12 +252,16 @@ acquireConfig = do
   -- Generate JWT key
   jwt  <- generateJwtSettings (configOidcProviderUri settings)
 
+  -- Servant subscriber
+  sub  <- createSubscriber (configInfo settings) logger
+
   pure
     ( AppConfig { getConfig      = settings
                 , getPool        = pool
                 , getLogger      = logger
                 , getMetric      = metr
                 , getJwtSettings = jwt
+                , getSubscriber  = sub
                 }
     , shutdownApp cleanupLogger (serverThreadId ekgServer) pool
     )

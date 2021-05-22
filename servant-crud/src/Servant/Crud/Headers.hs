@@ -71,6 +71,10 @@ instance HasClient m api => HasClient m (PathInfo :> api) where
 
   hoistClientMonad pm _ = hoistClientMonad pm (Proxy :: Proxy api)
 
+instance HasLink api => HasLink (PathInfo :> api) where
+  type MkLink (PathInfo :> api) a = MkLink api a
+  toLink toA _ = toLink toA (Proxy :: Proxy api)
+
 -- | Pageination info
 data Page = Page
   { offset :: Maybe Integer -- ^ How many rows to skip, defaulting to zero

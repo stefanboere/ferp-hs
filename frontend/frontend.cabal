@@ -97,6 +97,7 @@ library
     , servant-ac
     , servant-crud
     , servant-reflex
+    , servant-subscriber-reflex
     , text
     , time
     , uri-bytestring

@@ -65,6 +65,10 @@ import           Servant.Auth.Server            ( JWTSettings
                                                 , validationKeys
                                                 )
 import           Servant.Server                 ( ServerError )
+import           Servant.Subscriber
+
+import           Common.Api
+
 
 -- | App configuration which can be read (mostly) from the environment
 data Config = Config
@@ -112,6 +116,7 @@ data AppConfig = AppConfig
   , getLogger      :: TimedFastLogger
   , getMetric      :: Metrics
   , getJwtSettings :: JWTSettings
+  , getSubscriber  :: Subscriber (Api' Postgres)
   }
 
 -- | Custom monad

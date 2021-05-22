@@ -124,6 +124,7 @@ import           GHC.TypeLits                   ( KnownSymbol
                                                 )
 import           Network.HTTP.Types             ( QueryText )
 import           Servant.API
+import           Servant.Links
 import           Servant.Client.Core            ( HasClient(..)
                                                 , appendToQueryString
                                                 )
@@ -538,3 +539,20 @@ instance (HasClient m api, ToQueryText a, KnownSymbol sym)
     hoistClientMonad pm (Proxy :: Proxy api) f (cl as)
 
 
+instance (HasLink api, ToQueryText v, KnownSymbol sym)
+    => HasLink (QueryObject sym v :> api) where
+  type MkLink (QueryObject sym v :> api) a = v -> MkLink api a
+  toLink toA _ l =
+    toLink toA (Proxy :: Proxy api)
+      . L.foldl' (\l' v -> addQueryParam (toParam v) l') l
+      . toQueryText paramname
+
+   where
+    paramname = Text.pack $ symbolVal (Proxy :: Proxy sym)
+
+    toParam (x, Nothing) = FlagParam (Text.unpack x)
+    toParam (x, Just y ) = SingleParam (Text.unpack x) y
+
+    -- FIXME Fix this when addQueryParam is exported from servant
+    addQueryParam :: Param -> Link -> Link
+    addQueryParam _ = id

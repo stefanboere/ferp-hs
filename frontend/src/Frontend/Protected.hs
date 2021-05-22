@@ -15,20 +15,24 @@ where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Lens
+import           Control.Monad                  ( void )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
+import qualified Data.Map                      as Map
 import           Data.Proxy
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , pack
+                                                )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
-import           URI.ByteString                 ( URI )
-
 import           Servant.Router
+import           Servant.Subscriber.Reflex
+import           URI.ByteString                 ( URI )
 
 import           Common.Auth
 import           Common.Schema
@@ -37,13 +41,16 @@ import           Frontend.Api
 import           Reflex.Markdown
 
 
-type ProtectedApi = Auth Everyone :> "user" :> "self" :> View
+-- brittany-disable-next-binding
+type ProtectedApi = Auth Everyone :> "blogs" :> "all" :> View
+ :<|> "blogs" :> Capture "key" BlogId :> View
 
 protectedApi :: Proxy ProtectedApi
 protectedApi = Proxy
 
-protectedSelfLink :: Link
-protectedSelfLink = allLinks protectedApi
+blogsLink :: Link
+blogLink :: BlogId -> Link
+blogsLink :<|> blogLink = allLinks protectedApi
 
 protectedLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -51,13 +58,45 @@ protectedLinks
   -> m (Event t Link)
 protectedLinks dynUri = safelinkGroup
   (text "Protected")
-  [safelink dynUri protectedSelfLink $ text "User"]
+  [ safelink dynUri blogsLink $ text "Blogs"
+  , safelink dynUri (blogLink (BlogId 1)) $ text "Blog 1"
+  ]
 
 protectedHandler
   :: WidgetConstraint js t m => RouteT ProtectedApi m (Event t URI)
-protectedHandler = protectedSelf
+protectedHandler = blogsHandler :<|> blogEdit
 
-protectedSelf
+blogsHandler
+  :: forall js t m
+   . ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , Prerender js t m
+     , MonadFix m
+     )
+  => m (Event t URI)
+blogsHandler = runApiWidget "ws://localhost:3005/subscriber" $ do
+  el "h1" $ text "Blogs"
+
+  postBuildEv <- getPostBuild
+
+  let getBlogEv = getBlogsF mempty <$ postBuildEv
+  recEv    <- orAlertF $ requestingJs getBlogEv
+
+  mayOkDyn <- holdDyn Nothing (Just . getResponse <$> recEv)
+
+  loading mayOkDyn $ \okDyn -> do
+    tableDyn
+      [ (text "Title"      , \_ b -> dynText (_blogName <$> b))
+      , (text "Description", \_ b -> dynText (_blogDescription <$> b))
+      ]
+      (Map.fromList . zip [(0 :: Int) ..] <$> okDyn)
+
+
+  pure never
+
+
+blogEdit
   :: forall js t m
    . ( DomBuilder t m
      , PostBuild t m
@@ -69,22 +108,23 @@ protectedSelf
      , MonadIO (Performable m)
      , PerformEvent t m
      )
-  => m (Event t URI)
-protectedSelf = do
-  el "h1" $ text "Current User"
+  => BlogId
+  -> m (Event t URI)
+blogEdit bid = do
+  el "h1" $ text "Blog 1"
+  let dynBlogId = constDyn (pure bid)
 
   postBuildEv <- getPostBuild
-  let getRespEv = getBlog (constDyn . pure $ BlogId 1)
+  let getRespEv = getBlog dynBlogId
   initEv <- orAlertBg $ getRespEv postBuildEv
 
-  widgetHold_ (spinner Large "Loading") $ ffor initEv $ \initBlog -> do
+  widgetHold_ (pure ()) $ ffor initEv $ \initBlog -> do
 
     getResp <- requestBtn refreshBtn getRespEv (constDyn False) never
 
     rec
-      let patchBlogReq ev = patchBlog (constDyn . pure $ BlogId 1)
-                                      (pure <$> dynPatch)
-                                      (tagPromptlyDyn dynBlog ev)
+      let patchBlogReq ev =
+            patchBlog dynBlogId (pure <$> dynPatch) (tagPromptlyDyn dynBlog ev)
       patchRespEv <- requestBtn saveBtn
                                 patchBlogReq
                                 ((== mempty) <$> dynPatch)
@@ -170,3 +210,29 @@ saveBtn = triStateBtn floppyIcon ("Save", "Saving", "Saved")
 refreshBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
 refreshBtn = triStateBtn refreshIcon ("Reload", "Reloading", "Reloaded")
+
+orAlertF
+  :: ( Prerender js t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     , Show b
+     )
+  => m (Event t (Either b a))
+  -> m (Event t a)
+orAlertF getResultEv = do
+  resultEv <- getResultEv
+  let (errEv, rEv) = fanEither resultEv
+  alerts def { _alertConfig_status = Danger } (pack . show <$> errEv)
+  pure rEv
+
+loading
+  :: (MonadFix m, PostBuild t m, DomBuilder t m, MonadHold t m)
+  => Dynamic t (Maybe a)
+  -> (Dynamic t a -> m b)
+  -> m ()
+loading dynX w = do
+  factored <- maybeDyn dynX
+
+  dyn_ $ maybe (pure ()) (void . w) <$> factored

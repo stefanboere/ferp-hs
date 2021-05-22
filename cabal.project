@@ -9,3 +9,4 @@ packages:
   servant-ac-server/
   servant-crud/
   servant-crud-server/
+  servant-subscriber-reflex/
