@@ -37,7 +37,10 @@ common common-options
 library
   import:          common-options
   hs-source-dirs:  src
-  exposed-modules: Servant.Subscriber.Reflex
+  exposed-modules:
+    Servant.Client.Reflex
+    Servant.Subscriber.Reflex
+
   other-modules:
   build-depends:
     , aeson
@@ -48,6 +51,7 @@ library
     , dependent-sum
     , free
     , http-types
+    , jsaddle
     , reflex
     , reflex-dom
     , servant

@@ -56,9 +56,6 @@ let
         servant-subscriber =
           self.callHackage "servant-subscriber" "0.7.0.0" { };
 
-        servant-reflex =
-          self.callCabal2nix "servant-reflex" sources.servant-reflex { };
-
         reflex-dom-pandoc =
           self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };
         servant-aeson-specs =

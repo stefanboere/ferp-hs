@@ -15,6 +15,7 @@ module Servant.Subscriber.Reflex
   , ApiWidget
   , runApiWidget
   , requestingJs
+  , hoistPure
   , module Servant.Client.Free
   )
 where
@@ -109,11 +110,17 @@ websocketEncoder' = \case
   Pure n           -> (Nothing, const (pure n))
   Free (Throw err) -> (Nothing, const (Left err))
   Free (RunRequest req k) ->
-    (Just $ toSubRequest req, hoist . k . fromSubResponse)
- where
-  hoist (Pure n) = pure n
-  hoist (Free (Throw e)) = Left e
-  hoist _ = Left (ConnectionError $ SomeException MultipleRequestsException)
+    (Just $ toSubRequest req, hoistPure . k . fromSubResponse)
+
+-- | Converts a FreeClient to Either C.ClientError without performing another IO request
+--
+-- Useful if you know that already one request has been made
+--
+-- Returns 'Left MultipleRequestsException' if another request needs to be made
+hoistPure :: Free ClientF a -> Either C.ClientError a
+hoistPure (Pure n) = pure n
+hoistPure (Free (Throw e)) = Left e
+hoistPure _ = Left (ConnectionError $ SomeException MultipleRequestsException)
 
 data MultipleRequestsException = MultipleRequestsException
   deriving Show

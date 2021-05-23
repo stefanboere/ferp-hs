@@ -100,11 +100,5 @@
         "type": "tarball",
         "url": "https://github.com/reflex-frp/reflex-platform/archive/f019863c21ee85498e6a6e0072e617b2462b70ed.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "servant-reflex": {
-        "type": "git",
-        "repo": "/home/stefan/Projects/servant-reflex",
-        "branch": "master",
-        "rev": "7406be93f3c0c5ba5ac808260cf617949d130bc2"
     }
 }

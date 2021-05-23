@@ -32,6 +32,7 @@ import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
+import           Servant.Client.Reflex
 import           URI.ByteString                 ( URI )
 
 import           Common.Auth
@@ -80,7 +81,7 @@ blogsHandler = runApiWidget "ws://localhost:3005/subscriber" $ do
 
   postBuildEv <- getPostBuild
 
-  let getBlogEv = getBlogsF mempty <$ postBuildEv
+  let getBlogEv = getBlogs mempty <$ postBuildEv
   recEv    <- orAlertF $ requestingJs getBlogEv
 
   mayOkDyn <- holdDyn Nothing (Just . getResponse <$> recEv)
@@ -110,21 +111,25 @@ blogEdit
      )
   => BlogId
   -> m (Event t URI)
-blogEdit bid = do
+blogEdit bid = runApiWidgetXhr "http://localhost:3005" withXsrfHeader $ do
   el "h1" $ text "Blog 1"
-  let dynBlogId = constDyn (pure bid)
 
   postBuildEv <- getPostBuild
-  let getRespEv = getBlog dynBlogId
-  initEv <- orAlertBg $ getRespEv postBuildEv
+  let getRespEv = getBlog usingCookie bid <$ postBuildEv
+  initEv <- orAlertF $ requestingJs getRespEv
 
   widgetHold_ (pure ()) $ ffor initEv $ \initBlog -> do
 
-    getResp <- requestBtn refreshBtn getRespEv (constDyn False) never
+    getResp <- requestBtn refreshBtn
+                          (getBlog usingCookie bid <$)
+                          (constDyn False)
+                          never
 
     rec
-      let patchBlogReq ev =
-            patchBlog dynBlogId (pure <$> dynPatch) (tagPromptlyDyn dynBlog ev)
+      let patchBlogReq ev = attachPromptlyDynWith
+            (\x () -> patchBlog usingCookie bid x)
+            dynPatch
+            ev
       patchRespEv <- requestBtn saveBtn
                                 patchBlogReq
                                 ((== mempty) <$> dynPatch)
@@ -132,10 +137,11 @@ blogEdit bid = do
 
       getBlogEv     <- orAlert getResp
 
-      patchDoneEv   <- orAlert' patchRespEv
+      patchDoneEv   <- orAlert patchRespEv
 
-      dynBlogRemote <- holdDyn initBlog
-                               (leftmost [getBlogEv, fst <$> patchDoneEv])
+      dynBlogRemote <- holdDyn
+        initBlog
+        (leftmost [getBlogEv, tagPromptlyDyn dynBlog patchDoneEv])
 
       dynBlog <-
         el "form"
@@ -158,7 +164,7 @@ blogEdit bid = do
                   getBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
-      patchEv <- debounce 2 (() <$ ffilter (/= mempty) (updated dynPatch))
+      patchEv <- throttle 2 (() <$ ffilter (/= mempty) (updated dynPatch))
     pure ()
 
   pure never
