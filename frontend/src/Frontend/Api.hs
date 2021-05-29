@@ -21,6 +21,7 @@ module Frontend.Api
   -- * Utils
   , orAlert
   , requestBtn
+  , runApi
   , withXsrfHeader
   , usingCookie
   )
@@ -29,11 +30,7 @@ where
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import qualified Data.Map                      as Map
-import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import           GHCJS.DOM                     as DOM
-import           GHCJS.DOM.Document            as DOM
-import           GHCJS.DOM.Window              as DOM
 import           Language.Javascript.JSaddle    ( MonadJSM )
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
@@ -119,7 +116,7 @@ usingCookie = Token ""
 
 withXsrfHeader :: MonadJSM m => XhrRequest a -> m (XhrRequest a)
 withXsrfHeader r@(XhrRequest _ _ cfg) = do
-  cookie <- findCookie "XSRF-TOKEN"
+  cookie <- Sub.findCookie "XSRF-TOKEN"
   let addXsrf = maybe id (Map.insert "X-XSRF-TOKEN") cookie
   let c' = cfg
         { _xhrRequestConfig_headers = addXsrf (_xhrRequestConfig_headers cfg)
@@ -127,17 +124,9 @@ withXsrfHeader r@(XhrRequest _ _ cfg) = do
         }
   pure $ r { _xhrRequest_config = c' }
 
-findCookie :: MonadJSM m => Text -> m (Maybe Text)
-findCookie x = do
-  window  <- DOM.currentWindowUnchecked
-  doc     <- DOM.getDocument window
-  cookies <- DOM.getCookie doc
-  let cs =
-        fmap (fmap (Text.dropWhile (== '=')) . Text.span (/= '=') . Text.strip)
-          . Text.splitOn ";"
-          $ cookies
-
-  pure (lookup x cs)
+runApi
+  :: (MonadHold t m, MonadFix m, Prerender js t m) => ApiWidget t m a -> m a
+runApi = Sub.runApiWidget "ws://localhost:3005/subscriber"
 
 getBlog :: Token -> BlogId -> FreeClient Blog
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent

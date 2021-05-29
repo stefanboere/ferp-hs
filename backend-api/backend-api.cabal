@@ -59,6 +59,7 @@ library
     , beam-migrate
     , beam-postgres
     , bytestring
+    , case-insensitive
     , cassava
     , common
     , data-default
@@ -68,6 +69,7 @@ library
     , http-client
     , http-client-tls
     , http-media
+    , http-types
     , jose
     , microlens
     , monad-logger

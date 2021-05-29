@@ -84,10 +84,10 @@
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "reflex-dom-pandoc": {
-        "type": "git",
-        "repo": "/home/stefan/Projects/reflex-dom-pandoc",
         "branch": "master",
-        "rev": "6b7933d2932aba61e1d94e7411c71c6bcfd349bc"
+        "repo": "/home/stefan/Projects/reflex-dom-pandoc",
+        "rev": "6b7933d2932aba61e1d94e7411c71c6bcfd349bc",
+        "type": "git"
     },
     "reflex-platform": {
         "branch": "develop",
@@ -100,5 +100,11 @@
         "type": "tarball",
         "url": "https://github.com/reflex-frp/reflex-platform/archive/f019863c21ee85498e6a6e0072e617b2462b70ed.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "servant-subscriber": {
+        "branch": "master",
+        "repo": "/home/stefan/Projects/servant-subscriber",
+        "rev": "023a737aa6767918b6f1da18c530d2454fa55ad9",
+        "type": "git"
     }
 }

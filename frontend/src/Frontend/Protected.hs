@@ -32,7 +32,6 @@ import           Servant.API             hiding ( URI(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
-import           Servant.Client.Reflex
 import           URI.ByteString                 ( URI )
 
 import           Common.Auth
@@ -76,7 +75,7 @@ blogsHandler
      , MonadFix m
      )
   => m (Event t URI)
-blogsHandler = runApiWidget "ws://localhost:3005/subscriber" $ do
+blogsHandler = runApi $ do
   el "h1" $ text "Blogs"
 
   postBuildEv <- getPostBuild
@@ -111,7 +110,7 @@ blogEdit
      )
   => BlogId
   -> m (Event t URI)
-blogEdit bid = runApiWidgetXhr "http://localhost:3005" withXsrfHeader $ do
+blogEdit bid = runApi $ do
   el "h1" $ text "Blog 1"
 
   postBuildEv <- getPostBuild

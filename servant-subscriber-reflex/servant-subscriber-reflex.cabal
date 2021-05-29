@@ -50,6 +50,7 @@ library
     , data-default
     , dependent-sum
     , free
+    , ghcjs-dom
     , http-types
     , jsaddle
     , reflex

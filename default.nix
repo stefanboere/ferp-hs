@@ -54,7 +54,8 @@ let
             { });
         oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
         servant-subscriber =
-          self.callHackage "servant-subscriber" "0.7.0.0" { };
+          self.callCabal2nix "servant-subscriber" sources.servant-subscriber
+          { };
 
         reflex-dom-pandoc =
           self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };

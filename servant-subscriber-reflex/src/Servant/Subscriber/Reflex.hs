@@ -16,6 +16,7 @@ module Servant.Subscriber.Reflex
   , runApiWidget
   , requestingJs
   , hoistPure
+  , findCookie
   , module Servant.Client.Free
   )
 where
@@ -23,6 +24,7 @@ where
 import           Control.Exception.Base         ( Exception
                                                 , SomeException(..)
                                                 )
+import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Free
 import           Data.Aeson                     ( FromJSON )
@@ -38,9 +40,16 @@ import qualified Data.Sequence                 as Seq
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
+import           GHCJS.DOM                     as DOM
+import           GHCJS.DOM.Document            as DOM
+import           GHCJS.DOM.Window              as DOM
+import           Language.Javascript.JSaddle    ( MonadJSM )
 import qualified Network.HTTP.Types            as C
                                                 ( Status(..)
                                                 , queryToQueryText
+                                                )
+import           Network.HTTP.Types.Status      ( status200
+                                                , status300
                                                 )
 import           Network.HTTP.Types.Version     ( http20 )
 import           Reflex
@@ -55,6 +64,7 @@ import           Servant.Subscriber.Response    ( HttpResponse(..)
                                                 , Status(..)
                                                 )
 import qualified Servant.Subscriber.Response   as S
+                                         hiding ( httpHeaders )
 import           Servant.Subscriber.Types
                                          hiding ( Event )
 
@@ -84,7 +94,9 @@ fromSubResponse HttpResponse {..} = C.Response
   { responseStatusCode  = C.Status
                             (S.statusCode httpStatus)
                             (Text.encodeUtf8 (S.statusMessage httpStatus))
-  , responseHeaders     = Seq.fromList $ map coerceHdr httpHeaders
+  , responseHeaders     = Seq.fromList
+                          $ ("Content-type", "application/json")
+                          : map coerceHdr httpHeaders
   , responseHttpVersion = http20
   , responseBody        = BL.fromStrict $ Text.encodeUtf8 httpBody
   }
@@ -110,7 +122,23 @@ websocketEncoder' = \case
   Pure n           -> (Nothing, const (pure n))
   Free (Throw err) -> (Nothing, const (Left err))
   Free (RunRequest req k) ->
-    (Just $ toSubRequest req, hoistPure . k . fromSubResponse)
+    ( Just $ toSubRequest req
+    , statusClientError req . fromSubResponse >=> hoistPure . k
+    )
+
+statusClientError :: C.Request -> C.Response -> Either C.ClientError C.Response
+statusClientError req rsp
+  | status200 <= responseStatusCode rsp && responseStatusCode rsp < status300
+  = pure rsp
+  | otherwise
+  = let
+      req' = req
+        { C.requestBody = Nothing
+        , C.requestPath = ( BaseUrl Http "" 0 ""
+                          , BL.toStrict $ B.toLazyByteString $ C.requestPath req
+                          )
+        }
+    in  Left $ FailureResponse req' rsp
 
 -- | Converts a FreeClient to Either C.ClientError without performing another IO request
 --
@@ -134,27 +162,55 @@ performWebSocketRequests
   -> m (Event t (RequesterData (Either C.ClientError)))
 performWebSocketRequests url req =
   fmap switchPromptlyDyn $ prerender (pure never) $ do
+    xsrfToken <- findCookie "XSRF-TOKEN"
+
     rec w <- jsonWebSocket url $ def
-          { _webSocketConfig_send = fmap S.Subscribe . Map.elems <$> reqs
+          { _webSocketConfig_send = fmap (toSubReq . addXsrf xsrfToken)
+                                    .   Map.elems
+                                    <$> reqs
           }
         let rsp = fmapMaybe (>>= parseResp) $ _webSocket_recv w
 
-        (reqs, incKeys, rsps) <- matchResponsesWithRequests' websocketEncoder
+        (reqs, _inKeys, rsps) <- matchResponsesWithRequests' websocketEncoder
                                                              req
                                                              rsp
-                                                             modReqs -- TODO unsubscribe
+                                                             modReqs
 
-        let modReqs = ffilter ((/= "GET") . httpMethod) incKeys
+        let modReqs = never -- TODO unsubscribe
 
     pure rsps
 
  where
+  toSubReq r | httpMethod r == "GET" = S.Subscribe r
+             | otherwise             = S.SimpleRequest r
+
   parseResp :: S.Response -> Maybe (HttpRequest, HttpResponse)
   parseResp (S.Modified rq resp) =
-    Just (rq, HttpResponse (Status 200 "") [] resp)
-  parseResp (S.HttpRequestFailed rq resp) = Just (rq, resp)
+    Just (patchReq rq, HttpResponse (Status 200 "") [] resp)
+  parseResp (S.HttpRequestFailed rq resp) = Just (patchReq rq, resp)
   parseResp _                             = Nothing
 
+  patchReq rq = rq
+    { S.httpHeaders = filter ((`notElem` ["Cookie", "X-XSRF-TOKEN"]) . fst)
+                             (S.httpHeaders rq)
+    }
+
+  addXsrf mtok r =
+    let addX = maybe id (\t -> (("X-XSRF-TOKEN", t) :)) mtok
+    in  r { S.httpHeaders = addX (S.httpHeaders r) }
+
+
+findCookie :: MonadJSM m => Text -> m (Maybe Text)
+findCookie x = do
+  window  <- DOM.currentWindowUnchecked
+  doc     <- DOM.getDocument window
+  cookies <- DOM.getCookie doc
+  let cs =
+        fmap (fmap (Text.dropWhile (== '=')) . Text.span (/= '=') . Text.strip)
+          . Text.splitOn ";"
+          $ cookies
+
+  pure (lookup x cs)
 
 data Decoder rawResponse response = forall a . Decoder (RequesterDataKey a)
                                                        (  rawResponse
