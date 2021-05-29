@@ -42,6 +42,9 @@ library
     Servant.Subscriber.Reflex
 
   other-modules:
+    Servant.Subscriber.Compat.Request
+    Servant.Subscriber.Compat.Response
+
   build-depends:
     , aeson
     , bytestring
@@ -57,5 +60,4 @@ library
     , reflex-dom
     , servant
     , servant-client-core
-    , servant-subscriber
     , text

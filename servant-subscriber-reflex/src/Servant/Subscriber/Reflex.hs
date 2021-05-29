@@ -6,7 +6,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 module Servant.Subscriber.Reflex
   ( performWebSocketRequests
   , WebSocketEndpoint
@@ -27,7 +26,6 @@ import           Control.Exception.Base         ( Exception
 import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Free
-import           Data.Aeson                     ( FromJSON )
 import qualified Data.ByteString.Builder       as B
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.CaseInsensitive          as CI
@@ -58,20 +56,21 @@ import qualified Servant.Client.Core           as C
 import           Servant.Client.Free     hiding ( Client
                                                 , Response
                                                 )
-import           Servant.Subscriber.Request     ( HttpRequest(..) )
-import qualified Servant.Subscriber.Request    as S
-import           Servant.Subscriber.Response    ( HttpResponse(..)
-                                                , Status(..)
-                                                )
-import qualified Servant.Subscriber.Response   as S
+
+import qualified Servant.Subscriber.Compat.Request
+                                               as S
+import           Servant.Subscriber.Compat.Request
+                                                ( HttpRequest(..) )
+import qualified Servant.Subscriber.Compat.Response
+                                               as S
                                          hiding ( httpHeaders )
-import           Servant.Subscriber.Types
-                                         hiding ( Event )
+import           Servant.Subscriber.Compat.Response
+                                                ( HttpResponse(..) )
 
 toSubRequest :: C.Request -> HttpRequest
 toSubRequest C.Request {..} = HttpRequest
   { httpMethod  = Text.decodeUtf8 requestMethod
-  , httpPath    = Path
+  , httpPath    = S.Path
                   . dropWhile Text.null
                   . Text.splitOn "/"
                   . Text.decodeUtf8
@@ -104,10 +103,6 @@ fromSubResponse HttpResponse {..} = C.Response
 
 type FreeClient = Free ClientF
 type WebSocketEndpoint = Text
-
-instance FromJSON Status
-instance FromJSON HttpResponse
-instance FromJSON S.Response
 
 websocketEncoder
   :: Free ClientF a
@@ -186,7 +181,7 @@ performWebSocketRequests url req =
 
   parseResp :: S.Response -> Maybe (HttpRequest, HttpResponse)
   parseResp (S.Modified rq resp) =
-    Just (patchReq rq, HttpResponse (Status 200 "") [] resp)
+    Just (patchReq rq, HttpResponse (S.Status 200 "") [] resp)
   parseResp (S.HttpRequestFailed rq resp) = Just (patchReq rq, resp)
   parseResp _                             = Nothing
 
