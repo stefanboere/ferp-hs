@@ -58,7 +58,9 @@ library
     , http-client
     , http-client-tls
     , http-media
+    , http-types
     , jose
+    , jose-jwt
     , lucid
     , microlens
     , monad-logger
@@ -73,6 +75,7 @@ library
     , servant-rawm
     , servant-server
     , text
+    , time
     , uri-bytestring
     , wai
     , wai-extra
