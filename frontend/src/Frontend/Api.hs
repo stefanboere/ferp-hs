@@ -24,6 +24,7 @@ module Frontend.Api
   , runApi
   , withXsrfHeader
   , usingCookie
+  , refreshAccessTokenEvery
   )
 where
 
@@ -31,6 +32,7 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import qualified Data.Map                      as Map
 import qualified Data.Text                     as Text
+import           Data.Time                      ( NominalDiffTime )
 import           Language.Javascript.JSaddle    ( MonadJSM )
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
@@ -123,6 +125,26 @@ withXsrfHeader r@(XhrRequest _ _ cfg) = do
         , _xhrRequestConfig_withCredentials = True
         }
   pure $ r { _xhrRequest_config = c' }
+
+refreshAccessTokenEvery
+  :: (Applicative m, Prerender js t m) => NominalDiffTime -> m ()
+refreshAccessTokenEvery interval = prerender_ (pure ()) $ do
+  tickEv <- tickLossyFromPostBuildTime interval
+  refreshAccessTokenXhr (() <$ tickEv)
+
+refreshAccessTokenXhr
+  :: ( MonadIO m
+     , MonadJSM (Performable m)
+     , PerformEvent t m
+     , HasJSContext (Performable m)
+     , TriggerEvent t m
+     )
+  => Event t ()
+  -> m ()
+refreshAccessTokenXhr ev = ignore <$> getAndDecode ("/auth/refresh" <$ ev)
+ where
+  ignore :: Event t (Maybe ()) -> ()
+  ignore _ = ()
 
 runApi
   :: (MonadHold t m, MonadFix m, Prerender js t m) => ApiWidget t m a -> m a

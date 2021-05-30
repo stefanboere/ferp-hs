@@ -42,6 +42,7 @@ import           Servant.Router
 import           URI.ByteString
 
 import           Components
+import           Frontend.Api                   ( refreshAccessTokenEvery )
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
@@ -93,6 +94,7 @@ withHeader x = do
                                (pure never)
                                actions
                                (x clickEv)
+
   pure ()
 
  where
@@ -126,6 +128,9 @@ mainPage setRouteExtEv = do
     routeSetEv   <- switchHold never $ fmap (fromRight never) routeSetEvEv
     let changeRoute =
           leftmost [coerceUri . linkURI <$> setRouteExtEv, routeSetEv]
+
+  refreshAccessTokenEvery 300
+
   return $ fst <$> dynamicRoute
 
 -- brittany-disable-next-binding
