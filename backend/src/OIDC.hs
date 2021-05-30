@@ -16,6 +16,8 @@ module OIDC
   , handleLoginSuccess
   , handleLoginFailed
   , handleLoginRefresh
+  , handleLogout
+  , handleAccount
   , initOIDC
   , setCookieBs
   -- * JWT
@@ -169,7 +171,15 @@ type LoginRefresh = "refresh"
                  )
 
 -- brittany-disable-next-binding
-type IdentityApi = LoginSuccess :<|> LoginError :<|> LoginRefresh
+type Logout = "logout"
+  :> Get '[JSON] NoContent
+
+-- brittany-disable-next-binding
+type Account = "account"
+  :> Get '[JSON] NoContent
+
+-- brittany-disable-next-binding
+type IdentityApi = LoginSuccess :<|> LoginError :<|> LoginRefresh :<|> Logout :<|> Account
 
 data Message = Message
   { message :: Text
@@ -466,6 +476,19 @@ handleLoginRefresh oidcenv (Just refreshCookie) = do
         in  pure $ addHeader accessC $ case refreshC of
               Just y  -> addHeader y NoContent
               Nothing -> noHeader NoContent
+
+handleLogout :: (MonadError ServerError m) => m NoContent
+handleLogout = throwError err302
+  { errHeaders = [ ("Location", "/")
+                 , expiredCookieHeader "JWT-Cookie"
+                 , expiredCookieHeader "refresh-token"
+                 ]
+  }
+
+handleAccount :: (MonadError ServerError m) => URI -> m NoContent
+handleAccount uri = throwError err302
+  { errHeaders = [("Location", B.pack $ Network.uriToString id uri "")]
+  }
 
 genRandomBS :: IO ByteString
 genRandomBS = do

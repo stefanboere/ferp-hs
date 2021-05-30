@@ -60,8 +60,13 @@ server = Api.server :<|> identityServer
 
 identityServer :: AppServer IdentityApi
 identityServer =
-  handleLoggedIn' :<|> handleLoginFailed :<|> handleLoginRefresh'
+  handleLoggedIn'
+    :<|> handleLoginFailed
+    :<|> handleLoginRefresh'
+    :<|> handleLogout
+    :<|> handleAccount'
  where
+  handleAccount' = asks (configAccountUri . getConfig) >>= handleAccount
   handleLoginRefresh' a = asks getOIDC >>= (`handleLoginRefresh` a)
   handleLoggedIn' a b c d = do
     env <- asks getOIDC

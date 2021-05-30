@@ -13,4 +13,5 @@
     , clientId      = "ferp-hs"
     }
 , staticDirectory = "../result-frontend-min"
+, accountUri = "https://id.dev.boerevlist.nl/realms/ferp/account/"
 }

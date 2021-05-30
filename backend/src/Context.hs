@@ -40,8 +40,9 @@ import           OIDC
 data Config = Config
   { configInfo        :: AppInfo
   , configPort        :: Port
-  , configOidc :: OIDCConfig
+  , configOidc        :: OIDCConfig
   , configStaticDirectory :: FilePath
+  , configAccountUri  :: URI
   }
   deriving Generic
 
