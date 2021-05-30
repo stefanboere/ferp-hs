@@ -18,6 +18,7 @@ import           Data.IORef                     ( IORef
                                                 , newIORef
                                                 , readIORef
                                                 )
+import           Data.Text                      ( Text )
 import qualified Data.Text.Encoding            as Text
 import           Network.HTTP.Types.Header      ( hCookie )
 import           Network.Wai                    ( Application
@@ -30,10 +31,16 @@ import           Network.WebSockets.Connection  ( acceptRequest
                                                 , connectionOnPong
                                                 , defaultConnectionOptions
                                                 , forkPingThread
+                                                , sendClose
+                                                , Connection
                                                 )
 import           Servant.Subscriber
 import qualified Servant.Subscriber.Client     as Client
 import qualified Servant.Subscriber.Request    as S
+import           Servant.Subscriber.Response    ( Response(..)
+                                                , HttpResponse(..)
+                                                , Status(..)
+                                                )
 import           Servant.Subscriber.Types       ( Path(..)
                                                 , entryPoint
                                                 , runLogging
@@ -57,7 +64,7 @@ serveSubscriber' subscriber app' req sendResponse = do
         runLog
           .   Client.run app'
           <=< atomically
-          .   fmap (addCookies req)
+          .   fmap (addCookies req connection)
           .   Client.fromWebSocket subscriber myRef
           $   connection
   if Path (pathInfo req) == entryPoint subscriber
@@ -70,10 +77,18 @@ serveSubscriber' subscriber app' req sendResponse = do
     let action = join $ readIORef myRef
     return (action, myRef)
 
-  addCookies :: Request -> Client.Client api -> Client.Client api
-  addCookies r c = c
+  addCookies :: Request -> Connection -> Client.Client api -> Client.Client api
+  addCookies r connection c = c
     { Client.readRequest = fmap (fmapReq (addCookie r)) <$> Client.readRequest c
+    , Client.writeResponse = \msg -> do
+      Client.writeResponse c msg
+      if isDenied msg
+        then sendClose connection ("Access denied" :: Text)
+        else pure ()
     }
+
+  isDenied (HttpRequestFailed _ r) = statusCode (httpStatus r) == 401
+  isDenied _                       = False
 
   addCookie r httpReq = httpReq
     { S.httpHeaders = S.httpHeaders httpReq <> cookieHeaders (requestHeaders r)

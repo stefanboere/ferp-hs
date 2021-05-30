@@ -160,15 +160,27 @@ performWebSocketRequests url req =
     xsrfToken <- findCookie "XSRF-TOKEN"
 
     rec w <- jsonWebSocket url $ def
-          { _webSocketConfig_send = fmap (toSubReq . addXsrf xsrfToken)
-                                    .   Map.elems
-                                    <$> reqs
+          { _webSocketConfig_send = mergeWith
+                                      (<>)
+                                      [ fmap (toSubReq . addXsrf xsrfToken)
+                                      .   Map.elems
+                                      <$> reqs
+                                      , pure
+                                      .   toSubReq
+                                      .   addRetry
+                                      .   addXsrf xsrfToken
+                                      .   fst
+                                      <$> retryRsp
+                                      ]
           }
-        let rsp = fmapMaybe (>>= parseResp) $ _webSocket_recv w
+        let rsp       = fmapMaybe (>>= parseResp) $ _webSocket_recv w
+        let retryRsp' = patchReq' <$> ffilter isRetry rsp
+        retryRsp <- delay 1 retryRsp'
+        let goodRsp = patchReq' <$> ffilter (not . isRetry) rsp
 
         (reqs, _inKeys, rsps) <- matchResponsesWithRequests' websocketEncoder
                                                              req
-                                                             rsp
+                                                             goodRsp
                                                              modReqs
 
         let modReqs = never -- TODO unsubscribe
@@ -176,19 +188,28 @@ performWebSocketRequests url req =
     pure rsps
 
  where
+  statusCode = S.statusCode . httpStatus . snd
+  isRetry r =
+    statusCode r == 401 && "X-RETRY" `notElem` fmap fst (S.httpHeaders (fst r))
+
   toSubReq r | httpMethod r == "GET" = S.Subscribe r
              | otherwise             = S.SimpleRequest r
 
   parseResp :: S.Response -> Maybe (HttpRequest, HttpResponse)
   parseResp (S.Modified rq resp) =
-    Just (patchReq rq, HttpResponse (S.Status 200 "") [] resp)
-  parseResp (S.HttpRequestFailed rq resp) = Just (patchReq rq, resp)
+    Just (rq, HttpResponse (S.Status 200 "") [] resp)
+  parseResp (S.HttpRequestFailed rq resp) = Just (rq, resp)
   parseResp _                             = Nothing
 
+  patchReq' (rq, rs) = (patchReq rq, rs)
   patchReq rq = rq
-    { S.httpHeaders = filter ((`notElem` ["Cookie", "X-XSRF-TOKEN"]) . fst)
-                             (S.httpHeaders rq)
+    { S.httpHeaders = filter
+                        ((`notElem` ["Cookie", "X-XSRF-TOKEN", "X-RETRY"]) . fst
+                        )
+                        (S.httpHeaders rq)
     }
+
+  addRetry r = r { S.httpHeaders = ("X-RETRY", "") : S.httpHeaders r }
 
   addXsrf mtok r =
     let addX = maybe id (\t -> (("X-XSRF-TOKEN", t) :)) mtok
