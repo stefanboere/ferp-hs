@@ -103,8 +103,8 @@ withHeader x = do
                      }
   actions = do
     _ <- btnDropdown def (icon def cogIcon) $ do
-      accountEv <- elAttrClick_ "a" ("href" =: "#") (text "Account")
-      logoutEv  <- elAttrClick_ "a" ("href" =: "#") (text "Logout")
+      accountEv <- elAttrClick_ "a" ("href" =: "/auth/account") (text "Account")
+      logoutEv  <- elAttrClick_ "a" ("href" =: "/auth/logout") (text "Logout")
       pure $ leftmost [accountEv, logoutEv]
     pure ()
 

@@ -42,7 +42,6 @@ data Config = Config
   , configPort        :: Port
   , configOidc        :: OIDCConfig
   , configStaticDirectory :: FilePath
-  , configAccountUri  :: URI
   }
   deriving Generic
 

@@ -118,6 +118,7 @@ instance Interpret OIDCConfig
 
 data OIDCEnv = OIDCEnv
   { oidcCredentials    :: O.OIDC
+  , oidcExtraConfig    :: ExtraConfiguration
   , oidcManager        :: Manager
   , oidcGenState       :: IO ByteString
   , oidcState          :: IORef SessionStateMap
@@ -128,15 +129,17 @@ type SessionStateMap = Map Text (O.State, O.Nonce)
 
 initOIDC :: OIDCConfig -> IO OIDCEnv
 initOIDC OIDCConfig {..} = do
-  ssm  <- newIORef mempty
-  mgr  <- newManager tlsManagerSettings
-  prov <- O.discover (Text.pack . show $ oidcProviderUri) mgr
+  ssm   <- newIORef mempty
+  mgr   <- newManager tlsManagerSettings
+  prov  <- O.discover (Text.pack . show $ oidcProviderUri) mgr
+  extra <- discoverLogout oidcProviderUri mgr
   let oidc = O.setCredentials (Text.encodeUtf8 oidcClientId)
                               (unClientSecret oidcClientSecret)
                               (B.pack . show $ oidcRedirectUri)
                               (O.newOIDC prov)
   return OIDCEnv
     { oidcCredentials    = oidc
+    , oidcExtraConfig    = extra
     , oidcManager        = mgr
     , oidcGenState       = genRandomBS
     , oidcState          = ssm
@@ -147,6 +150,30 @@ initOIDC OIDCConfig {..} = do
                              , cookieIsSecure    = NotSecure
                              } -- cookie config
     }
+
+data ExtraConfiguration = ExtraConfiguration
+  { endSessionEndpoint :: Maybe URI
+  , jwksUri :: URI
+  }
+  deriving (Eq, Show, Generic)
+
+instance FromJSON ExtraConfiguration where
+  parseJSON = Aeson.genericParseJSON Aeson.defaultOptions
+    { Aeson.fieldLabelModifier = Aeson.camelTo2 '_'
+    }
+
+discoverLogout :: URI -> Manager -> IO ExtraConfiguration
+discoverLogout uri man = do
+
+  initReq <- liftIO $ requestFromURI
+    (uri { uriPath = uriPath uri <> ".well-known/openid-configuration" })
+  let req = initReq { checkResponse = throwErrorStatusCodes }
+
+  response <- liftIO $ httpLbs req man
+
+  case Aeson.eitherDecode (responseBody response) of
+    Left  e -> fail e
+    Right x -> pure x
 
 
 -- brittany-disable-next-binding
@@ -477,13 +504,24 @@ handleLoginRefresh oidcenv (Just refreshCookie) = do
               Just y  -> addHeader y NoContent
               Nothing -> noHeader NoContent
 
-handleLogout :: (MonadError ServerError m) => m NoContent
-handleLogout = throwError err302
-  { errHeaders = [ ("Location", "/")
+handleLogout
+  :: (MonadError ServerError m) => ExtraConfiguration -> URI -> m NoContent
+handleLogout cfg redirectUri = throwError err302
+  { errHeaders = [ ("Location", B.pack $ uriStr (loc (endSessionEndpoint cfg)))
                  , expiredCookieHeader "JWT-Cookie"
                  , expiredCookieHeader "refresh-token"
                  ]
   }
+
+ where
+  loc (Just logoutEndp) = logoutEndp
+    { uriQuery = "?redirect_uri=" <> Network.escapeURIString
+                   Network.isUnescapedInURIComponent
+                   (uriStr redirectUri)
+    }
+  loc _ = redirectUri
+
+  uriStr u = Network.uriToString id u ""
 
 handleAccount :: (MonadError ServerError m) => URI -> m NoContent
 handleAccount uri = throwError err302
@@ -515,27 +553,17 @@ genRandomBS = do
 -- * JWT
 
 -- | Discover the JWK keys of the openid connect provider
-discoverJWKs :: URI -> IO Jose.JWKSet
-discoverJWKs uri = do
-  manager <- newManager tlsManagerSettings
+discoverJWKs :: ExtraConfiguration -> IO Jose.JWKSet
+discoverJWKs extraCfg = do
+  manager  <- newManager tlsManagerSettings
 
-  cfgReq  <- requestFromURI uri
-    { uriPath = uriPath uri <> ".well-known/openid-configuration"
-    }
-  cfgResp  <- httpLbs cfgReq manager
-  jwksUri  <- either fail pure $ Aeson.eitherDecode (responseBody cfgResp)
-
-  jwksReq  <- requestFromURI (jwks_uri jwksUri)
+  jwksReq  <- requestFromURI (jwksUri extraCfg)
   jwksResp <- httpLbs jwksReq manager
   either fail pure $ Aeson.eitherDecode (responseBody jwksResp)
 
-generateJwtSettings :: URI -> IO JWTSettings
-generateJwtSettings uri = do
+generateJwtSettings :: ExtraConfiguration -> IO JWTSettings
+generateJwtSettings extraCfg = do
   myKey <- generateKey
-  jwks  <- discoverJWKs uri
+  jwks  <- discoverJWKs extraCfg
   pure $ (defaultJWTSettings myKey) { validationKeys = jwks }
-
-newtype JWKSUri = JWKSUri { jwks_uri :: URI } deriving (Eq, Show, Generic)
-
-instance FromJSON JWKSUri
 

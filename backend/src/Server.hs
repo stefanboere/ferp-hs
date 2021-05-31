@@ -63,14 +63,24 @@ identityServer =
   handleLoggedIn'
     :<|> handleLoginFailed
     :<|> handleLoginRefresh'
-    :<|> handleLogout
+    :<|> handleLogout'
     :<|> handleAccount'
  where
-  handleAccount' = asks (configAccountUri . getConfig) >>= handleAccount
+  handleAccount' = do
+    p <- asks (oidcProviderUri . configOidc . getConfig)
+    handleAccount p { uriPath = uriPath p <> "account/" }
+
   handleLoginRefresh' a = asks getOIDC >>= (`handleLoginRefresh` a)
   handleLoggedIn' a b c d = do
     env <- asks getOIDC
     handleLoginSuccess env a b c d
+
+  handleLogout' = do
+    extraCfg    <- asks (oidcExtraConfig . getOIDC)
+    redirectUri <- asks (oidcRedirectUri . configOidc . getConfig)
+    handleLogout extraCfg redirectUri { uriPath = "/" }
+
+
 
 -- | Registers the wai metrics and does the database migrations
 initialize :: AppConfig -> Application -> IO Application
@@ -143,7 +153,7 @@ acquireConfig = do
   oidc                    <- initOIDC (configOidc settings)
 
   -- Generate JWT key
-  jwt <- generateJwtSettings (oidcProviderUri $ configOidc settings)
+  jwt                     <- generateJwtSettings (oidcExtraConfig oidc)
 
   pure
     ( AppConfig { getConfig      = settings
