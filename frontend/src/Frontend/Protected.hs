@@ -21,9 +21,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
 import qualified Data.Map                      as Map
 import           Data.Proxy
-import           Data.Text                      ( Text
-                                                , pack
-                                                )
+import           Data.Text                      ( Text )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
@@ -215,22 +213,6 @@ saveBtn = triStateBtn floppyIcon ("Save", "Saving", "Saved")
 refreshBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
 refreshBtn = triStateBtn refreshIcon ("Reload", "Reloading", "Reloaded")
-
-orAlertF
-  :: ( Prerender js t m
-     , DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , MonadFix m
-     , Show b
-     )
-  => m (Event t (Either b a))
-  -> m (Event t a)
-orAlertF getResultEv = do
-  resultEv <- getResultEv
-  let (errEv, rEv) = fanEither resultEv
-  alerts def { _alertConfig_status = Danger } (pack . show <$> errEv)
-  pure rEv
 
 loading
   :: (MonadFix m, PostBuild t m, DomBuilder t m, MonadHold t m)

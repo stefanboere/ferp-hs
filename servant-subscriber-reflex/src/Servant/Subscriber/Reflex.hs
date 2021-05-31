@@ -16,6 +16,7 @@ module Servant.Subscriber.Reflex
   , requestingJs
   , hoistPure
   , findCookie
+  , C.RequestF(..)
   , module Servant.Client.Free
   )
 where

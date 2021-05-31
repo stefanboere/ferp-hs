@@ -70,6 +70,7 @@ alertStyle = do
       paddingAll nil
       textOverflow overflowClip
       width (rem 1)
+      minWidth (rem 1)
       position relative
       top (rem 0.2)
       ".icon" ? top nil
@@ -200,13 +201,13 @@ alert AlertConfig {..} msg actions = elClass "div" classStr $ do
 alerts
   :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
   => AlertConfig
-  -> Event t Text
+  -> Event t (Text, m ())
   -> m ()
 alerts cfg addMsg = do
-  rec msgs <- foldDyn ($) (mempty :: Map.Map Integer Text)
+  rec msgs <- foldDyn ($) (mempty :: Map.Map Integer (Text, m ()))
         $ leftmost [appnd <$> addMsg, delete <$> rmEv]
-      rmEv <- listViewWithKey msgs
-        $ \_ dynMsg -> snd <$> alert cfg dynMsg (pure ())
+      rmEv <- listViewWithKey msgs $ \_ dynMsg ->
+        snd <$> alert cfg (fst <$> dynMsg) (dyn_ $ snd <$> dynMsg)
 
   pure ()
  where

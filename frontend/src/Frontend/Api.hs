@@ -20,6 +20,7 @@ module Frontend.Api
   , getBlogs
   -- * Utils
   , orAlert
+  , orAlertF
   , requestBtn
   , runApi
   , withXsrfHeader
@@ -28,12 +29,19 @@ module Frontend.Api
   )
 where
 
+import           Control.Exception.Base         ( displayException )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.ByteString                ( ByteString )
+import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Map                      as Map
+import           Data.Maybe                     ( catMaybes )
+import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
+import qualified Data.Text.Encoding            as Text
 import           Data.Time                      ( NominalDiffTime )
 import           Language.Javascript.JSaddle    ( MonadJSM )
+import           Network.HTTP.Types
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
@@ -46,6 +54,7 @@ import           Servant.Crud.API
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , FreeClient
+                                                , ClientError(..)
                                                 )
 
 import           Common.Api
@@ -54,20 +63,72 @@ import           Components.Alert
 import           Components.Button
 import           Components.Class
 
+orAlertF
+  :: ( Prerender js t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     )
+  => m (Event t (Either ClientError a))
+  -> m (Event t a)
+orAlertF getResultEv = do
+  resultEv <- getResultEv
+  let (errEv, rEv) = fanEither resultEv
+  alerts def { _alertConfig_status = Danger } (showError <$> errEv)
+  pure rEv
+
+showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
+showError (FailureResponse rq rsp) =
+  let status  = Sub.responseStatusCode rsp
+      statusI = statusCode status
+      msg =
+          Text.unlines
+            . catMaybes
+            $ [ Just
+              $  "The request to "
+              <> showUrl (Sub.requestPath rq)
+              <> " failed. The server responded with "
+              <> (Text.pack . show $ statusI)
+              <> " "
+              <> (Text.decodeUtf8 . statusMessage $ status)
+              <> "."
+              , if BL.null (Sub.responseBody rsp)
+                then Nothing
+                else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
+              , if statusI == 403
+                then Just "Please try reloading this page."
+                else Nothing
+              ]
+  in  (msg, if statusI == 403 then reloadAction else pure ())
+
+showError (DecodeFailure x _) =
+  ("The response decoding failed: " <> x, pure ())
+showError (UnsupportedContentType x _) =
+  ("The content type " <> Text.pack (show x) <> " is not supported.", pure ())
+showError (InvalidContentTypeHeader _) =
+  ("The content type header of the response is invalid.", pure ())
+showError (ConnectionError e) =
+  ("A connection error occured: " <> Text.pack (displayException e), pure ())
+
+showUrl :: (Sub.BaseUrl, ByteString) -> Text
+showUrl (_, p) = Text.decodeUtf8 p
+
+reloadAction :: (Applicative m, Prerender js t m) => m ()
+reloadAction = prerender_ (pure ()) $ do
+  loc <- getLocationAfterHost
+  elAttr "a" ("href" =: loc) (text "Reload page")
+
 orAlert
   :: ( Prerender js t m
      , DomBuilder t m
      , PostBuild t m
      , MonadHold t m
      , MonadFix m
-     , Show err
      )
-  => Event t (Either err a)
+  => Event t (Either ClientError a)
   -> m (Event t a)
-orAlert resultEv = do
-  let (errEv, rEv) = fanEither resultEv
-  alerts def { _alertConfig_status = Danger } (Text.pack . show <$> errEv)
-  pure rEv
+orAlert resultEv = orAlertF (pure resultEv)
 
 requestBtn
   :: ( DomBuilder t m
