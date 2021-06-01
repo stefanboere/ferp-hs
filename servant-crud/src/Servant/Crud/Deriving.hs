@@ -61,7 +61,7 @@ aesonOptions p = Aeson.defaultOptions { Aeson.fieldLabelModifier = dropApp
                                       }
  where
   dropApp :: String -> String
-  dropApp s = fromMaybe s (L.stripPrefix (Text.unpack (typeName p)) s)
+  dropApp s = fromMaybe s (L.stripPrefix (Text.unpack ("_" <> typeName p)) s)
 
 -- | Create a QueryObject options from type based on the prefix (typename)
 queryOptions :: Typeable a => Proxy a -> Options

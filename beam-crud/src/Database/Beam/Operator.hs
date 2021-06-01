@@ -226,8 +226,9 @@ passesStr
   -> OpEntry sym 'Normal a
   -> QGenExpr ctxt be s a
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStr _ (E (MaybeLast Nothing )) _ = Nothing
-passesStr f (E (MaybeLast (Just x))) y = Just $ y `like_` val_ (f x)
+passesStr _ (E (MaybeLast Nothing)) _ = Nothing
+passesStr f (E (MaybeLast (Just x))) y =
+  Just $ lower_ y `like_` lower_ (val_ (f x))
 
 -- | Helper for negative string tests
 passesStrN
@@ -239,8 +240,9 @@ passesStrN
   -> OpEntry sym 'Normal a
   -> QGenExpr ctxt be s a
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStrN _ (E (MaybeLast Nothing )) _ = Nothing
-passesStrN f (E (MaybeLast (Just x))) y = Just $ not_ $ y `like_` val_ (f x)
+passesStrN _ (E (MaybeLast Nothing)) _ = Nothing
+passesStrN f (E (MaybeLast (Just x))) y =
+  Just $ not_ $ lower_ y `like_` lower_ (val_ (f x))
 
 instance ( BeamSqlBackendIsString be a
          , BeamSqlBackendCanSerialize be a
@@ -316,7 +318,7 @@ passesStrMaybe
 passesStrMaybe _ (E (MaybeLast Nothing       )) _ = Nothing
 passesStrMaybe _ (E (MaybeLast (Just Nothing))) _ = Nothing
 passesStrMaybe f (E (MaybeLast (Just (Just x)))) y =
-  Just $ maybe_ (val_ False) (`like_` val_ (f x)) y
+  Just $ maybe_ (val_ False) (\z -> lower_ z `like_` lower_ (val_ (f x))) y
 
 -- | Helper for positive string tests with nullable fields
 passesStrMaybeN
@@ -328,10 +330,10 @@ passesStrMaybeN
   -> OpEntry sym 'Normal (Maybe a)
   -> QGenExpr ctxt be s (Maybe a)
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStrMaybeN _ (E (MaybeLast Nothing       )) _ = Nothing
-passesStrMaybeN _ (E (MaybeLast (Just Nothing))) _ = Nothing
-passesStrMaybeN f (E (MaybeLast (Just (Just x)))) y =
-  Just $ maybe_ (val_ True) (\z -> not_ $ z `like_` val_ (f x)) y
+passesStrMaybeN _ (E (MaybeLast Nothing        )) _ = Nothing
+passesStrMaybeN _ (E (MaybeLast (Just Nothing ))) _ = Nothing
+passesStrMaybeN f (E (MaybeLast (Just (Just x)))) y = Just
+  $ maybe_ (val_ True) (\z -> not_ $ lower_ z `like_` lower_ (val_ (f x))) y
 
 instance {-# OVERLAPPING  #-} ( BeamSqlBackendIsString be a
          , BeamSqlBackendCanSerialize be a
