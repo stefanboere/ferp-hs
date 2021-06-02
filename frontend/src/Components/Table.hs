@@ -303,9 +303,8 @@ showHideColumns columns = do
   (x, _) <- signpost' ico TopRight $ do
     el "h3" $ text "Show columns"
     let allCols = Map.keysSet columns
-    rec dynSet <- elClass "div" "show-hide-columns" $ checkboxesInputMap'
+    rec dynSet <- elClass "div" "show-hide-columns" $ checkboxesInputMap
           columns
-          ""
           (inputConfig allCols) { _inputConfig_setValue = allCols <$ selectAllEv
                                 }
         selectAllEv <- btn def { _buttonConfig_priority = ButtonTertiary }
@@ -390,7 +389,7 @@ paginationInput
   -> m (Dynamic t Page)
 paginationInput totalResults = elClass "div" "pagination" $ do
   el "span" $ text "Results per page"
-  dynLim <- _inputEl_value <$> selectInput' "" (inputConfig (Just Page10))
+  dynLim <- _inputEl_value <$> selectInput (inputConfig (Just Page10))
   let pageSizeDyn = pageSize' <$> dynLim
   let maxPageDyn  = maxPage <$> totalResults <*> pageSizeDyn
   rec
@@ -407,12 +406,11 @@ paginationInput totalResults = elClass "div" "pagination" $ do
           , _buttonConfig_state    = btnPrevStateDyn
           }
       (icon def { _iconConfig_direction = constDyn DirLeft } angleIcon)
-    pageNum <- integralInput'
+    pageNum <- integralInput
       NumberInputConfig { _numberInputConfig_minValue  = constDyn (Just 1)
                         , _numberInputConfig_maxValue  = maxPageDyn
                         , _numberInputConfig_precision = Just 0
                         }
-      ""
       (inputConfig (1 :: Int))
         { _inputConfig_setValue = leftmost
           [ 1 <$ prevAllEv

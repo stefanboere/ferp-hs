@@ -4,7 +4,6 @@ module Components.Input.Combobox
   ( comboboxStyle
   , ComboboxValue(..)
   , comboboxInput
-  , comboboxInput'
   )
 where
 
@@ -13,7 +12,6 @@ import           Prelude                 hiding ( rem
                                                 )
 
 import           Clay                    hiding ( icon )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
 import           Data.Map                       ( Map )
@@ -62,30 +60,23 @@ instance Default k => Default (ComboboxValue k) where
   def = ComboboxValue def mempty
 
 comboboxInput
-  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, MonadIO m, Eq k)
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Eq k)
   => (Dynamic t k -> Dynamic t Text -> m ())
   -> Dynamic t (Map k Text)
   -> InputConfig t (ComboboxValue (Maybe k))
-  -> m (Dynamic t (ComboboxValue (Maybe k)))
-comboboxInput showOpt options cfg =
-  _inputEl_value <$> labeled cfg (\x -> comboboxInput' x showOpt options)
-
-comboboxInput'
-  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Eq k)
-  => Text
-  -> (Dynamic t k -> Dynamic t Text -> m ())
-  -> Dynamic t (Map k Text)
-  -> InputConfig t (ComboboxValue (Maybe k))
   -> m (InputEl (DomBuilderSpace m) t (ComboboxValue (Maybe k)))
-comboboxInput' idStr showOpt allOptions cfg = do
+comboboxInput showOpt allOptions cfg = do
   rec
     (searchStrInput, selectEv) <- textInputWithIco'
       (after' dynSelection options hasFocusDyn)
-      idStr
       (_cb_text <$> cfg)
         { _inputConfig_attributes = _inputConfig_attributes cfg
-                                    <> "list"
-                                    =: listIdStr
+                                    <> maybe
+                                         mempty
+                                         ( Map.singleton "list"
+                                         . (<> "-datalist")
+                                         )
+                                         (_inputConfig_id cfg)
                                     <> "class"
                                     =: "combobox"
         , _inputConfig_setValue   = leftmost
@@ -153,7 +144,6 @@ comboboxInput' idStr showOpt allOptions cfg = do
     let r = Text.Fuzzy.filter pat (Map.toList opts) "" "" snd False
     in  Map.fromList $ zip [1, 0 ..] (Prelude.map original r)
 
-  listIdStr = idStr <> "-datalist"
   after' dynSelection options hasFocusDyn = do
     selectIcon
 
@@ -196,7 +186,6 @@ comboboxInput' idStr showOpt allOptions cfg = do
   mkCurrentCls k (Just kSel) | k == kSel = Map.singleton "class" "active"
                              | otherwise = Map.empty
 
-  mkDatalistAttr isOpen = Map.fromList
-    [ ("id"   , listIdStr)
-    , ("class", "combobox-menu" <> if isOpen then " open" else "")
-    ]
+  mkDatalistAttr isOpen =
+    Map.singleton "class" ("combobox-menu" <> if isOpen then " open" else "")
+      <> maybe mempty (Map.singleton "id") (_inputConfig_id cfg)

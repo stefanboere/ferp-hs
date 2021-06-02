@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Components.Input.File
   ( fileDropzone
-  , fileDropzone'
   , fileDropzoneStyle
   , fileDropzoneScript
   )
@@ -18,10 +17,9 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import qualified Data.Map                      as Map
-import           Data.Text                      ( Text )
+import           Data.Maybe                     ( fromMaybe )
 import           GHCJS.DOM.File                 ( getName )
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
@@ -52,23 +50,10 @@ fileDropzone
      , Prerender js t m
      , MonadFix m
      , MonadHold t m
-     , MonadIO m
      )
   => InputConfig t ()
   -> m (Dynamic t [DOM.File])
-fileDropzone cfg = labeled cfg fileDropzone'
-
-fileDropzone'
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , Prerender js t m
-     , MonadFix m
-     , MonadHold t m
-     )
-  => Text
-  -> InputConfig t ()
-  -> m (Dynamic t [DOM.File])
-fileDropzone' idStr cfg = do
+fileDropzone cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
   x         <- elClass "div" "input" $ do
@@ -83,8 +68,7 @@ fileDropzone' idStr cfg = do
                 &  inputElementConfig_elementConfig
                 .  elementConfig_initialAttributes
                 .~ (_inputConfig_attributes cfg <> initAttrs)
-                <> "id"
-                =: idStr
+                <> maybe mempty (Map.singleton "id") (_inputConfig_id cfg)
                 &  inputElementConfig_elementConfig
                 .  elementConfig_modifyAttributes
                 .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
@@ -113,7 +97,9 @@ fileDropzone' idStr cfg = do
         else "" <> if x == InputDisabled then " disabled" else mempty
       )
     , ("ondragover", "dragOverHandler(event);")
-    , ("ondrop"    , "dropHandler('" <> idStr <> "', event);")
+    , ( "ondrop"
+      , "dropHandler('" <> fromMaybe "" (_inputConfig_id cfg) <> "', event);"
+      )
     ]
 
   initAttrs = "type" =: "file" <> "multiple" =: ""

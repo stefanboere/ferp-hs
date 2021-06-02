@@ -94,10 +94,9 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- stackviewEmpty "Label 1" (textInput' "" (inputConfig "Content 1"))
+    _ <- stackviewEmpty "Label 1" (textInput (inputConfig "Content 1"))
     _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
-      _ <- stackviewRow "Sub-label 1"
-                        (textInput' "" (inputConfig "Sub-content 1"))
+      _ <- stackviewRow "Sub-label 1" (textInput (inputConfig "Sub-content 1"))
       stackviewRow "Sub-label 2" (text "Sub-content 2")
       stackviewRow "Sub-label 3" (text "Sub-content 3")
     _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do
@@ -310,20 +309,20 @@ containerTable = do
       el "tr" $ do
         el "td" blank
         el "td" blank
-        _ <- el "td" $ textInput' "" (inputConfig "")
-        _ <- el "td" $ textInput' "" (inputConfig "")
-        _ <- el "td" $ textInput' "" (inputConfig "")
-        _ <- el "td" $ textInput' "" (inputConfig "")
+        _ <- el "td" $ textInput (inputConfig "")
+        _ <- el "td" $ textInput (inputConfig "")
+        _ <- el "td" $ textInput (inputConfig "")
+        _ <- el "td" $ textInput (inputConfig "")
         pure selectAllEv
     let selectAllEv = updated selectAllEv'
     selcountDyn <- elAttr "tbody" ("style" =: "height:10rem") $ do
       (s1, _) <- rowMultiSelect False selectAllEv $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"
-        _ <- el "td" $ textInput' "" (inputConfig "John Doe")
+        _ <- el "td" $ textInput (inputConfig "John Doe")
         _ <- el "td"
-          $ dateInput' def "" (inputConfig (Just (fromGregorian 1970 01 01)))
-        _ <- el "td" $ numberInput' def "" (inputConfig (10 :: Double))
+          $ dateInput def (inputConfig (Just (fromGregorian 1970 01 01)))
+        _ <- el "td" $ numberInput def (inputConfig (10 :: Double))
         pure ()
       (s2, _) <- rowMultiSelect False selectAllEv $ do
         linkCell "#" angleDoubleRightIcon

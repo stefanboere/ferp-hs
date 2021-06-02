@@ -164,17 +164,17 @@ blogEdit bid = runApi $ do
 
 
 prop
-  :: (Functor m, Reflex t)
+  :: (DomBuilder t m, PostBuild t m, MonadIO m)
   => (InputConfig t b -> m (Dynamic t b))
   -> Text
   -> Lens' a b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
-prop editor lbl l initVal update = Compose $ fmap (set l) <$> editor
-  (inputConfig (view l initVal)) { _inputConfig_label    = constDyn lbl
-                                 , _inputConfig_setValue = view l <$> update
-                                 }
+prop editor lbl l initVal update = Compose $ fmap (set l) <$> labeled
+  lbl
+  editor
+  (inputConfig (view l initVal)) { _inputConfig_setValue = view l <$> update }
 
 textProp
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadIO m)

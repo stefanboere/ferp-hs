@@ -115,42 +115,38 @@ basicHandler = do
   el "h1" $ text "Basic"
 
   el "form" $ do
-    _ <- textInput def { _inputConfig_label        = constDyn "Text input"
-                       , _inputConfig_initialValue = "Hello world"
-                       }
-    n1 <- numberInput
-      def { _numberInputConfig_precision = Just 3 }
-      def { _inputConfig_label        = constDyn "Numeric input"
-          , _inputConfig_initialValue = 0 :: Double
-          }
-    _ <- overridableNumberInput
-      (fmapMaybe Prelude.id $ updated n1)
-      def { _inputConfig_label        = constDyn "Overridable input"
-          , _inputConfig_initialValue = Overridable (0 :: Double) Nothing
-          }
-    _ <- textInput def { _inputConfig_label      = constDyn "Color"
-                       , _inputConfig_attributes = "type" =: "color"
-                       }
-    _ <- textInput def { _inputConfig_label      = constDyn "Email"
-                       , _inputConfig_attributes = "type" =: "email"
-                       }
-    _ <- textInput def { _inputConfig_label      = constDyn "Image"
-                       , _inputConfig_attributes = "type" =: "image"
-                       }
-    _ <- textInput def { _inputConfig_label      = constDyn "Search"
-                       , _inputConfig_attributes = "type" =: "search"
-                       }
-    _ <- textInput (inputConfig "Submit") { _inputConfig_label      = constDyn
-                                            "Submit"
-                                          , _inputConfig_attributes = "type"
-                                            =: "submit"
-                                          }
-    _ <- textInput def { _inputConfig_label      = constDyn "Tel"
-                       , _inputConfig_attributes = "type" =: "tel"
-                       }
-    _ <- textInput def { _inputConfig_label      = constDyn "Url"
-                       , _inputConfig_attributes = "type" =: "url"
-                       }
+    _  <- labeled "Hello world" textInput (inputConfig "Hello world")
+
+    n1 <- labeled "Numeric input"
+                  (numberInput def { _numberInputConfig_precision = Just 3 })
+                  (inputConfig (0 :: Double))
+    _ <- labeled "Overridable input"
+                 (overridableNumberInput (fmapMaybe Prelude.id $ updated n1))
+                 (inputConfig $ Overridable (0 :: Double) Nothing)
+
+    _ <- labeled "Color"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "color" }
+
+    _ <- labeled "Email"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "email" }
+    _ <- labeled "Image"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "image" }
+    _ <- labeled "Search"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "search" }
+    _ <- labeled
+      "Submit"
+      textInput
+      (inputConfig "Submit") { _inputConfig_attributes = "type" =: "submit" }
+    _ <- labeled "Tel"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "tel" }
+    _ <- labeled "Url"
+                 textInput
+                 def { _inputConfig_attributes = "type" =: "url" }
     pure ()
   pure never
 
@@ -162,52 +158,61 @@ checkboxHandler = do
   el "form" $ do
     _ <- checkboxInput "I agree to the terms" (inputConfig False)
 
-    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Material"
-      , _inputConfig_status = constDyn $ InputError "Error"
-      }
+    _ <- labeled
+      "Material"
+      checkboxesInput
+      (inputConfig (Set.singleton M14307))
+        { _inputConfig_status = constDyn $ InputError "Error"
+        }
 
-    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Disabled"
-      , _inputConfig_status = constDyn InputDisabled
-      }
+    _ <- labeled
+      "Disabled"
+      checkboxesInput
+      (inputConfig (Set.singleton M14307)) { _inputConfig_status = constDyn
+                                             InputDisabled
+                                           }
 
-    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "Success message"
-      }
+    _ <- labeled
+      "Success"
+      checkboxesInput
+      (inputConfig (Set.singleton M14307))
+        { _inputConfig_status = constDyn $ InputSuccess "Success message"
+        }
     pure ()
 
   elClass "form" "vertical" $ do
-    _ <- checkboxesInputMap
-      (Map.singleton () "I agree")
-      (inputConfig Set.empty) { _inputConfig_label = constDyn
-                                "Terms and conditions"
-                              }
+    _ <- labeled "Terms and conditions"
+                 (checkboxesInputMap (Map.singleton () "I agree"))
+                 (inputConfig Set.empty)
 
-    _ <- checkboxesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label = constDyn "Vertical layout"
-      }
+    _ <- labeled "Vertical layout"
+                 checkboxesInput
+                 (inputConfig (Set.singleton M14307))
+
     pure ()
 
   el "h2" $ text "Toggle"
   el "form" $ do
     _ <- toggleInput "Turn it on" (inputConfig False)
-    _ <- togglesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label = constDyn "Material"
-      }
-    _ <- togglesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Material"
-      , _inputConfig_status = constDyn $ InputError "Error"
-      }
-    _ <- togglesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Disabled"
-      , _inputConfig_status = constDyn InputDisabled
-      }
-    _ <- togglesInput (inputConfig (Set.singleton M14307))
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "Success message"
-      }
+    _ <- labeled "Material" togglesInput (inputConfig (Set.singleton M14307))
+    _ <- labeled
+      "Material"
+      togglesInput
+      (inputConfig (Set.singleton M14307))
+        { _inputConfig_status = constDyn $ InputError "Error"
+        }
+    _ <- labeled
+      "Disabled"
+      togglesInput
+      (inputConfig (Set.singleton M14307)) { _inputConfig_status = constDyn
+                                             InputDisabled
+                                           }
+    _ <- labeled
+      "Success"
+      togglesInput
+      (inputConfig (Set.singleton M14307))
+        { _inputConfig_status = constDyn $ InputSuccess "Success message"
+        }
     pure ()
 
   pure never
@@ -218,11 +223,9 @@ comboboxHandler
 comboboxHandler = do
   el "h1" $ text "Combobox"
   el "form" $ do
-    x <- comboboxInput showOpt
-                       flavors
-                       def { _inputConfig_label = constDyn "Flavours" }
+    x <- labeled "Flavours" (comboboxInput showOpt flavors) def
 
-    display x
+    display (_inputEl_value x)
 
   pure never
  where
@@ -238,30 +241,27 @@ datalistHandler = do
   el "h1" $ text "Datalist"
 
   el "form" $ do
-    _ <- datalistInput flavors def { _inputConfig_label = "Ice Cream Flavor" }
-    _ <- datalistInput
-      flavors
+    _ <- labeled "Ice Cream Flavor" (datalistInput flavors) def
+    _ <- labeled
+      "Ice Cream Flavor"
+      (datalistInput flavors)
       def
-        { _inputConfig_label  = constDyn "Ice Cream Flavor"
-        , _inputConfig_status = constDyn
+        { _inputConfig_status = constDyn
           $ InputNeutral (Just "Pick your favorite ice cream flavor")
         }
-    _ <- datalistInput
-      flavors
-      def { _inputConfig_label  = constDyn "Disabled"
-          , _inputConfig_status = constDyn InputDisabled
-          }
-    _ <- datalistInput
-      flavors
+    _ <- labeled "Disabled"
+                 (datalistInput flavors)
+                 def { _inputConfig_status = constDyn InputDisabled }
+    _ <- labeled
+      "Error"
+      (datalistInput flavors)
       def
-        { _inputConfig_label  = constDyn "Error"
-        , _inputConfig_status = constDyn $ InputError "Unknown ice cream flavor"
+        { _inputConfig_status = constDyn $ InputError "Unknown ice cream flavor"
         }
-    _ <- datalistInput
-      flavors
-      def { _inputConfig_label  = constDyn "Success"
-          , _inputConfig_status = constDyn $ InputSuccess "Changes saved"
-          }
+    _ <- labeled
+      "Success"
+      (datalistInput flavors)
+      def { _inputConfig_status = constDyn $ InputSuccess "Changes saved" }
     pure ()
 
   pure never
@@ -284,28 +284,31 @@ fileHandler = do
   el "h1" $ text "File"
 
   el "form" $ do
-    _ <- fileInput def { _inputConfig_label = constDyn "Attachment" }
-    _ <- fileInput def
-      { _inputConfig_label  = constDyn "Attachment"
-      , _inputConfig_status = constDyn
-                                $ InputNeutral (Just "Max file size: 128 MB")
-      }
-    _ <- fileInput def { _inputConfig_label  = constDyn "Disabled"
-                       , _inputConfig_status = constDyn InputDisabled
-                       }
-    _ <- fileInput def
-      { _inputConfig_label  = constDyn "Error"
-      , _inputConfig_status = constDyn $ InputError "Exceed file size limit"
-      }
-    _ <- fileInput def
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "File accepted"
-      }
+    _ <- labeled "Attachment" fileInput def
+    _ <- labeled
+      "Attachment"
+      fileInput
+      def
+        { _inputConfig_status = constDyn
+                                  $ InputNeutral (Just "Max file size: 128 MB")
+        }
+    _ <- labeled "Disabled"
+                 fileInput
+                 def { _inputConfig_status = constDyn InputDisabled }
+    _ <- labeled
+      "Error"
+      fileInput
+      def { _inputConfig_status = constDyn $ InputError "Exceed file size limit"
+          }
+    _ <- labeled
+      "Success"
+      fileInput
+      def { _inputConfig_status = constDyn $ InputSuccess "File accepted" }
 
-    _ <- fileDropzone def
-      { _inputConfig_label  = constDyn "Dropzone"
-      , _inputConfig_status = constDyn $ InputSuccess "File accepted"
-      }
+    _ <- labeled
+      "Dropzone"
+      fileDropzone
+      def { _inputConfig_status = constDyn $ InputSuccess "File accepted" }
 
     pure ()
 
@@ -318,41 +321,33 @@ groupHandler = do
   el "h1" $ text "Input Group"
 
   el "form" $ do
-    inputGroup def { _inputConfig_label = "Domain" } content
-    inputGroup
+    labeled "Domain" (`inputGroup` content) def
+    labeled
+      "Domain"
+      (`inputGroup` content)
       def
-        { _inputConfig_label  = "Domain"
-        , _inputConfig_status = constDyn
+        { _inputConfig_status = constDyn
                                   $ InputNeutral (Just "Choose a domain name")
         }
-      content
-    inputGroup
-      def { _inputConfig_label  = "Disabled"
-          , _inputConfig_status = constDyn InputDisabled
-          }
-      content
-    inputGroup
-      def { _inputConfig_label  = "Error"
-          , _inputConfig_status = constDyn $ InputError "Unreachable domain"
-          }
-      content
-    inputGroup
-      def { _inputConfig_label  = "Success"
-          , _inputConfig_status = constDyn $ InputSuccess "Domain ready"
-          }
-      content
+    labeled "Disabled"
+            (`inputGroup` content)
+            def { _inputConfig_status = constDyn InputDisabled }
+    labeled
+      "Error"
+      (`inputGroup` content)
+      def { _inputConfig_status = constDyn $ InputError "Unreachable domain" }
+    labeled
+      "Success"
+      (`inputGroup` content)
+      def { _inputConfig_status = constDyn $ InputSuccess "Domain ready" }
 
   pure never
 
  where
   content = do
-    _ <- selectInput (inputConfig (Just Http)) { _inputConfig_label = constDyn
-                                                 "Protocol"
-                                               }
-    _ <- textInput (inputConfig "") { _inputConfig_label = constDyn "Domain" }
-    _ <- selectInput (inputConfig (Just Dev)) { _inputConfig_label = constDyn
-                                                "Toplevel"
-                                              }
+    _ <- labeled "Protocol" selectInput (inputConfig (Just Http))
+    _ <- labeled "Domain" textInput (inputConfig "")
+    _ <- labeled "Toplevel" selectInput (inputConfig (Just Dev))
     pure ()
 
 
@@ -390,27 +385,33 @@ passwordHandler = do
   el "h1" $ text "Password"
 
   el "form" $ do
-    _ <- passwordInput def { _inputConfig_label = constDyn "Password" }
-    _ <- passwordInput def
-      { _inputConfig_label  = constDyn "Password"
-      , _inputConfig_status = constDyn $ InputNeutral
-        (Just
-          "Use 8 or more characters with a mix of letters, numbers & symbols"
-        )
-      }
-    _ <- passwordInput def { _inputConfig_label  = constDyn "Disabled"
-                           , _inputConfig_status = constDyn InputDisabled
-                           }
-    _ <- passwordInput def
-      { _inputConfig_label  = constDyn "Error"
-      , _inputConfig_status = constDyn
-        $ InputError "Use 8 or more characters for your password"
-      }
-    _ <- passwordInput def
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn
-                                $ InputSuccess "Password meets requirements"
-      }
+    _ <- labeled "Password" passwordInput def
+    _ <- labeled
+      "Password"
+      passwordInput
+      def
+        { _inputConfig_status = constDyn $ InputNeutral
+          (Just
+            "Use 8 or more characters with a mix of letters, numbers & symbols"
+          )
+        }
+    _ <- labeled "Disabled"
+                 passwordInput
+                 def { _inputConfig_status = constDyn InputDisabled }
+    _ <- labeled
+      "Error"
+      passwordInput
+      def
+        { _inputConfig_status = constDyn
+          $ InputError "Use 8 or more characters for your password"
+        }
+    _ <- labeled
+      "Success"
+      passwordInput
+      def
+        { _inputConfig_status = constDyn
+                                  $ InputSuccess "Password meets requirements"
+        }
     pure ()
 
   pure never
@@ -420,25 +421,32 @@ radioHandler = do
   el "h1" $ text "Radio"
 
   el "form" $ do
-    r1 <- radioInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Select material"
-      , _inputConfig_status = constDyn
-        $ InputNeutral (Just "Select the material to be used")
-      }
-    r2 <- radioInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Error"
-      , _inputConfig_status = constDyn $ InputError "Error"
-      }
+    r1 <- labeled
+      "Select material"
+      radioInput
+      (inputConfig (Just M14307))
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Select the material to be used")
+        }
+    r2 <- labeled
+      "Error"
+      radioInput
+      (inputConfig (Just M14307)) { _inputConfig_status = constDyn $ InputError
+                                    "Error"
+                                  }
 
-    r3 <- radioInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Disabled"
-      , _inputConfig_status = constDyn InputDisabled
-      }
+    r3 <- labeled
+      "Disabled"
+      radioInput
+      (inputConfig (Just M14307)) { _inputConfig_status = constDyn InputDisabled
+                                  }
 
-    r4 <- radioInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "Success message"
-      }
+    r4 <- labeled
+      "Success"
+      radioInput
+      (inputConfig (Just M14307))
+        { _inputConfig_status = constDyn $ InputSuccess "Success message"
+        }
     display r1
     text ", "
     display r2
@@ -464,28 +472,26 @@ rangeHandler = do
   el "h1" $ text "Range"
 
   el "form" $ do
-    _ <- rangeInput
-      def
-      (inputConfig (50 :: Double)) { _inputConfig_label = constDyn "Volume" }
-    _ <- rangeInput
-      def
+    _ <- labeled "Volume" (rangeInput def) (inputConfig (50 :: Double))
+    _ <- labeled
+      "Error"
+      (rangeInput def)
       (inputConfig (50 :: Double))
-        { _inputConfig_label  = constDyn "Error"
-        , _inputConfig_status = constDyn $ InputError "System error"
+        { _inputConfig_status = constDyn $ InputError "System error"
         }
 
-    _ <- rangeInput
-      def
-      (inputConfig (50 :: Double)) { _inputConfig_label  = constDyn "Disabled"
-                                   , _inputConfig_status = constDyn
+    _ <- labeled
+      "Disabled"
+      (rangeInput def)
+      (inputConfig (50 :: Double)) { _inputConfig_status = constDyn
                                      InputDisabled
                                    }
 
-    _ <- rangeInput
-      def
+    _ <- labeled
+      "Success"
+      (rangeInput def)
       (inputConfig (50 :: Double))
-        { _inputConfig_label  = constDyn "Success"
-        , _inputConfig_status = constDyn $ InputSuccess "Changes saved"
+        { _inputConfig_status = constDyn $ InputSuccess "Changes saved"
         }
     pure ()
 
@@ -496,25 +502,32 @@ selectHandler = do
   el "h1" $ text "Select"
 
   el "form" $ do
-    _ <- selectInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Select material"
-      , _inputConfig_status = constDyn
-        $ InputNeutral (Just "Select the material to be used")
-      }
-    _ <- selectInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Error"
-      , _inputConfig_status = constDyn $ InputError "Error"
-      }
+    _ <- labeled
+      "Select material"
+      selectInput
+      (inputConfig (Just M14307))
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Select the material to be used")
+        }
+    _ <- labeled
+      "Error"
+      selectInput
+      (inputConfig (Just M14307)) { _inputConfig_status = constDyn $ InputError
+                                    "Error"
+                                  }
 
-    _ <- selectInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Disabled"
-      , _inputConfig_status = constDyn InputDisabled
-      }
+    _ <- labeled
+      "Disabled"
+      selectInput
+      (inputConfig (Just M14307)) { _inputConfig_status = constDyn InputDisabled
+                                  }
 
-    _ <- selectInput (inputConfig (Just M14307))
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "Success message"
-      }
+    _ <- labeled
+      "Success"
+      selectInput
+      (inputConfig (Just M14307))
+        { _inputConfig_status = constDyn $ InputSuccess "Success message"
+        }
     pure ()
 
   pure never
@@ -524,23 +537,25 @@ textareaHandler = do
   el "h1" $ text "Textarea"
 
   el "form" $ do
-    _ <- textAreaInput def
-      { _inputConfig_label  = constDyn "Select material"
-      , _inputConfig_status = constDyn
-        $ InputNeutral (Just "Select the material to be used")
-      }
-    _ <- textAreaInput def { _inputConfig_label  = constDyn "Error"
-                           , _inputConfig_status = constDyn $ InputError "Error"
-                           }
+    _ <- labeled
+      "Select material"
+      textAreaInput
+      def
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Select the material to be used")
+        }
+    _ <- labeled "Error"
+                 textAreaInput
+                 def { _inputConfig_status = constDyn $ InputError "Error" }
 
-    _ <- textAreaInput def { _inputConfig_label  = constDyn "Disabled"
-                           , _inputConfig_status = constDyn InputDisabled
-                           }
+    _ <- labeled "Disabled"
+                 textAreaInput
+                 def { _inputConfig_status = constDyn InputDisabled }
 
-    _ <- textAreaInput def
-      { _inputConfig_label  = constDyn "Success"
-      , _inputConfig_status = constDyn $ InputSuccess "Success message"
-      }
+    _ <- labeled
+      "Success"
+      textAreaInput
+      def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
     pure ()
 
   pure never
@@ -552,51 +567,37 @@ timeHandler = do
   el "h1" $ text "Time"
 
   el "form" $ do
-    t1 <- timeInput
-      def
-      (inputConfig (Just (TimeOfDay 11 12 14))) { _inputConfig_label = constDyn
-                                                  "Time"
-                                                }
-    _ <- timeInput
-      def
-      def { _inputConfig_label  = constDyn "Error"
-          , _inputConfig_status = constDyn $ InputError "Error"
-          }
+    t1 <- labeled "Time"
+                  (timeOfDayInput def)
+                  (inputConfig (Just (TimeOfDay 11 12 14)))
+    _ <- labeled "Error"
+                 (timeOfDayInput def)
+                 def { _inputConfig_status = constDyn $ InputError "Error" }
 
-    _ <- timeInput
-      def
-      def { _inputConfig_label  = constDyn "Disabled"
-          , _inputConfig_status = constDyn InputDisabled
-          }
+    _ <- labeled "Disabled"
+                 (timeOfDayInput def)
+                 def { _inputConfig_status = constDyn InputDisabled }
 
-    _ <- timeInput
-      def
-      def { _inputConfig_label  = constDyn "Success"
-          , _inputConfig_status = constDyn $ InputSuccess "Success message"
-          }
+    _ <- labeled
+      "Success"
+      (timeOfDayInput def)
+      def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
     display t1
     pure ()
 
   el "h2" $ text "Other date inputs"
   el "form" $ do
-    d1 <- dateInput
-      def
-      (inputConfig (Just (fromGregorian 2021 03 14)))
-        { _inputConfig_label = constDyn "Day"
-        }
-    dt1 <- localtimeInput
-      def
+    d1 <- labeled "Day"
+                  (dateInput def)
+                  (inputConfig (Just (fromGregorian 2021 03 14)))
+    dt1 <- labeled
+      "Local time"
+      (localtimeInput def)
       (inputConfig
-          (Just (LocalTime (fromGregorian 2021 03 14) (TimeOfDay 15 30 00)))
-        )
-        { _inputConfig_label = constDyn "Local time"
-        }
-    w1 <- weekInput
-      def
-      (inputConfig (Just (2021, 30))) { _inputConfig_label = constDyn "Week" }
-    m1 <- monthInput
-      def
-      (inputConfig (Just (2021, 03))) { _inputConfig_label = constDyn "Month" }
+        (Just (LocalTime (fromGregorian 2021 03 14) (TimeOfDay 15 30 00)))
+      )
+    w1 <- labeled "Week" (weekInput def) (inputConfig (Just (2021, 30)))
+    m1 <- labeled "Month" (monthInput def) (inputConfig (Just (2021, 03)))
     display d1
     text ", "
     display dt1
