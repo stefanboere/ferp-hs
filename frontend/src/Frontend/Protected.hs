@@ -154,11 +154,7 @@ blogEdit bid = runApi $ do
                   initBlog
                   getBlogEv
 
-        <**> prop (markdownInput mempty)
-                  "Description"
-                  blogDescription
-                  initBlog
-                  getBlogEv
+        <**> prop markdownInput "Description" blogDescription initBlog getBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
       patchEv <- throttle 2 (() <$ ffilter (/= mempty) (updated dynPatch))

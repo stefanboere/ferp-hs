@@ -8,6 +8,7 @@ module Reflex.Markdown
   , codeInput
   , markdownInputStyle
   , markdownInput
+  , markdownInputWithPreview
   )
 where
 
@@ -29,7 +30,7 @@ import           Data.Text                      ( Text
                                                 )
 import qualified GHCJS.DOM.Types               as DOM
 import           Language.Javascript.JSaddle
-import           Lens.Micro                     ( (^.) )
+import           Control.Lens                   ( (^.) )
 import           Reflex.CodeMirror
 import           Reflex.Dom
 import           Reflex.Dom.Pandoc
@@ -112,6 +113,7 @@ codeInputScripts = do
 
 codeInputStyle :: Css
 codeInputStyle = ".code-editor" Clay.** ".CodeMirror" ? do
+  fontFamily ["FiraCode", "FiraCode Nerd Font"] [monospace]
   minHeight (Clay.rem 10)
   height (pct 100 @-@ Clay.rem 2)
   borderRadius (px 3) (px 3) (px 3) (px 3)
@@ -162,55 +164,18 @@ markdownInputStyle = do
     ".statusmessage" ? do
       "grid-row" -: "2"
 
-
-markdownInput
-  :: ( MonadHold t m
-     , DomBuilder t m
-     , PostBuild t m
-     , MonadFix m
-     , TriggerEvent t m
-     , PerformEvent t m
-     , MonadIO (Performable m)
-     , Prerender js t m
-     )
-  => SyntaxMap
-  -> InputConfig t Text
-  -> m (Dynamic t (Either ParseError Pandoc))
-markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
-  textD <- elClass "div" "code-editor"
-    $ codeInput
-        config
-        (_inputConfig_initialValue cfg)
-        (_inputConfig_setValue cfg)
-
+parseMarkdownImproving
+  :: (Reflex t, MonadHold t m, MonadFix m)
+  => Dynamic t Text
+  -> m (Dynamic t InputStatus, Dynamic t (Maybe (Dynamic t Pandoc)))
+parseMarkdownImproving textD = do
   let dynMarkWithError = parseMarkdown <$> textD
   mDynMark <- improvingMaybe (either (const Nothing) pure <$> dynMarkWithError)
   let dynError = either (InputError . pack . show) def <$> dynMarkWithError
 
   dynMark <- maybeDyn mDynMark
-
-  _       <- elClass "div" "code-view" $ dyn
-    (   maybe (pure (constDyn ()))
-              (elPandoc defaultConfig { _config_syntaxMap = syntaxMap })
-    <$> dynMark
-    )
-
-  statusMessageDiv (dynError <> _inputConfig_status cfg)
-
-  delayEv <- delay 0.05 (updated textD)
-  _ <- prerender_ blank $ performEvent (mathJaxTypeset <$ delayEv) >> pure ()
-  pure dynMarkWithError
+  pure (dynError, dynMark)
  where
-  config :: Configuration
-  config = def { _configuration_theme          = Just "nord"
-               , _configuration_indentUnit     = Just 2
-               , _configuraiton_smartIndent    = Just True
-               , _configuration_tabSize        = Just 2
-               , _configuration_indentWithTabs = Just False
-               }
-  mathJaxTypeset = DOM.liftJSM $ do
-    mathjax <- jsg ("MathJax" :: Text)
-    mathjax ^. js0 ("typeset" :: Text)
 
   ext =
     mathSpec
@@ -222,6 +187,62 @@ markdownInput syntaxMap cfg = elClass "div" "code-input" $ do
     fmap (Pandoc mempty . toList . unCm)
       . runIdentity
       . commonmarkWith @Identity @(Cm () Inlines) @(Cm () Blocks) ext ""
+
+markdownInput
+  :: ( MonadHold t m
+     , DomBuilder t m
+     , PostBuild t m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , MonadIO (Performable m)
+     , Prerender js t m
+     )
+  => InputConfig t Text
+  -> m (Dynamic t Text)
+markdownInput cfg = elClass "div" "code-editor"
+  $ codeInput config (_inputConfig_initialValue cfg) (_inputConfig_setValue cfg)
+
+ where
+  config :: Configuration
+  config = def { _configuration_theme          = Just "nord"
+               , _configuration_indentUnit     = Just 2
+               , _configuraiton_smartIndent    = Just True
+               , _configuration_tabSize        = Just 2
+               , _configuration_indentWithTabs = Just False
+               }
+
+markdownInputWithPreview
+  :: ( MonadHold t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadFix m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , MonadIO (Performable m)
+     , Prerender js t m
+     )
+  => SyntaxMap
+  -> InputConfig t Text
+  -> m (Dynamic t Text)
+markdownInputWithPreview syntaxMap cfg = elClass "div" "code-input" $ do
+  textD               <- markdownInput cfg
+  (dynError, dynMark) <- parseMarkdownImproving textD
+
+  _                   <- elClass "div" "code-view" $ dyn
+    (   maybe (pure (constDyn ()))
+              (elPandoc defaultConfig { _config_syntaxMap = syntaxMap })
+    <$> dynMark
+    )
+
+  statusMessageDiv (dynError <> _inputConfig_status cfg)
+
+  delayEv <- delay 0.05 (updated textD)
+  _ <- prerender_ blank $ performEvent (mathJaxTypeset <$ delayEv) >> pure ()
+  pure textD
+ where
+  mathJaxTypeset = DOM.liftJSM $ do
+    mathjax <- jsg ("MathJax" :: Text)
+    mathjax ^. js0 ("typeset" :: Text)
 
 
 skylightingStyle :: Css
