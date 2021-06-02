@@ -61,17 +61,18 @@ module Components.Input.Basic
   , monthInput'
   , statusModAttrEv'
   , statusMessageDiv
+  , requiredInput
   )
 where
 
 import           Prelude                 hiding ( rem )
 
 import           Clay                    hiding ( (&)
+                                                , empty
                                                 , icon
                                                 , max
                                                 , not
                                                 , selectElement
-                                                , empty
                                                 )
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
@@ -82,11 +83,11 @@ import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as Set
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
                                                 )
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 , unpack
@@ -98,17 +99,17 @@ import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
 import           Numeric                        ( showFFloatAlt )
 import           Reflex
-import           Reflex.Dom              hiding ( textInput
+import           Reflex.Dom              hiding ( fileInput
                                                 , rangeInput
-                                                , fileInput
+                                                , textInput
                                                 )
-import           Text.Read                      ( readMaybe )
-import           Text.Printf                    ( printf )
-import           System.Random                  ( getStdGen
-                                                , StdGen
-                                                , setStdGen
+import           System.Random                  ( StdGen
+                                                , getStdGen
                                                 , random
+                                                , setStdGen
                                                 )
+import           Text.Printf                    ( printf )
+import           Text.Read                      ( readMaybe )
 
 import           Components.Class
 import           Components.Icon
@@ -124,18 +125,18 @@ instance Semigroup InputStatus where
   x                <> _ = x
 
 data InputConfig t a = InputConfig
-  { _inputConfig_initialValue :: a
-  , _inputConfig_setValue     :: Event t a
-  , _inputConfig_label        :: Dynamic t Text
-  , _inputConfig_status       :: Dynamic t InputStatus
-  , _inputConfig_attributes   :: Map AttributeName Text
+  { _inputConfig_initialValue     :: a
+  , _inputConfig_setValue         :: Event t a
+  , _inputConfig_label            :: Dynamic t Text
+  , _inputConfig_status           :: Dynamic t InputStatus
+  , _inputConfig_attributes       :: Map AttributeName Text
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
   }
 
 data InputEl d t a = InputEl
-  { _inputEl_value :: Dynamic t a
+  { _inputEl_value    :: Dynamic t a
   , _inputEl_hasFocus :: Dynamic t Bool
-  , _inputEl_element :: Element EventResult d t
+  , _inputEl_element  :: Element EventResult d t
   }
 
 instance Reflex t => Functor (InputEl d t) where
@@ -160,8 +161,8 @@ instance Reflex t => Functor (InputConfig t) where
     }
 
 data NumberInputConfig t a = NumberInputConfig
-  { _numberInputConfig_maxValue :: Dynamic t (Maybe a)
-  , _numberInputConfig_minValue :: Dynamic t (Maybe a)
+  { _numberInputConfig_maxValue  :: Dynamic t (Maybe a)
+  , _numberInputConfig_minValue  :: Dynamic t (Maybe a)
   , _numberInputConfig_precision :: Maybe Int
   }
 
@@ -1585,3 +1586,22 @@ monthInput' = datetimeInput' formatTime' parseTime' "month" calendarIcon
     fmap ((\(y, m, _) -> (y, m)) . toGregorian)
       . parseTimeM True defaultTimeLocale "%Y-%m"
       . unpack
+
+requiredInput
+  :: (Reflex t, MonadFix m)
+  => (InputConfig t (Maybe a) -> m (Dynamic t (Maybe a)))
+  -> InputConfig t a
+  -> m (Dynamic t (Maybe a))
+requiredInput fn cfg = do
+  rec r <- fn (Just <$> cfg)
+        { _inputConfig_attributes = _inputConfig_attributes cfg
+                                    <> "required"
+                                    =: ""
+        , _inputConfig_status     = _inputConfig_status cfg <> stat
+        }
+      let stat = mkStat <$> r <*> _inputConfig_label cfg
+  pure r
+ where
+  mkStat Nothing lbl = InputError $ lbl <> " is required."
+  mkStat _       _   = def
+
