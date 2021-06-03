@@ -422,7 +422,7 @@ paginationInput totalResults = elClass "div" "pagination" $ do
         , fmapMaybe Prelude.id $ tagPromptlyDyn maxPageDyn nextAllEv
         ]
       }
-    let pageNumWithDef = fromMaybe 1 <$> pageNum
+    let pageNumWithDef = fromMaybe 1 <$> _inputEl_value pageNum
     dynText $ maybe "" (("/ " <>) . pack . show) <$> maxPageDyn
     let btnNextStateDyn = btnNextState <$> pageNumWithDef <*> maxPageDyn
     nextEv <- btn

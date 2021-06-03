@@ -121,9 +121,12 @@ basicHandler = do
       "Numeric input"
       numberInput
       (inputConfig' (def { _numberRange_precision = Just 3 }) (0 :: Double))
-    _ <- labeled "Overridable input"
-                 (overridableNumberInput (fmapMaybe Prelude.id $ updated n1))
-                 (inputConfig $ Overridable (0 :: Double) Nothing)
+    _ <- labeled
+      "Overridable input"
+      (overridableNumberInput
+        (fmapMaybe Prelude.id $ updated (_inputEl_value n1))
+      )
+      (inputConfig $ Overridable (0 :: Double) Nothing)
 
     _ <- labeled "Color"
                  textInput
@@ -583,7 +586,7 @@ timeHandler = do
       "Success"
       timeOfDayInput
       def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
-    display t1
+    display (_inputEl_value t1)
     pure ()
 
   el "h2" $ text "Other date inputs"
@@ -599,13 +602,13 @@ timeHandler = do
       )
     w1 <- labeled "Week" weekInput (inputConfig (Just (2021, 30)))
     m1 <- labeled "Month" monthInput (inputConfig (Just (2021, 03)))
-    display d1
+    display (_inputEl_value d1)
     text ", "
-    display dt1
+    display (_inputEl_value dt1)
     text ", "
-    display w1
+    display (_inputEl_value w1)
     text ", "
-    display m1
+    display (_inputEl_value m1)
     pure ()
 
   pure never

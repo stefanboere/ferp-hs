@@ -20,6 +20,7 @@ module Components.Input.Basic
   , InputConfig'(..)
   , InputConfig
   , NumberInputConfig
+  , DomInputEl
   , inputConfig
   , inputConfig'
   , textInput
@@ -119,6 +120,8 @@ instance Semigroup InputStatus where
 type InputConfig = InputConfig' (Const ())
 
 type NumberInputConfig t = InputConfig' (NumberRange t) t
+
+type DomInputEl t m = InputEl (DomBuilderSpace m) t
 
 data InputConfig' extraConfig t a = InputConfig
   { _inputConfig_initialValue     :: a
@@ -632,21 +635,21 @@ labeledDyn lbl editor cfg = do
 textInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text)
+  -> m (DomInputEl t m Text)
 textInput = textInputWithIco (pure (never, never))
 
 textInputWithIco
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t (Map AttributeName (Maybe Text)), Event t Text)
   -> InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text)
+  -> m (DomInputEl t m Text)
 textInputWithIco after' cfg = fst <$> textInputWithIco' (((), ) <$> after') cfg
 
 textInputWithIco'
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
   -> InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text, a)
+  -> m (DomInputEl t m Text, a)
 textInputWithIco' after' cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -694,13 +697,14 @@ numberInput
      , RealFloat a
      )
   => NumberInputConfig t a
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 numberInput = numberRangeInput True
 
 integralInput
-  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Integral a)
+  :: forall t m a
+   . (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Integral a)
   => NumberInputConfig t a
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 integralInput cfg = conv <$> numberInput
   (fromIntegral <$> cfg
     { _inputConfig_extra = (_inputConfig_extra cfg) { _numberRange_precision = Just
@@ -709,8 +713,7 @@ integralInput cfg = conv <$> numberInput
     }
   )
  where
-  conv
-    :: (Integral a, Reflex t) => Dynamic t (Maybe Double) -> Dynamic t (Maybe a)
+  conv :: DomInputEl t m (Maybe Double) -> DomInputEl t m (Maybe a)
   conv = fmap (fmap Prelude.round)
 
 numberRangeInput
@@ -723,7 +726,7 @@ numberRangeInput
      )
   => Bool
   -> NumberInputConfig t a
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 numberRangeInput isReg cfg = do
   let
     initAttrs = Map.fromList $ mapMaybe
@@ -767,7 +770,8 @@ numberRangeInput isReg cfg = do
                                           ]
       , _inputConfig_extra            = Const ()
       }
-    let result        = readMaybe . unpack <$> _inputEl_value n
+    let result0       = fmap (readMaybe . unpack) n
+        result        = _inputEl_value result0
         selectAttrEv  = if isReg then mkOnClick <$> updated result else never
         zeroIfEmptyEv = attachPromptlyDynWithMaybe
           emptyNoFocus
@@ -781,7 +785,7 @@ numberRangeInput isReg cfg = do
           <*> _inputEl_value n
           )
     statusDyn <- holdDyn def modAttrEv
-  return result
+  return result0
  where
   nc = _inputConfig_extra cfg
 
@@ -984,7 +988,7 @@ class HasLabel a where
 selectInput
   :: (PostBuild t m, DomBuilder t m, HasLabel a, Enum a, Bounded a)
   => InputConfig t (Maybe a)
-  -> m (InputEl (DomBuilderSpace m) t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 selectInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -1060,7 +1064,7 @@ radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
 textAreaInput
   :: (PostBuild t m, DomBuilder t m)
   => InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text)
+  -> m (DomInputEl t m Text)
 textAreaInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -1100,7 +1104,7 @@ rangeInput
      , RealFloat a
      )
   => NumberInputConfig t a
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 rangeInput = numberRangeInput False
 
 fileInput
@@ -1140,7 +1144,7 @@ datalistInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k, Show k)
   => Dynamic t (Map k Text)
   -> InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text)
+  -> m (DomInputEl t m Text)
 datalistInput options cfg = textInputWithIco
   after'
   cfg
@@ -1209,7 +1213,7 @@ inputGroup cfg cnt = do
 passwordInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => InputConfig t Text
-  -> m (InputEl (DomBuilderSpace m) t Text)
+  -> m (DomInputEl t m Text)
 passwordInput cfg = textInputWithIco
   after'
   cfg
@@ -1239,7 +1243,7 @@ eyeIconEl hide = do
 timeOfDayInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => NumberInputConfig t (Maybe TimeOfDay)
-  -> m (Dynamic t (Maybe TimeOfDay))
+  -> m (DomInputEl t m (Maybe TimeOfDay))
 timeOfDayInput = timeInput
 
 timeInput
@@ -1252,7 +1256,7 @@ timeInput
      , MonadHold t m
      )
   => NumberInputConfig t (Maybe a)
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 timeInput cfg = datetimeInput formatTime' parseTime' "time" clockIcon cfg
  where
   formatTime' t = pack $ formatTime
@@ -1298,7 +1302,7 @@ datetimeInput
   -> Text
   -> m ()
   -> NumberInputConfig t (Maybe a)
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 datetimeInput formatTime' parseTime' typeStr ico cfg = do
 
   (minMaxEv, minMaxDyn) <- getMinMaxEv formatTime' (flattenNumberRange nc)
@@ -1318,7 +1322,8 @@ datetimeInput formatTime' parseTime' typeStr ico cfg = do
                                               ]
           , _inputConfig_extra            = Const ()
           }
-      let result    = parseTime' <$> _inputEl_value n
+      let result0   = parseTime' <$> n
+          result    = _inputEl_value result0
           modAttrEv = updated
             (   styleChange
             <$> minMaxDyn
@@ -1327,7 +1332,7 @@ datetimeInput formatTime' parseTime' typeStr ico cfg = do
             <*> _inputEl_value n
             )
       statusDyn <- holdDyn def modAttrEv
-  return result
+  return result0
  where
   initAttrs = Map.fromList $ mapMaybe
     (\(x, y) -> (x, ) <$> y)
@@ -1365,7 +1370,7 @@ inputIcon ico = elClass "div" "input-icon nopointer" arrowElement
 dateInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => NumberInputConfig t (Maybe Day)
-  -> m (Dynamic t (Maybe Day))
+  -> m (DomInputEl t m (Maybe Day))
 dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
  where
   formatTime' = pack . formatTime defaultTimeLocale "%F"
@@ -1375,7 +1380,7 @@ dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
 localtimeInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => NumberInputConfig t (Maybe LocalTime)
-  -> m (Dynamic t (Maybe LocalTime))
+  -> m (DomInputEl t m (Maybe LocalTime))
 localtimeInput = datetimeInput formatTime'
                                parseTime'
                                "datetime-local"
@@ -1388,7 +1393,7 @@ localtimeInput = datetimeInput formatTime'
 weekInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => NumberInputConfig t (Maybe (Integer, Int))
-  -> m (Dynamic t (Maybe (Integer, Int)))
+  -> m (DomInputEl t m (Maybe (Integer, Int)))
 weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
  where
   formatTime' (y, m) =
@@ -1402,7 +1407,7 @@ weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
 monthInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => NumberInputConfig t (Maybe (Integer, Int))
-  -> m (Dynamic t (Maybe (Integer, Int)))
+  -> m (DomInputEl t m (Maybe (Integer, Int)))
 monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
  where
   formatTime' (y, m) =
@@ -1415,9 +1420,9 @@ monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
 
 requiredInput
   :: (Reflex t, MonadFix m, Functor c)
-  => (InputConfig' c t (Maybe a) -> m (Dynamic t (Maybe a)))
+  => (InputConfig' c t (Maybe a) -> m (DomInputEl t m (Maybe a)))
   -> InputConfig' c t a
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 requiredInput fn cfg = do
   rec r <- fn (Just <$> cfg)
         { _inputConfig_attributes = _inputConfig_attributes cfg
@@ -1425,7 +1430,7 @@ requiredInput fn cfg = do
                                     =: ""
         , _inputConfig_status     = _inputConfig_status cfg <> stat
         }
-      let stat = mkStat <$> r
+      let stat = mkStat <$> _inputEl_value r
   pure r
  where
   mkStat Nothing = InputError "This field is required."

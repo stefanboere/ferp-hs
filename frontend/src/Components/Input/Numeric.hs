@@ -73,7 +73,7 @@ overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
       (ovr_calculation $ _inputConfig_initialValue cfg)
       (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])
 
-  pure $ overridable <$> calc <*> dynOverridden <*> dynMVal
+  pure $ overridable <$> calc <*> dynOverridden <*> _inputEl_value dynMVal
  where
   overridable :: a -> Bool -> Maybe a -> Maybe (Overridable a)
   overridable _ True  Nothing    = Nothing
