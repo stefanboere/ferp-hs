@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module Components.Input.Basic
   ( numberInput
   , integralInput
@@ -16,16 +17,20 @@ module Components.Input.Basic
   , checkboxesInputDynMap
   , checkboxInputSimple
   , inputStyle
-  , InputConfig(..)
+  , InputConfig'(..)
+  , InputConfig
+  , NumberInputConfig
   , inputConfig
+  , inputConfig'
   , textInput
   , textInputWithIco
   , textInputWithIco'
   , InputStatus(..)
   , InputEl(..)
   , labeled
+  , labeledDyn
   , randomId
-  , NumberInputConfig(..)
+  , NumberRange(..)
   , HasLabel(..)
   , selectInput
   , textAreaInput
@@ -60,7 +65,10 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
 import           Clay.Stylesheet                ( key )
-import           Control.Applicative            ( (<|>) )
+import           Control.Applicative            ( (<|>)
+                                                , Const(..)
+                                                )
+import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
@@ -108,13 +116,18 @@ instance Semigroup InputStatus where
   (InputNeutral _) <> x = x
   x                <> _ = x
 
-data InputConfig t a = InputConfig
+type InputConfig = InputConfig' (Const ())
+
+type NumberInputConfig t = InputConfig' (NumberRange t) t
+
+data InputConfig' extraConfig t a = InputConfig
   { _inputConfig_initialValue     :: a
   , _inputConfig_setValue         :: Event t a
   , _inputConfig_id               :: Maybe Text
   , _inputConfig_status           :: Dynamic t InputStatus
   , _inputConfig_attributes       :: Map AttributeName Text
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
+  , _inputConfig_extra            :: extraConfig a
   }
 
 data InputEl d t a = InputEl
@@ -126,37 +139,46 @@ data InputEl d t a = InputEl
 instance Reflex t => Functor (InputEl d t) where
   fmap f x = x { _inputEl_value = f <$> _inputEl_value x }
 
-inputConfig :: Reflex t => a -> InputConfig t a
-inputConfig initval = InputConfig { _inputConfig_initialValue     = initval
-                                  , _inputConfig_setValue         = never
-                                  , _inputConfig_id               = def
-                                  , _inputConfig_status           = def
-                                  , _inputConfig_attributes       = def
-                                  , _inputConfig_modifyAttributes = never
-                                  }
+inputConfig' :: (Reflex t) => c a -> a -> InputConfig' c t a
+inputConfig' extra initval = InputConfig
+  { _inputConfig_initialValue     = initval
+  , _inputConfig_setValue         = never
+  , _inputConfig_id               = def
+  , _inputConfig_status           = def
+  , _inputConfig_attributes       = def
+  , _inputConfig_modifyAttributes = never
+  , _inputConfig_extra            = extra
+  }
 
-instance (Default a, Reflex t) => Default (InputConfig t a) where
-  def = inputConfig def
+inputConfig :: (Default (c a), Reflex t) => a -> InputConfig' c t a
+inputConfig = inputConfig' def
 
-instance Reflex t => Functor (InputConfig t) where
+instance Default (Const () a) where
+  def = Const ()
+
+instance (Default a, Default (c a), Reflex t) => Default (InputConfig' c t a) where
+  def = inputConfig' def def
+
+instance (Functor c, Reflex t) => Functor (InputConfig' c t) where
   fmap f cfg = cfg
     { _inputConfig_initialValue = f $ _inputConfig_initialValue cfg
     , _inputConfig_setValue     = f <$> _inputConfig_setValue cfg
+    , _inputConfig_extra        = f <$> _inputConfig_extra cfg
     }
 
-data NumberInputConfig t a = NumberInputConfig
-  { _numberInputConfig_maxValue  :: Dynamic t (Maybe a)
-  , _numberInputConfig_minValue  :: Dynamic t (Maybe a)
-  , _numberInputConfig_precision :: Maybe Int
+data NumberRange t a = NumberRange
+  { _numberRange_maxValue  :: Dynamic t (Maybe a)
+  , _numberRange_minValue  :: Dynamic t (Maybe a)
+  , _numberRange_precision :: Maybe Int
   }
 
-instance Reflex t => Default (NumberInputConfig t a) where
-  def = NumberInputConfig def def Nothing
+instance Reflex t => Default (NumberRange t a) where
+  def = NumberRange def def Nothing
 
-instance Reflex t => Functor (NumberInputConfig t) where
+instance Reflex t => Functor (NumberRange t) where
   fmap f cfg = cfg
-    { _numberInputConfig_maxValue = fmap f <$> _numberInputConfig_maxValue cfg
-    , _numberInputConfig_minValue = fmap f <$> _numberInputConfig_minValue cfg
+    { _numberRange_maxValue = fmap f <$> _numberRange_maxValue cfg
+    , _numberRange_minValue = fmap f <$> _numberRange_minValue cfg
     }
 
 inputStyle :: Css
@@ -592,16 +614,16 @@ labelFor dynLabel = do
 labeled
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
-  -> (InputConfig t a -> m b)
-  -> InputConfig t a
+  -> (InputConfig' c t a -> m b)
+  -> InputConfig' c t a
   -> m b
 labeled lbl = labeledDyn (constDyn lbl)
 
 labeledDyn
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Dynamic t Text
-  -> (InputConfig t a -> m b)
-  -> InputConfig t a
+  -> (InputConfig' c t a -> m b)
+  -> InputConfig' c t a
   -> m b
 labeledDyn lbl editor cfg = do
   idStr <- labelFor lbl
@@ -672,18 +694,20 @@ numberInput
      , RealFloat a
      )
   => NumberInputConfig t a
-  -> InputConfig t a
   -> m (Dynamic t (Maybe a))
 numberInput = numberRangeInput True
 
 integralInput
   :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Integral a)
   => NumberInputConfig t a
-  -> InputConfig t a
   -> m (Dynamic t (Maybe a))
-integralInput nc cfg = conv <$> numberInput
-  (fromIntegral <$> nc { _numberInputConfig_precision = Just 0 })
-  (fromIntegral <$> cfg)
+integralInput cfg = conv <$> numberInput
+  (fromIntegral <$> cfg
+    { _inputConfig_extra = (_inputConfig_extra cfg) { _numberRange_precision = Just
+                                                      0
+                                                    }
+    }
+  )
  where
   conv
     :: (Integral a, Reflex t) => Dynamic t (Maybe Double) -> Dynamic t (Maybe a)
@@ -699,9 +723,8 @@ numberRangeInput
      )
   => Bool
   -> NumberInputConfig t a
-  -> InputConfig t a
   -> m (Dynamic t (Maybe a))
-numberRangeInput isReg nc cfg = do
+numberRangeInput isReg cfg = do
   let
     initAttrs = Map.fromList $ mapMaybe
       (\(x, y) -> (x, ) <$> y)
@@ -712,7 +735,7 @@ numberRangeInput isReg nc cfg = do
           then Just "this.select()"
           else Nothing
         )
-      , ("step", mkStep <$> _numberInputConfig_precision nc)
+      , ("step", mkStep <$> _numberRange_precision nc)
       ]
 
     styleChange (b_min, b_max) (Just x) _ _
@@ -742,6 +765,7 @@ numberRangeInput isReg nc cfg = do
                                           , minMaxEv
                                           , selectAttrEv
                                           ]
+      , _inputConfig_extra            = Const ()
       }
     let result        = readMaybe . unpack <$> _inputEl_value n
         selectAttrEv  = if isReg then mkOnClick <$> updated result else never
@@ -759,13 +783,15 @@ numberRangeInput isReg nc cfg = do
     statusDyn <- holdDyn def modAttrEv
   return result
  where
+  nc = _inputConfig_extra cfg
+
   mkOnClick x = "onClick"
     =: if isNothing x || x == Just 0 then Just "this.select()" else Nothing
 
   mkStep :: Int -> Text
   mkStep x = prnt (10 ^^ (-x))
   prnt x = Text.dropWhileEnd (== '.') $ pack $ showFFloatAlt
-    (_numberInputConfig_precision nc)
+    (_numberRange_precision nc)
     x
     ""
   emptyNoFocus (x, r) f | Text.null x && not f = Just (prnt 0)
@@ -1074,7 +1100,6 @@ rangeInput
      , RealFloat a
      )
   => NumberInputConfig t a
-  -> InputConfig t a
   -> m (Dynamic t (Maybe a))
 rangeInput = numberRangeInput False
 
@@ -1213,8 +1238,7 @@ eyeIconEl hide = do
 
 timeOfDayInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t TimeOfDay
-  -> InputConfig t (Maybe TimeOfDay)
+  => NumberInputConfig t (Maybe TimeOfDay)
   -> m (Dynamic t (Maybe TimeOfDay))
 timeOfDayInput = timeInput
 
@@ -1227,35 +1251,38 @@ timeInput
      , Ord a
      , MonadHold t m
      )
-  => NumberInputConfig t a
-  -> InputConfig t (Maybe a)
+  => NumberInputConfig t (Maybe a)
   -> m (Dynamic t (Maybe a))
-timeInput nc = datetimeInput formatTime' parseTime' "time" clockIcon nc
+timeInput cfg = datetimeInput formatTime' parseTime' "time" clockIcon cfg
  where
   formatTime' t = pack $ formatTime
     defaultTimeLocale
-    (if maybe False (< 60) (_numberInputConfig_precision nc) then "%S" else "%R"
-    )
+    (if maybe False (< 60) (_numberRange_precision nc) then "%S" else "%R")
     t
+
+  nc = _inputConfig_extra cfg
 
   parseTime' x' =
     let x = unpack x'
     in  parseTimeM True defaultTimeLocale "%S" x
           <|> parseTimeM True defaultTimeLocale "%R" x
 
+flattenNumberRange :: Reflex t => NumberRange t (Maybe a) -> NumberRange t a
+flattenNumberRange cfg = cfg
+  { _numberRange_minValue = join <$> _numberRange_minValue cfg
+  , _numberRange_maxValue = join <$> _numberRange_maxValue cfg
+  }
+
 getMinMaxEv
   :: (PostBuild t m)
   => (a -> Text)
-  -> NumberInputConfig t a
+  -> NumberRange t a
   -> m
        ( Event t (Map AttributeName (Maybe Text))
        , Dynamic t (Maybe a, Maybe a)
        )
 getMinMaxEv formatTime' nc = do
-  let minMaxDyn =
-        (,)
-          <$> _numberInputConfig_minValue nc
-          <*> _numberInputConfig_maxValue nc
+  let minMaxDyn = (,) <$> _numberRange_minValue nc <*> _numberRange_maxValue nc
   postBuildEv <-
     attachPromptlyDynWith (\x _ -> minMaxAttrs x) minMaxDyn <$> getPostBuild
   let updatedMinMaxEv = updated (minMaxAttrs <$> minMaxDyn)
@@ -1270,19 +1297,18 @@ datetimeInput
   -> (Text -> Maybe a)
   -> Text
   -> m ()
-  -> NumberInputConfig t a
-  -> InputConfig t (Maybe a)
+  -> NumberInputConfig t (Maybe a)
   -> m (Dynamic t (Maybe a))
-datetimeInput formatTime' parseTime' typeStr ico nc cfg = do
+datetimeInput formatTime' parseTime' typeStr ico cfg = do
 
-  (minMaxEv, minMaxDyn) <- getMinMaxEv formatTime' nc
+  (minMaxEv, minMaxDyn) <- getMinMaxEv formatTime' (flattenNumberRange nc)
 
   rec n <- textInputWithIco
         after'
         (fmap mFormatTime' cfg)
-          { _inputConfig_status = zipDynWith max
-                                             (_inputConfig_status cfg)
-                                             statusDyn
+          { _inputConfig_status           = zipDynWith max
+                                                       (_inputConfig_status cfg)
+                                                       statusDyn
           , _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
           , _inputConfig_modifyAttributes = mergeWith
                                               (<>)
@@ -1290,6 +1316,7 @@ datetimeInput formatTime' parseTime' typeStr ico nc cfg = do
                                                 cfg
                                               , minMaxEv
                                               ]
+          , _inputConfig_extra            = Const ()
           }
       let result    = parseTime' <$> _inputEl_value n
           modAttrEv = updated
@@ -1304,9 +1331,7 @@ datetimeInput formatTime' parseTime' typeStr ico nc cfg = do
  where
   initAttrs = Map.fromList $ mapMaybe
     (\(x, y) -> (x, ) <$> y)
-    [ ("type", Just typeStr)
-    , ("step", mkStep <$> _numberInputConfig_precision nc)
-    ]
+    [("type", Just typeStr), ("step", mkStep <$> _numberRange_precision nc)]
 
   styleChange (b_min, b_max) (Just x) _ _
     | maybe False (x >) b_max
@@ -1320,6 +1345,7 @@ datetimeInput formatTime' parseTime' typeStr ico nc cfg = do
     | -- Don't update the value when still typing
       otherwise               = InputError $ "Not a valid " <> typeStr
 
+  nc = _inputConfig_extra cfg
 
   mkStep :: Int -> Text
   mkStep       = pack . show
@@ -1338,8 +1364,7 @@ inputIcon ico = elClass "div" "input-icon nopointer" arrowElement
 
 dateInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t Day
-  -> InputConfig t (Maybe Day)
+  => NumberInputConfig t (Maybe Day)
   -> m (Dynamic t (Maybe Day))
 dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
  where
@@ -1349,8 +1374,7 @@ dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
 
 localtimeInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t LocalTime
-  -> InputConfig t (Maybe LocalTime)
+  => NumberInputConfig t (Maybe LocalTime)
   -> m (Dynamic t (Maybe LocalTime))
 localtimeInput = datetimeInput formatTime'
                                parseTime'
@@ -1363,8 +1387,7 @@ localtimeInput = datetimeInput formatTime'
 
 weekInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Integer, Int)
-  -> InputConfig t (Maybe (Integer, Int))
+  => NumberInputConfig t (Maybe (Integer, Int))
   -> m (Dynamic t (Maybe (Integer, Int)))
 weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
  where
@@ -1378,8 +1401,7 @@ weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
 
 monthInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Integer, Int)
-  -> InputConfig t (Maybe (Integer, Int))
+  => NumberInputConfig t (Maybe (Integer, Int))
   -> m (Dynamic t (Maybe (Integer, Int)))
 monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
  where
@@ -1392,9 +1414,9 @@ monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
       . unpack
 
 requiredInput
-  :: (Reflex t, MonadFix m)
-  => (InputConfig t (Maybe a) -> m (Dynamic t (Maybe a)))
-  -> InputConfig t a
+  :: (Reflex t, MonadFix m, Functor c)
+  => (InputConfig' c t (Maybe a) -> m (Dynamic t (Maybe a)))
+  -> InputConfig' c t a
   -> m (Dynamic t (Maybe a))
 requiredInput fn cfg = do
   rec r <- fn (Just <$> cfg)

@@ -51,19 +51,19 @@ overridableNumberInput
   -> m (Dynamic t (Maybe (Overridable a)))
 overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
   rec
-    dynMVal <- numberInput
-      def { _numberInputConfig_precision = Just 3 }
-      (fmap overridableValue cfg)
-        { _inputConfig_status   = numStatus
-                                  <$> _inputConfig_status cfg
-                                  <*> dynOverridden
-        , _inputConfig_setValue = leftmost
-          [ overridableValue <$> _inputConfig_setValue cfg
-          , attachPromptlyDynWith const calc
-            $ ffilter not (updated dynOverridden)
-          , gate (not <$> current dynOverridden) setCalc
-          ]
-        }
+    dynMVal <- numberInput (fmap overridableValue cfg)
+      { _inputConfig_status   = numStatus
+                                <$> _inputConfig_status cfg
+                                <*> dynOverridden
+      , _inputConfig_setValue = leftmost
+                                  [ overridableValue
+                                    <$> _inputConfig_setValue cfg
+                                  , attachPromptlyDynWith const calc
+                                    $ ffilter not (updated dynOverridden)
+                                  , gate (not <$> current dynOverridden) setCalc
+                                  ]
+      , _inputConfig_extra    = def { _numberRange_precision = Just 3 }
+      }
     dynOverridden <- toggleInput
       "Override"
       (fmap isOverridden cfg)

@@ -406,19 +406,22 @@ paginationInput totalResults = elClass "div" "pagination" $ do
           , _buttonConfig_state    = btnPrevStateDyn
           }
       (icon def { _iconConfig_direction = constDyn DirLeft } angleIcon)
-    pageNum <- integralInput
-      NumberInputConfig { _numberInputConfig_minValue  = constDyn (Just 1)
-                        , _numberInputConfig_maxValue  = maxPageDyn
-                        , _numberInputConfig_precision = Just 0
-                        }
-      (inputConfig (1 :: Int))
-        { _inputConfig_setValue = leftmost
-          [ 1 <$ prevAllEv
-          , decrement <$> tagPromptlyDyn pageNumWithDef prevEv
-          , (+ 1) <$> tagPromptlyDyn pageNumWithDef nextEv
-          , fmapMaybe Prelude.id $ tagPromptlyDyn maxPageDyn nextAllEv
-          ]
-        }
+    pageNum <- integralInput (inputConfig'
+                               (NumberRange
+                                 { _numberRange_minValue  = constDyn (Just 1)
+                                 , _numberRange_maxValue  = maxPageDyn
+                                 , _numberRange_precision = Just 0
+                                 }
+                               )
+                               (1 :: Int)
+                             )
+      { _inputConfig_setValue = leftmost
+        [ 1 <$ prevAllEv
+        , decrement <$> tagPromptlyDyn pageNumWithDef prevEv
+        , (+ 1) <$> tagPromptlyDyn pageNumWithDef nextEv
+        , fmapMaybe Prelude.id $ tagPromptlyDyn maxPageDyn nextAllEv
+        ]
+      }
     let pageNumWithDef = fromMaybe 1 <$> pageNum
     dynText $ maybe "" (("/ " <>) . pack . show) <$> maxPageDyn
     let btnNextStateDyn = btnNextState <$> pageNumWithDef <*> maxPageDyn

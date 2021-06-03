@@ -117,9 +117,10 @@ basicHandler = do
   el "form" $ do
     _  <- labeled "Hello world" textInput (inputConfig "Hello world")
 
-    n1 <- labeled "Numeric input"
-                  (numberInput def { _numberInputConfig_precision = Just 3 })
-                  (inputConfig (0 :: Double))
+    n1 <- labeled
+      "Numeric input"
+      numberInput
+      (inputConfig' (def { _numberRange_precision = Just 3 }) (0 :: Double))
     _ <- labeled "Overridable input"
                  (overridableNumberInput (fmapMaybe Prelude.id $ updated n1))
                  (inputConfig $ Overridable (0 :: Double) Nothing)
@@ -472,24 +473,24 @@ rangeHandler = do
   el "h1" $ text "Range"
 
   el "form" $ do
-    _ <- labeled "Volume" (rangeInput def) (inputConfig (50 :: Double))
+    _ <- labeled "Volume" rangeInput (inputConfig (50 :: Double))
     _ <- labeled
       "Error"
-      (rangeInput def)
+      rangeInput
       (inputConfig (50 :: Double))
         { _inputConfig_status = constDyn $ InputError "System error"
         }
 
     _ <- labeled
       "Disabled"
-      (rangeInput def)
+      rangeInput
       (inputConfig (50 :: Double)) { _inputConfig_status = constDyn
                                      InputDisabled
                                    }
 
     _ <- labeled
       "Success"
-      (rangeInput def)
+      rangeInput
       (inputConfig (50 :: Double))
         { _inputConfig_status = constDyn $ InputSuccess "Changes saved"
         }
@@ -568,19 +569,19 @@ timeHandler = do
 
   el "form" $ do
     t1 <- labeled "Time"
-                  (timeOfDayInput def)
+                  timeOfDayInput
                   (inputConfig (Just (TimeOfDay 11 12 14)))
     _ <- labeled "Error"
-                 (timeOfDayInput def)
+                 timeOfDayInput
                  def { _inputConfig_status = constDyn $ InputError "Error" }
 
     _ <- labeled "Disabled"
-                 (timeOfDayInput def)
+                 timeOfDayInput
                  def { _inputConfig_status = constDyn InputDisabled }
 
     _ <- labeled
       "Success"
-      (timeOfDayInput def)
+      timeOfDayInput
       def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
     display t1
     pure ()
@@ -588,16 +589,16 @@ timeHandler = do
   el "h2" $ text "Other date inputs"
   el "form" $ do
     d1 <- labeled "Day"
-                  (dateInput def)
+                  dateInput
                   (inputConfig (Just (fromGregorian 2021 03 14)))
     dt1 <- labeled
       "Local time"
-      (localtimeInput def)
+      localtimeInput
       (inputConfig
         (Just (LocalTime (fromGregorian 2021 03 14) (TimeOfDay 15 30 00)))
       )
-    w1 <- labeled "Week" (weekInput def) (inputConfig (Just (2021, 30)))
-    m1 <- labeled "Month" (monthInput def) (inputConfig (Just (2021, 03)))
+    w1 <- labeled "Week" weekInput (inputConfig (Just (2021, 30)))
+    m1 <- labeled "Month" monthInput (inputConfig (Just (2021, 03)))
     display d1
     text ", "
     display dt1

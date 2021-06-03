@@ -320,9 +320,8 @@ containerTable = do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"
         _ <- el "td" $ textInput (inputConfig "John Doe")
-        _ <- el "td"
-          $ dateInput def (inputConfig (Just (fromGregorian 1970 01 01)))
-        _ <- el "td" $ numberInput def (inputConfig (10 :: Double))
+        _ <- el "td" $ dateInput (inputConfig (Just (fromGregorian 1970 01 01)))
+        _ <- el "td" $ numberInput (inputConfig (10 :: Double))
         pure ()
       (s2, _) <- rowMultiSelect False selectAllEv $ do
         linkCell "#" angleDoubleRightIcon
