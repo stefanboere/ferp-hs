@@ -49,8 +49,7 @@ import           Frontend.Api                   ( refreshAccessTokenEvery
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
-import           Frontend.Protected
-import           Reflex.Markdown
+import           Frontend.Crud
 
 
 main :: IO ()
@@ -140,7 +139,7 @@ mainPage setRouteExtEv = do
 type Api = InputApi
     :<|> CoreApi
     :<|> ContainerApi
-    :<|> ProtectedApi
+    :<|> CrudApi
 
 api :: Proxy Api
 api = Proxy
@@ -150,15 +149,10 @@ sideNav
   => Dynamic t URI
   -> m (Event t Link)
 sideNav dynUri = leftmost <$> sequence
-  [ coreLinks dynUri
-  , inputLinks dynUri
-  , containerLinks dynUri
-  , protectedLinks dynUri
-  ]
+  [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri, crudLinks dynUri]
 
 handler :: WidgetConstraint js t m => RouteT Api (ApiWidget t m) (Event t URI)
-handler =
-  inputHandler :<|> coreHandler :<|> containerHandler :<|> protectedHandler
+handler = inputHandler :<|> coreHandler :<|> containerHandler :<|> crudHandler
 
 handlerOffline :: WidgetConstraint js t m => RouteT Api m (Event t URI)
 handlerOffline = hoistRoute (Proxy :: Proxy Api) runApi handler

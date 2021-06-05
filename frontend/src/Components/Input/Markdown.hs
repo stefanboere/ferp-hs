@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
-module Reflex.Markdown
+module Components.Input.Markdown
   ( codeInputScripts
   , whenLoaded
   , codeInputStyle

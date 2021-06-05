@@ -34,7 +34,6 @@ import           Servant.Router
 import           URI.ByteString
 
 import           Components
-import           Reflex.Markdown
 
 -- brittany-disable-next-binding
 type InputApi = "input" :> "basic" :> View

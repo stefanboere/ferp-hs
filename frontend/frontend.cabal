@@ -54,6 +54,7 @@ library
     Components.Input.Basic
     Components.Input.Combobox
     Components.Input.File
+    Components.Input.Markdown
     Components.Input.Numeric
     Components.Navigation
     Components.Progress
@@ -64,10 +65,9 @@ library
     Frontend.Api
     Frontend.Container
     Frontend.Core
+    Frontend.Crud
     Frontend.Input
-    Frontend.Protected
     Nordtheme
-    Reflex.Markdown
 
   build-depends:
     , bytestring

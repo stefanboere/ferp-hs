@@ -6,10 +6,10 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Frontend.Protected
-  ( protectedHandler
-  , protectedLinks
-  , ProtectedApi
+module Frontend.Crud
+  ( crudHandler
+  , crudLinks
+  , CrudApi
   )
 where
 
@@ -36,34 +36,32 @@ import           Common.Auth
 import           Common.Schema
 import           Components
 import           Frontend.Api
-import           Reflex.Markdown
 
 
 -- brittany-disable-next-binding
-type ProtectedApi = Auth Everyone :> "blogs" :> "all" :> View
+type CrudApi = Auth Everyone :> "blogs" :> "all" :> View
  :<|> "blogs" :> Capture "key" BlogId :> View
 
-protectedApi :: Proxy ProtectedApi
-protectedApi = Proxy
+crudApi :: Proxy CrudApi
+crudApi = Proxy
 
 blogsLink :: Link
 blogLink :: BlogId -> Link
-blogsLink :<|> blogLink = allLinks protectedApi
+blogsLink :<|> blogLink = allLinks crudApi
 
-protectedLinks
+crudLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
-protectedLinks dynUri = safelinkGroup
-  (text "Protected")
+crudLinks dynUri = safelinkGroup
+  (text "Crud")
   [ safelink dynUri blogsLink $ text "Blogs"
   , safelink dynUri (blogLink (BlogId 1)) $ text "Blog 1"
   ]
 
-protectedHandler
-  :: WidgetConstraint js t m
-  => RouteT ProtectedApi (ApiWidget t m) (Event t URI)
-protectedHandler = blogsHandler :<|> blogEdit
+crudHandler
+  :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
+crudHandler = blogsHandler :<|> blogEdit
 
 blogsHandler
   :: forall js t m
