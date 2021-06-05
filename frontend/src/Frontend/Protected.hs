@@ -144,7 +144,7 @@ blogEdit bid = runApi $ do
         el "form"
         $    getCompose
         $    pure initBlog
-        <**> textProp "Title" blogName initBlog getBlogEv
+        <**> prop textInput          "Title" blogName    initBlog getBlogEv
 
         <**> prop (checkboxInput "") "Extra" blogIsExtra initBlog getBlogEv
 
@@ -165,25 +165,17 @@ blogEdit bid = runApi $ do
 
 prop
   :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => (InputConfig t b -> m (Dynamic t b))
+  => (InputConfig t b -> m (DomInputEl t m b))
   -> Text
   -> Lens' a b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
-prop editor lbl l initVal update = Compose $ fmap (set l) <$> labeled
-  lbl
-  editor
-  (inputConfig (view l initVal)) { _inputConfig_setValue = view l <$> update }
-
-textProp
-  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadIO m)
-  => Text
-  -> Lens' a Text
-  -> a
-  -> Event t a
-  -> Compose m (Dynamic t) (a -> a)
-textProp = prop (fmap _inputEl_value . textInput)
+prop editor lbl l initVal update =
+  Compose $ fmap (set l) . _inputEl_value <$> labeled
+    lbl
+    editor
+    (inputConfig (view l initVal)) { _inputConfig_setValue = view l <$> update }
 
 triStateBtn
   :: (PostBuild t m, DomBuilder t m)

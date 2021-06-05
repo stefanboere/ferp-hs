@@ -64,7 +64,7 @@ comboboxInput
   => (Dynamic t k -> Dynamic t Text -> m ())
   -> Dynamic t (Map k Text)
   -> InputConfig t (ComboboxValue (Maybe k))
-  -> m (InputEl (DomBuilderSpace m) t (ComboboxValue (Maybe k)))
+  -> m (DomInputEl t m (ComboboxValue (Maybe k)))
 comboboxInput showOpt allOptions cfg = do
   rec
     (searchStrInput, selectEv) <- textInputWithIco'
@@ -93,7 +93,7 @@ comboboxInput showOpt allOptions cfg = do
     let clearEv    = ffilter Text.null $ updated (_inputEl_value searchStrInput)
 
 -- Tab completion
-    let inputEl    = _inputEl_element searchStrInput
+    let inputEls   = _inputEl_elements searchStrInput
 
 -- Whenever the current selection is not in the list any more, clear it
     let autofillEv = fmap autofill (updated options)
@@ -127,7 +127,7 @@ comboboxInput showOpt allOptions cfg = do
   let comboVal =
         ComboboxValue <$> dynSelection <*> _inputEl_value searchStrInput
 
-  pure $ InputEl comboVal hasFocusDyn inputEl
+  pure $ InputEl comboVal hasFocusDyn inputEls
  where
   mkStatus :: Text -> Maybe k -> Bool -> InputStatus
   mkStatus x Nothing False

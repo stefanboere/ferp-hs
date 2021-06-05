@@ -311,7 +311,7 @@ showHideColumns columns = do
           $ text "Select all"
     pure dynSet
 
-  pure x
+  pure (_inputEl_value x)
   where ico = icon def viewColumnsIcon
 
 columnHead :: (DomBuilder t m) => m a -> m a

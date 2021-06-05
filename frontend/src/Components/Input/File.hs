@@ -52,7 +52,7 @@ fileDropzone
      , MonadHold t m
      )
   => InputConfig t ()
-  -> m (Dynamic t [DOM.File])
+  -> m (DomInputEl t m [DOM.File])
 fileDropzone cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -82,9 +82,12 @@ fileDropzone cfg = do
 
     statusMessageDiv (_inputConfig_status cfg)
 
-    pure $ _inputElement_files n
+    pure $ InputEl { _inputEl_value    = _inputElement_files n
+                   , _inputEl_hasFocus = _inputElement_hasFocus n
+                   , _inputEl_elements = constDyn [_inputElement_element n]
+                   }
 
-  _ <- el "ul" $ simpleList x $ \f ->
+  _ <- el "ul" $ simpleList (_inputEl_value x) $ \f ->
     dyn ((getName' >=> el "li" . dynText) <$> f)
 
   pure x

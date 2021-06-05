@@ -48,7 +48,7 @@ overridableNumberInput
      )
   => Event t a
   -> InputConfig t (Overridable a)
-  -> m (Dynamic t (Maybe (Overridable a)))
+  -> m (DomInputEl t m (Maybe (Overridable a)))
 overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
   rec
     dynMVal <- numberInput (fmap overridableValue cfg)
@@ -64,16 +64,17 @@ overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
                                   ]
       , _inputConfig_extra    = def { _numberRange_precision = Just 3 }
       }
-    dynOverridden <- toggleInput
+    dynOverriddenEl <- toggleInput
       "Override"
       (fmap isOverridden cfg)
         { _inputConfig_status = overriddenStatus <$> _inputConfig_status cfg
         }
+    let dynOverridden = _inputEl_value dynOverriddenEl
     calc <- holdDyn
       (ovr_calculation $ _inputConfig_initialValue cfg)
       (leftmost [ovr_calculation <$> _inputConfig_setValue cfg, setCalc])
 
-  pure $ overridable <$> calc <*> dynOverridden <*> _inputEl_value dynMVal
+  pure $ overridable <$> hiddenInput calc <*> dynOverriddenEl <*> dynMVal
  where
   overridable :: a -> Bool -> Maybe a -> Maybe (Overridable a)
   overridable _ True  Nothing    = Nothing

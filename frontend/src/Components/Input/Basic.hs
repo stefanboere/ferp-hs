@@ -7,7 +7,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Components.Input.Basic
-  ( numberInput
+  ( hiddenInput
+  , numberInput
   , integralInput
   , toggleInput
   , togglesInput
@@ -73,6 +74,7 @@ import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
+import           Data.Monoid                    ( Any(..) )
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
@@ -133,14 +135,55 @@ data InputConfig' extraConfig t a = InputConfig
   , _inputConfig_extra            :: extraConfig a
   }
 
+-- | The result of an input widget
 data InputEl d t a = InputEl
   { _inputEl_value    :: Dynamic t a
   , _inputEl_hasFocus :: Dynamic t Bool
-  , _inputEl_element  :: Element EventResult d t
+  , _inputEl_elements  :: Dynamic t [Element EventResult d t] -- ^ An input widget could consist of multiple input elements; eg. a combined range and number input
   }
+
+instance (Reflex t, Semigroup a) => Semigroup (InputEl d t a) where
+  x <> y = addInputElWith (<>) x y
+
+addInputElWith
+  :: Reflex t
+  => (Dynamic t a -> Dynamic t b -> Dynamic t c)
+  -> InputEl d t a
+  -> InputEl d t b
+  -> InputEl d t c
+addInputElWith addFn x y = InputEl
+  { _inputEl_value    = _inputEl_value x `addFn` _inputEl_value y
+  , _inputEl_hasFocus = getAny
+                        <$> (Any <$> _inputEl_hasFocus x)
+                        <>  (Any <$> _inputEl_hasFocus y)
+  , _inputEl_elements = _inputEl_elements x <> _inputEl_elements y
+  }
+
+instance (Reflex t, Monoid a) => Monoid (InputEl d t a) where
+  mempty = hiddenInput (constDyn mempty)
+  mconcat xs = InputEl
+    { _inputEl_value    = mconcat (_inputEl_value <$> xs)
+    , _inputEl_hasFocus = getAny
+                            <$> mconcat (fmap (fmap Any . _inputEl_hasFocus) xs)
+    , _inputEl_elements = mconcat (fmap _inputEl_elements xs)
+    }
 
 instance Reflex t => Functor (InputEl d t) where
   fmap f x = x { _inputEl_value = f <$> _inputEl_value x }
+
+instance Reflex t => Applicative (InputEl d t) where
+  pure x = hiddenInput (constDyn x)
+  x <*> y = addInputElWith (<*>) x y
+
+-- | An input which is never focussed and consists of zero elements
+--
+--      hiddenInput (constDyn x) == pure x
+--      hiddenInput (constDyn mempty) == mempty
+hiddenInput :: Reflex t => Dynamic t a -> InputEl d t a
+hiddenInput x = InputEl { _inputEl_value    = x
+                        , _inputEl_hasFocus = constDyn False
+                        , _inputEl_elements = constDyn []
+                        }
 
 inputConfig' :: (Reflex t) => c a -> a -> InputConfig' c t a
 inputConfig' extra initval = InputConfig
@@ -682,7 +725,7 @@ textInputWithIco' after' cfg = do
     pure
       ( InputEl { _inputEl_value    = _inputElement_value n
                 , _inputEl_hasFocus = _inputElement_hasFocus n
-                , _inputEl_element  = _inputElement_element n
+                , _inputEl_elements = constDyn [_inputElement_element n]
                 }
       , x
       )
@@ -806,7 +849,7 @@ toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
   -> InputConfig t Bool
-  -> m (Dynamic t Bool)
+  -> m (DomInputEl t m Bool)
 toggleInput lbl cfg = do
   let initAttrs = "class" =: "toggle"
 
@@ -824,7 +867,7 @@ togglesInput
      , Bounded a
      )
   => InputConfig t (Set a)
-  -> m (Dynamic t (Set a))
+  -> m (DomInputEl t m (Set a))
 togglesInput cfg = do
   let initAttrs = "class" =: "toggle"
 
@@ -842,7 +885,7 @@ checkboxesInput
      , Bounded a
      )
   => InputConfig t (Set a)
-  -> m (Dynamic t (Set a))
+  -> m (DomInputEl t m (Set a))
 checkboxesInput cfg =
   checkboxesInputMap (allPossibleMap (_inputConfig_initialValue cfg)) cfg
 
@@ -857,7 +900,7 @@ checkboxesInputMap
   :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
   => Map a Text
   -> InputConfig t (Set a)
-  -> m (Dynamic t (Set a))
+  -> m (DomInputEl t m (Set a))
 checkboxesInputMap opts cfg =
   elAttr "div" ("class" =: "input" <> idAttr (_inputConfig_id cfg)) $ do
     modAttrEv <- statusModAttrEv' cfg
@@ -866,10 +909,15 @@ checkboxesInputMap opts cfg =
 
     statusMessageDiv (_inputConfig_status cfg)
 
-    pure
-      (Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap
-        (constDyn result)
-      )
+    let dynSet = Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap
+          (constDyn $ fmap _inputEl_value result)
+
+    pure $ InputEl
+      { _inputEl_value    = dynSet
+      , _inputEl_hasFocus = getAny
+        <$> mconcat (fmap (fmap Any . _inputEl_hasFocus) . Map.elems $ result)
+      , _inputEl_elements = mconcat . fmap _inputEl_elements $ Map.elems result
+      }
  where
   mkCheckbox modAttrEv k x =
     let cfg' = ((k `elem`) <$> cfg)
@@ -895,7 +943,7 @@ checkboxesInputDynMap
      )
   => Dynamic t (Map a Text)
   -> InputConfig t (Set a)
-  -> m (Dynamic t (Set a))
+  -> m (DomInputEl t m (Set a))
 checkboxesInputDynMap opts cfg =
   elAttr "div" ("class" =: "input" <> idAttr (_inputConfig_id cfg)) $ do
     modAttrEv <- statusModAttrEv' cfg
@@ -904,7 +952,16 @@ checkboxesInputDynMap opts cfg =
 
     statusMessageDiv (_inputConfig_status cfg)
 
-    pure (Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap result)
+    let dynSet = Map.keysSet . Map.filter Prelude.id <$> joinDynThroughMap
+          (fmap (fmap _inputEl_value) result)
+    let dynFocus =
+          joinDynThroughMap (fmap (fmap (fmap Any . _inputEl_hasFocus)) result)
+    let dynElems = joinDynThroughMap (fmap (fmap _inputEl_elements) result)
+    pure $ InputEl
+      { _inputEl_value    = dynSet
+      , _inputEl_hasFocus = getAny . mconcat . Map.elems <$> dynFocus
+      , _inputEl_elements = mconcat . Map.elems <$> dynElems
+      }
  where
   mkCheckbox modAttrEv k x =
     let cfg' = ((k `elem`) <$> cfg)
@@ -929,7 +986,7 @@ checkboxInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
   -> InputConfig t Bool
-  -> m (Dynamic t Bool)
+  -> m (DomInputEl t m Bool)
 checkboxInput lbl cfg = fmap (Prelude.not . Set.null) <$> checkboxesInputMap
   (Map.singleton () lbl)
   ((\x -> if x then Set.singleton () else Set.empty) <$> cfg)
@@ -938,7 +995,7 @@ checkboxInput'
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Dynamic t Text
   -> InputConfig t Bool
-  -> m (Dynamic t Bool)
+  -> m (DomInputEl t m Bool)
 checkboxInput' lbl cfg = el "div" $ do
   idStr <- randomId
   n     <-
@@ -960,7 +1017,10 @@ checkboxInput' lbl cfg = el "div" $ do
 
   elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label") $ dynText lbl
 
-  pure (_inputElement_checked n)
+  pure $ InputEl { _inputEl_value    = _inputElement_checked n
+                 , _inputEl_hasFocus = _inputElement_hasFocus n
+                 , _inputEl_elements = constDyn [_inputElement_element n]
+                 }
 
 checkboxInputSimple
   :: DomBuilder t m
@@ -1017,10 +1077,11 @@ selectInput cfg = do
 
     statusMessageElement (_inputConfig_status cfg)
 
-    pure $ InputEl { _inputEl_value = parseEnum <$> _selectElement_value (fst n)
-                   , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
-                   , _inputEl_element = _selectElement_element (fst n)
-                   }
+    pure $ InputEl
+      { _inputEl_value    = parseEnum <$> _selectElement_value (fst n)
+      , _inputEl_hasFocus = _selectElement_hasFocus (fst n)
+      , _inputEl_elements = constDyn [_selectElement_element (fst n)]
+      }
  where
   mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
 
@@ -1051,7 +1112,7 @@ radioInput
      , Bounded a
      )
   => InputConfig t (Maybe a)
-  -> m (Dynamic t (Maybe a))
+  -> m (DomInputEl t m (Maybe a))
 radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
   (fmap (maybe Set.empty Set.singleton) cfg)
     { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
@@ -1092,7 +1153,7 @@ textAreaInput cfg = do
 
     pure $ InputEl { _inputEl_value    = _textAreaElement_value n
                    , _inputEl_hasFocus = _textAreaElement_hasFocus n
-                   , _inputEl_element  = _textAreaElement_element n
+                   , _inputEl_elements = constDyn [_textAreaElement_element n]
                    }
 
 rangeInput
@@ -1110,7 +1171,7 @@ rangeInput = numberRangeInput False
 fileInput
   :: (PostBuild t m, DomBuilder t m)
   => InputConfig t ()
-  -> m (Dynamic t [DOM.File])
+  -> m (DomInputEl t m [DOM.File])
 fileInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
@@ -1133,7 +1194,10 @@ fileInput cfg = do
 
       statusMessageElement (_inputConfig_status cfg)
 
-    pure $ _inputElement_files n
+    pure $ InputEl { _inputEl_value    = _inputElement_files n
+                   , _inputEl_hasFocus = _inputElement_hasFocus n
+                   , _inputEl_elements = constDyn [_inputElement_element n]
+                   }
 
  where
   initAttrs = "type" =: "file" <> "multiple" =: ""

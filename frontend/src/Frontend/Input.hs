@@ -451,13 +451,13 @@ radioHandler = do
       (inputConfig (Just M14307))
         { _inputConfig_status = constDyn $ InputSuccess "Success message"
         }
-    display r1
+    display (_inputEl_value r1)
     text ", "
-    display r2
+    display (_inputEl_value r2)
     text ", "
-    display r3
+    display (_inputEl_value r3)
     text ", "
-    display r4
+    display (_inputEl_value r4)
     pure ()
 
   el "p" $ do

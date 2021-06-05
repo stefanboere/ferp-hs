@@ -132,7 +132,7 @@ codeInput
   => Configuration
   -> Text
   -> Event t Text
-  -> m (Dynamic t Text)
+  -> m (DomInputEl t m Text)
 codeInput cfg initText setValueEv = do
   postBuildEv      <- getPostBuild
   postBuildEvDelay <- delay 0.05 postBuildEv
@@ -142,7 +142,8 @@ codeInput cfg initText setValueEv = do
   dynTextEv <- prerender (pure never)
     $ codemirror cfg { _configuration_value = Just initText } outsideEv never
 
-  holdDyn initText (leftmost [switchDyn dynTextEv, setValueEv])
+  v <- holdDyn initText (leftmost [switchDyn dynTextEv, setValueEv])
+  pure (hiddenInput v) -- FIXME add element and hasFocus
 
 markdownInputStyle :: Css
 markdownInputStyle = do
@@ -198,7 +199,7 @@ markdownInput
      , Prerender js t m
      )
   => InputConfig t Text
-  -> m (Dynamic t Text)
+  -> m (DomInputEl t m Text)
 markdownInput cfg = elClass "div" "code-editor"
   $ codeInput config (_inputConfig_initialValue cfg) (_inputConfig_setValue cfg)
 
@@ -223,9 +224,10 @@ markdownInputWithPreview
      )
   => SyntaxMap
   -> InputConfig t Text
-  -> m (Dynamic t Text)
+  -> m (DomInputEl t m Text)
 markdownInputWithPreview syntaxMap cfg = elClass "div" "code-input" $ do
-  textD               <- markdownInput cfg
+  textDEl <- markdownInput cfg
+  let textD = _inputEl_value textDEl
   (dynError, dynMark) <- parseMarkdownImproving textD
 
   _                   <- elClass "div" "code-view" $ dyn
@@ -238,7 +240,7 @@ markdownInputWithPreview syntaxMap cfg = elClass "div" "code-input" $ do
 
   delayEv <- delay 0.05 (updated textD)
   _ <- prerender_ blank $ performEvent (mathJaxTypeset <$ delayEv) >> pure ()
-  pure textD
+  pure textDEl
  where
   mathJaxTypeset = DOM.liftJSM $ do
     mathjax <- jsg ("MathJax" :: Text)
