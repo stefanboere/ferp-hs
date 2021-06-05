@@ -12,7 +12,7 @@ module Frontend
   , renderCss
   , Api
   , api
-  , handler
+  , handlerOffline
   , withHeader
   )
 where
@@ -42,7 +42,10 @@ import           Servant.Router
 import           URI.ByteString
 
 import           Components
-import           Frontend.Api                   ( refreshAccessTokenEvery )
+import           Frontend.Api                   ( refreshAccessTokenEvery
+                                                , ApiWidget
+                                                , runApi
+                                                )
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
@@ -51,10 +54,10 @@ import           Reflex.Markdown
 
 
 main :: IO ()
-main = mainWidget $ withHeader mainPage
+main = mainWidget $ runApi $ withHeader mainPage
 
 mainWithHead :: IO ()
-mainWithHead = mainWidgetWithHead headWidget $ do
+mainWithHead = mainWidgetWithHead headWidget $ runApi $ do
   withHeader mainPage
   _ <- codeInputScripts
   pure ()
@@ -117,7 +120,7 @@ mainPage
      , HasJSContext m
      )
   => Event t Link
-  -> m (Dynamic t URI)
+  -> ApiWidget t m (Dynamic t URI)
 mainPage setRouteExtEv = do
   let routeHandler =
         route' (\_ uri -> uri) (\uri -> (uri, routeURI api handler uri))
@@ -153,7 +156,10 @@ sideNav dynUri = leftmost <$> sequence
   , protectedLinks dynUri
   ]
 
-handler :: WidgetConstraint js t m => RouteT Api m (Event t URI)
+handler :: WidgetConstraint js t m => RouteT Api (ApiWidget t m) (Event t URI)
 handler =
   inputHandler :<|> coreHandler :<|> containerHandler :<|> protectedHandler
+
+handlerOffline :: WidgetConstraint js t m => RouteT Api m (Event t URI)
+handlerOffline = hoistRoute (Proxy :: Proxy Api) runApi handler
 

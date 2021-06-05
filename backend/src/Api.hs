@@ -60,7 +60,7 @@ staticEndpoint =
 
 
 frontendServer :: RouteT Frontend.Api App (Html ())
-frontendServer = hoistRoute Frontend.api prerenderApp Frontend.handler
+frontendServer = hoistRoute Frontend.api prerenderApp Frontend.handlerOffline
 
 -- | The transformation converting the frontend to the backend
 prerenderApp

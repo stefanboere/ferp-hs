@@ -61,7 +61,8 @@ protectedLinks dynUri = safelinkGroup
   ]
 
 protectedHandler
-  :: WidgetConstraint js t m => RouteT ProtectedApi m (Event t URI)
+  :: WidgetConstraint js t m
+  => RouteT ProtectedApi (ApiWidget t m) (Event t URI)
 protectedHandler = blogsHandler :<|> blogEdit
 
 blogsHandler
@@ -72,8 +73,8 @@ blogsHandler
      , Prerender js t m
      , MonadFix m
      )
-  => m (Event t URI)
-blogsHandler = runApi $ do
+  => ApiWidget t m (Event t URI)
+blogsHandler = do
   el "h1" $ text "Blogs"
 
   postBuildEv <- getPostBuild
@@ -107,8 +108,8 @@ blogEdit
      , PerformEvent t m
      )
   => BlogId
-  -> m (Event t URI)
-blogEdit bid = runApi $ do
+  -> ApiWidget t m (Event t URI)
+blogEdit bid = do
   el "h1" $ text "Blog 1"
 
   postBuildEv <- getPostBuild

@@ -26,6 +26,7 @@ module Frontend.Api
   , withXsrfHeader
   , usingCookie
   , refreshAccessTokenEvery
+  , ApiWidget
   )
 where
 
