@@ -130,8 +130,11 @@ blogEdit bid = do
         requestBtn saveBtn patchBlogReq ((== mempty) <$> dynPatch) patchEv
           >>= orAlert
 
-      uniqDynBlog <- holdUniqDyn dynBlog
-      undoEv <- undoRedo initBlog (difference (updated uniqDynBlog) getBlogEv)
+      uniqDynBlog       <- holdUniqDyn dynBlog
+      debounceDynBlogEv <- debounce
+        1
+        (difference (updated uniqDynBlog) getBlogEv)
+      undoEv          <- undoRedo initBlog debounceDynBlogEv
 
       getBlogEvManual <- orAlert getResp
       let getBlogEv = leftmost [getNextEv, getBlogEvManual]
