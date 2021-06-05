@@ -132,8 +132,12 @@ blogEdit bid = do
         requestBtn saveBtn patchBlogReq ((== mempty) <$> dynPatch) patchEv
           >>= orAlert
 
+      uniqDynBlog <- holdUniqDyn dynBlog
+      undoEv <- undoRedo initBlog (difference (updated uniqDynBlog) getBlogEv)
+
       getBlogEvManual <- orAlert getResp
       let getBlogEv = leftmost [getNextEv, getBlogEvManual]
+      let modBlogEv = leftmost [getBlogEv, undoEv]
 
       dynBlogRemote <- holdDyn initBlog getBlogEv
 
@@ -141,17 +145,17 @@ blogEdit bid = do
         el "form"
         $    getCompose
         $    pure initBlog
-        <**> prop textInput          "Title" blogName    initBlog getBlogEv
+        <**> prop textInput          "Title" blogName    initBlog modBlogEv
 
-        <**> prop (checkboxInput "") "Extra" blogIsExtra initBlog getBlogEv
+        <**> prop (checkboxInput "") "Extra" blogIsExtra initBlog modBlogEv
 
         <**> prop (toggleInput "")
                   "Published"
                   blogIsPublished
                   initBlog
-                  getBlogEv
+                  modBlogEv
 
-        <**> prop markdownInput "Description" blogDescription initBlog getBlogEv
+        <**> prop markdownInput "Description" blogDescription initBlog modBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
       patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))

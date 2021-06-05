@@ -223,6 +223,7 @@ btnGroupStyle :: Css
 btnGroupStyle = ".button-group" ? do
   Clay.display inlineFlex
   alignItems center
+  verticalAlign middle
   marginRight (rem (3 / 4))
 
   (star # firstChild <> star # firstChild |> button) <? do

@@ -4,6 +4,7 @@ module Components
   , module Components.Button
   , module Components.Card
   , module Components.Class
+  , module Components.History
   , module Components.Icon
   , module Components.Input
   , module Components.Navigation
@@ -19,6 +20,7 @@ import           Components.Alert
 import           Components.Button
 import           Components.Card
 import           Components.Class
+import           Components.History
 import           Components.Icon
 import           Components.Input
 import           Components.Navigation

@@ -48,6 +48,7 @@ library
     Components.Button
     Components.Card
     Components.Class
+    Components.History
     Components.Icon
     Components.Input
     Components.Input.Basic
