@@ -360,22 +360,55 @@ containerTable = do
 
   pure never
 
-containerTimeline :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+containerTimeline :: WidgetConstraint js t m => m (Event t URI)
 containerTimeline = do
   el "h1" $ text "Timeline"
   timeline timelineSteps
   timelineVertical timelineSteps
 
+  el "h2" $ text "Example"
+  el "form" $ timelineVertical $ do
+    _ <- timelineStep
+      (constDyn "")
+      (constDyn TimelineCurrent)
+      ""
+      (textAreaInput (inputConfig "") >> btnSecondary (text "Comment"))
+    _ <- timelineStep
+      "2021-06-05\n22:19"
+      (constDyn TimelineNotStarted)
+      "Adam Smith: "
+      (el
+        "p"
+        (text $ mconcat
+          ["Yes, I agree, i think this is better than a simple memo field."]
+        )
+      )
+    _ <- timelineStep
+      "2021-06-05\n21:19"
+      (constDyn TimelineNotStarted)
+      "John Doe: "
+      (  el
+          "p"
+          (text $ mconcat
+            [ "The timeline can also be used to build "
+            , "a comments component that can be put on just about any page."
+            ]
+          )
+      >> btnSecondary (icon def pencilIcon >> el "span" (text "Edit"))
+      )
+    pure ()
+
   pure never
 
  where
+  btnSecondary  = btn def { _buttonConfig_priority = ButtonSecondary }
   timelineSteps = do
     _ <- timelineStep
       (constDyn "21:13 am")
       (constDyn TimelineSuccess)
       "Buy ingredients"
       (  el "p" (text "At the local supermarket perhaps")
-      >> btn def { _buttonConfig_priority = ButtonSecondary } (text "Action")
+      >> btnSecondary (text "Action")
       )
     timelineStep (constDyn "21:23")
                  (constDyn TimelineCurrent)

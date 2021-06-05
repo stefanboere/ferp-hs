@@ -8,16 +8,18 @@ module Components.Timeline
   )
 where
 
-import           Prelude                 hiding ( rem
-                                                , (**)
+import           Prelude                 hiding ( (**)
+                                                , rem
                                                 )
 
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
+import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
 import           Data.Text                      ( Text )
-import           Reflex.Dom              hiding ( display
-                                                , (&)
+import qualified Data.Text                     as Text
+import           Reflex.Dom              hiding ( (&)
+                                                , display
                                                 )
 
 import           Components.Class
@@ -123,14 +125,16 @@ instance Default TimelineState where
   def = TimelineNotStarted
 
 timelineStep
-  :: (PostBuild t m, DomBuilder t m)
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
   => Dynamic t Text
   -> Dynamic t TimelineState
   -> Dynamic t Text
   -> m a
   -> m a
 timelineStep hdr state' titl cnt = do
-  elClass "div" "timeline-header" $ dynText hdr
+  _ <-
+    elClass "div" "timeline-header" $ simpleList (Text.lines <$> hdr) $ \v ->
+      dynText v >> el "br" (pure ())
   _ <- elClass "div" "timeline-icon" $ dyn (stateEl <$> state')
   elClass "div" "timeline-body" $ do
     elClass "div" "timeline-title p2" $ dynText titl
