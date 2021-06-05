@@ -406,7 +406,7 @@ appHeaderStyle = do
 commonAppHeaderStyle :: Css
 commonAppHeaderStyle = do
   ".app-header" ? do
-    zIndex 2
+    zIndex 20
     "grid-area" -: "header"
     display flex
     background nord0'
@@ -658,7 +658,7 @@ mobileNavStyle = do
     marginAll nil
 
     before Clay.& do
-      zIndex 1
+      zIndex 10
       absoluteBlock
       important $ backgroundColor nord0'
       important $ borderColor nord0'
@@ -673,7 +673,7 @@ mobileNavStyle = do
     display block
     position absolute
     top (rem 3)
-    zIndex 2
+    zIndex 20
     paddingTop (rem 1)
     minWidth (rem 15)
     height (pct 100 @-@ rem 4)

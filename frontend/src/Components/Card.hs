@@ -99,7 +99,7 @@ modalStyle :: Css
 modalStyle = do
   ".modal" ? do
     position fixed
-    zIndex 2
+    zIndex 20
     left nil
     top nil
     width (pct 100)

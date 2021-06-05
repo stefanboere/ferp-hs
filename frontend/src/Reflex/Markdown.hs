@@ -6,6 +6,7 @@ module Reflex.Markdown
   , whenLoaded
   , codeInputStyle
   , codeInput
+  , markdownCheatSheet
   , markdownInputStyle
   , markdownInput
   , markdownInputWithPreview
@@ -28,6 +29,7 @@ import           Data.Monoid                    ( All(..) )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
+import qualified Data.Text                     as Text
 import qualified GHCJS.DOM.Types               as DOM
 import           Language.Javascript.JSaddle
 import           Control.Lens                   ( (^.) )
@@ -164,6 +166,23 @@ markdownInputStyle = do
 
     ".statusmessage" ? do
       "grid-row" -: "2"
+
+markdownCheatSheet :: (DomBuilder t m) => m ()
+markdownCheatSheet = do
+  el "h4" $ text "Markdown cheat sheet"
+
+  el "pre" $ el "code" $ do
+    text $ Text.unlines
+      [ "# Heading 1"
+      , "## Heading 2"
+      , "**Bold text**"
+      , "*Italicized text*"
+      , "[Link title](https://example.com)"
+      , "![Image alt text](image.jpg)"
+      , "> blockquote"
+      , "1. Ordered list"
+      , "- Unordered list"
+      ]
 
 parseMarkdownImproving
   :: (Reflex t, MonadHold t m, MonadFix m)

@@ -380,6 +380,7 @@ markdownHandler = do
     (inputConfig
       "# Markdown editor\n\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: `$x^2$`"
     )
+  signpost def markdownCheatSheet
   pure never
 
 passwordHandler

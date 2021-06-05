@@ -278,7 +278,7 @@ dropdownStyle = do
     position relative
     ".angle-icon" ? transforms [rotate (deg 180)]
 
-    button # ".open" ? zIndex 1
+    button # ".open" ? zIndex 5
 
     button # ".open" # before ? do
       cursor cursorDefault
@@ -314,7 +314,7 @@ dropdownStyle = do
         border solid (px 1) grey0'
         paddingTop (rem (1 / 2))
         paddingBottom (rem (1 / 2))
-        zIndex 1
+        zIndex 5
 
         ".angle-icon" ? transforms [rotate (deg 90)]
 
