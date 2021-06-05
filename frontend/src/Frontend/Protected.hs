@@ -113,7 +113,7 @@ blogEdit bid = runApi $ do
 
   postBuildEv <- getPostBuild
   let getRespEv = getBlog usingCookie bid <$ postBuildEv
-  initEv <- orAlertF $ requestingJs getRespEv
+  (initEv, getNextEv) <- orAlertF (requestingJs getRespEv) >>= headTailE
 
   widgetHold_ (pure ()) $ ffor initEv $ \initBlog -> do
 
@@ -127,20 +127,16 @@ blogEdit bid = runApi $ do
             (\x () -> patchBlog usingCookie bid x)
             dynPatch
             ev
-      patchRespEv <- requestBtn saveBtn
-                                patchBlogReq
-                                ((== mempty) <$> dynPatch)
-                                patchEv
+      _ <-
+        requestBtn saveBtn patchBlogReq ((== mempty) <$> dynPatch) patchEv
+          >>= orAlert
 
-      getBlogEv     <- orAlert getResp
+      getBlogEvManual <- orAlert getResp
+      let getBlogEv = leftmost [getNextEv, getBlogEvManual]
 
-      patchDoneEv   <- orAlert patchRespEv
+      dynBlogRemote <- holdDyn initBlog getBlogEv
 
-      dynBlogRemote <- holdDyn
-        initBlog
-        (leftmost [getBlogEv, tagPromptlyDyn dynBlog patchDoneEv])
-
-      dynBlog <-
+      dynBlog       <-
         el "form"
         $    getCompose
         $    pure initBlog
@@ -157,14 +153,31 @@ blogEdit bid = runApi $ do
         <**> prop markdownInput "Description" blogDescription initBlog getBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
-      patchEv <- throttle 2 (() <$ ffilter (/= mempty) (updated dynPatch))
+      patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
     pure ()
 
   pure never
 
 
+-- | Converts an editor into an editor which accounts for focus
+--
+-- 1. If the user is focussed, no external set value events are applied
+-- 2. The output dynamic is only updated on lose focus
+respectFocus
+  :: (DomBuilder t m, MonadFix m)
+  => (InputConfig t b -> m (DomInputEl t m b))
+  -> InputConfig t b
+  -> m (DomInputEl t m b)
+respectFocus editor cfg = do
+  rec r <- editor cfg
+        { _inputConfig_setValue = gate (current (not <$> _inputEl_hasFocus r))
+                                       (_inputConfig_setValue cfg)
+        }
+
+  pure r
+
 prop
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
   => (InputConfig t b -> m (DomInputEl t m b))
   -> Text
   -> Lens' a b
@@ -174,7 +187,7 @@ prop
 prop editor lbl l initVal update =
   Compose $ fmap (set l) . _inputEl_value <$> labeled
     lbl
-    editor
+    (respectFocus editor)
     (inputConfig (view l initVal)) { _inputConfig_setValue = view l <$> update }
 
 triStateBtn
