@@ -74,15 +74,15 @@ import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
-import           Data.Monoid                    ( Any(..) )
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
                                                 )
-import           Data.String                    ( IsString )
+import           Data.Monoid                    ( Any(..) )
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
+import           Data.String                    ( IsString )
 import           Data.Text                      ( Text
                                                 , pack
                                                 , unpack
@@ -92,7 +92,6 @@ import           Data.Time
 import           Data.Time.Calendar.WeekDate
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
-import           Numeric                        ( showFFloatAlt )
 import           Reflex
 import           Reflex.Dom              hiding ( fileInput
                                                 , rangeInput
@@ -139,7 +138,7 @@ data InputConfig' extraConfig t a = InputConfig
 data InputEl d t a = InputEl
   { _inputEl_value    :: Dynamic t a
   , _inputEl_hasFocus :: Dynamic t Bool
-  , _inputEl_elements  :: Dynamic t [Element EventResult d t] -- ^ An input widget could consist of multiple input elements; eg. a combined range and number input
+  , _inputEl_elements :: Dynamic t [Element EventResult d t] -- ^ An input widget could consist of multiple input elements; eg. a combined range and number input
   }
 
 instance (Reflex t, Semigroup a) => Semigroup (InputEl d t a) where
@@ -837,13 +836,18 @@ numberRangeInput isReg cfg = do
 
   mkStep :: Int -> Text
   mkStep x = prnt (10 ^^ (-x))
-  prnt x = Text.dropWhileEnd (== '.') $ pack $ showFFloatAlt
-    (_numberRange_precision nc)
-    x
-    ""
+  prnt = showFloat (_numberRange_precision nc)
   emptyNoFocus (x, r) f | Text.null x && not f = Just (prnt 0)
                         | not f                = prnt <$> r
                         | otherwise            = Nothing
+
+showFloat :: RealFloat a => Maybe Int -> a -> Text
+showFloat Nothing x = pack (show (fromRational $ toRational x :: Double))
+showFloat (Just precision) x =
+  let r        = pack (show (Prelude.round (x * (10 ^^ precision)) :: Integer))
+      (r0, r1) = Text.splitAt (Text.length r - 3) r
+      r0'      = if Text.null r0 || r0 == "-" then r0 <> "0" else r0
+  in  r0' <> "." <> r1
 
 toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
