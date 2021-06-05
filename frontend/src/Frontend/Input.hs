@@ -592,7 +592,7 @@ timeHandler = do
   el "h2" $ text "Other date inputs"
   el "form" $ do
     d1 <- labeled "Day"
-                  dateInput
+                  (requiredInput dateInput)
                   (inputConfig (Just (fromGregorian 2021 03 14)))
     dt1 <- labeled
       "Local time"

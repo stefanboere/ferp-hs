@@ -1483,20 +1483,28 @@ monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
       . unpack
 
 requiredInput
-  :: (Reflex t, MonadFix m, Functor c)
+  :: (Reflex t, MonadHold t m, MonadFix m)
   => (InputConfig' c t (Maybe a) -> m (DomInputEl t m (Maybe a)))
-  -> InputConfig' c t a
+  -> InputConfig' c t (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 requiredInput fn cfg = do
-  rec r <- fn (Just <$> cfg)
+  rec r <- fn cfg
         { _inputConfig_attributes = _inputConfig_attributes cfg
                                     <> "required"
                                     =: ""
         , _inputConfig_status     = _inputConfig_status cfg <> stat
         }
-      let stat = mkStat <$> _inputEl_value r
+      lostFocusDyn <- lostFocus (_inputEl_hasFocus r)
+      let stat = mkStat <$> lostFocusDyn <*> _inputEl_value r
   pure r
  where
-  mkStat Nothing = InputError "This field is required."
-  mkStat _       = def
+  mkStat True Nothing = InputError "This field is required."
+  mkStat _    _       = def
+
+-- | Turns true if the input goes from true to false
+lostFocus :: (MonadHold t m, Reflex t) => Dynamic t Bool -> m (Dynamic t Bool)
+lostFocus x = do
+  hadFocusDyn <- holdDyn False (ffilter Prelude.id (updated x))
+  let lostFocusEv = ffilter not (updated x)
+  holdDyn False (True <$ gate (current hadFocusDyn) lostFocusEv)
 
