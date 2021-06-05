@@ -64,7 +64,7 @@ alertStyle = do
       backgroundColor inherit
 
       hover & do
-        backgroundColor inherit
+        important $ backgroundColor inherit
 
     ".button-close" ? do
       paddingAll nil
@@ -90,6 +90,8 @@ alertStyle = do
       borderStyle solid
       borderWidth (px 1)
       borderRadiusAll (px 3)
+      borderColor nord6'
+      ".warning" ? borderColor nord3'
 
     ".spacer" ? flexGrow 1
 
