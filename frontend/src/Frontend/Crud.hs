@@ -40,7 +40,7 @@ import           Frontend.Api
 
 -- brittany-disable-next-binding
 type CrudApi = Auth Everyone :> "blogs" :> "all" :> View
- :<|> "blogs" :> Capture "key" BlogId :> View
+ :<|> Auth Everyone :> "blogs" :> Capture "key" BlogId :> View
 
 crudApi :: Proxy CrudApi
 crudApi = Proxy
