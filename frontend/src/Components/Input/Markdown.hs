@@ -65,13 +65,17 @@ cdnAceConfig = Const $ def
   }
 
 codeInputStyle :: Css
-codeInputStyle = ".code-editor" Clay.** ".ace_editor" ? do
-  fontFamily ["FiraCode", "FiraCode Nerd Font"] [monospace]
-  fontSize (Clay.rem (14 / 16))
-  minHeight (Clay.rem 10)
-  height (pct 100 @-@ Clay.rem 2)
-  borderRadius (px 3) (px 3) (px 3) (px 3)
-  padding (Clay.rem 1) (Clay.rem 1) (Clay.rem 1) (Clay.rem 1)
+codeInputStyle = do
+  ".code-editor" Clay.** ".ace_editor" ? do
+    fontFamily ["FiraCode", "FiraCode Nerd Font"] [monospace]
+    fontSize (Clay.rem (14 / 16))
+    minHeight (Clay.rem 10)
+    height (pct 100 @-@ Clay.rem 2)
+    borderRadius (px 3) (px 3) (px 3) (px 3)
+    padding (Clay.rem 1) (Clay.rem 1) (Clay.rem 1) (Clay.rem 1)
+
+  ".code-editor" ? do
+    "grid-column" -: "1/-1"
 
 
 type CodeInputConfig = InputConfig' (Const AceConfig)
