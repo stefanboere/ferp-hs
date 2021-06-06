@@ -103,9 +103,9 @@ data Material = M14404 | M14307 deriving (Eq, Show, Ord, Enum, Bounded)
 instance Default Material where
   def = M14404
 
-instance HasLabel Material where
-  toLabel M14404 = "1.4404"
-  toLabel M14307 = "1.4307"
+printMaterial :: DomBuilder t m => Material -> m ()
+printMaterial M14404 = text "1.4404"
+printMaterial M14307 = text "1.4307"
 
 basicHandler
   :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -164,61 +164,58 @@ checkboxHandler = do
     _ <- labeled
       "Material"
       checkboxesInput
-      (inputConfig (Set.singleton M14307))
-        { _inputConfig_status = constDyn $ InputError "Error"
-        }
+      materialExample { _inputConfig_status = constDyn $ InputError "Error" }
 
     _ <- labeled
       "Disabled"
       checkboxesInput
-      (inputConfig (Set.singleton M14307)) { _inputConfig_status = constDyn
-                                             InputDisabled
-                                           }
+      materialExample { _inputConfig_status = constDyn InputDisabled }
 
     _ <- labeled
       "Success"
       checkboxesInput
-      (inputConfig (Set.singleton M14307))
+      materialExample
         { _inputConfig_status = constDyn $ InputSuccess "Success message"
         }
     pure ()
 
   elClass "form" "vertical" $ do
     _ <- labeled "Terms and conditions"
-                 (checkboxesInputMap (Map.singleton () "I agree"))
+                 (checkboxesInputMap (Map.singleton () (text "I agree")))
                  (inputConfig Set.empty)
 
-    _ <- labeled "Vertical layout"
-                 checkboxesInput
-                 (inputConfig (Set.singleton M14307))
+    _ <- labeled "Vertical layout" checkboxesInput materialExample
 
     pure ()
 
   el "h2" $ text "Toggle"
   el "form" $ do
     _ <- toggleInput "Turn it on" (inputConfig False)
-    _ <- labeled "Material" togglesInput (inputConfig (Set.singleton M14307))
+    _ <- labeled "Material" togglesInput materialExample
     _ <- labeled
       "Material"
       togglesInput
-      (inputConfig (Set.singleton M14307))
-        { _inputConfig_status = constDyn $ InputError "Error"
-        }
+      materialExample { _inputConfig_status = constDyn $ InputError "Error" }
     _ <- labeled
       "Disabled"
       togglesInput
-      (inputConfig (Set.singleton M14307)) { _inputConfig_status = constDyn
-                                             InputDisabled
-                                           }
+      materialExample { _inputConfig_status = constDyn InputDisabled }
     _ <- labeled
       "Success"
       togglesInput
-      (inputConfig (Set.singleton M14307))
+      materialExample
         { _inputConfig_status = constDyn $ InputSuccess "Success message"
         }
     pure ()
 
   pure never
+  where materialExample = materialExample' Set.singleton
+
+materialExample'
+  :: (DomBuilder t m)
+  => (Material -> f Material)
+  -> EnumInputConfig t m (f Material)
+materialExample' bump = inputConfig' (OpElem printMaterial) (bump M14307)
 
 comboboxHandler
   :: (PostBuild t m, DomBuilder t m, MonadIO m, MonadHold t m, MonadFix m)
@@ -348,9 +345,13 @@ groupHandler = do
 
  where
   content = do
-    _ <- labeled "Protocol" selectInput (inputConfig (Just Http))
+    _ <- labeled "Protocol"
+                 selectInput
+                 (inputConfig' (OpElem printProtocol) (Just Http))
     _ <- labeled "Domain" textInput (inputConfig "")
-    _ <- labeled "Toplevel" selectInput (inputConfig (Just Dev))
+    _ <- labeled "Toplevel"
+                 selectInput
+                 (inputConfig' (OpElem printDomain) (Just Dev))
     pure ()
 
 
@@ -359,19 +360,19 @@ data Protocol = Http | Https deriving (Eq, Show, Enum, Bounded)
 instance Default Protocol where
   def = Http
 
-instance HasLabel Protocol where
-  toLabel Http  = "http://"
-  toLabel Https = "https://"
+printProtocol :: DomBuilder t m => Protocol -> m ()
+printProtocol Http  = text "http://"
+printProtocol Https = text "https://"
 
 data ToplevelDomain = Dev | Com | Org deriving (Eq, Show, Enum, Bounded)
 
 instance Default ToplevelDomain where
   def = Dev
 
-instance HasLabel ToplevelDomain where
-  toLabel Dev = ".dev"
-  toLabel Com = ".com"
-  toLabel Org = ".org"
+printDomain :: DomBuilder t m => ToplevelDomain -> m ()
+printDomain Dev = text ".dev"
+printDomain Com = text ".com"
+printDomain Org = text ".org"
 
 markdownHandler :: WidgetConstraint js t m => m (Event t URI)
 markdownHandler = do
@@ -429,27 +430,24 @@ radioHandler = do
     r1 <- labeled
       "Select material"
       radioInput
-      (inputConfig (Just M14307))
+      materialExample
         { _inputConfig_status = constDyn
           $ InputNeutral (Just "Select the material to be used")
         }
     r2 <- labeled
       "Error"
       radioInput
-      (inputConfig (Just M14307)) { _inputConfig_status = constDyn $ InputError
-                                    "Error"
-                                  }
+      materialExample { _inputConfig_status = constDyn $ InputError "Error" }
 
     r3 <- labeled
       "Disabled"
       radioInput
-      (inputConfig (Just M14307)) { _inputConfig_status = constDyn InputDisabled
-                                  }
+      materialExample { _inputConfig_status = constDyn InputDisabled }
 
     r4 <- labeled
       "Success"
       radioInput
-      (inputConfig (Just M14307))
+      materialExample
         { _inputConfig_status = constDyn $ InputSuccess "Success message"
         }
     display (_inputEl_value r1)
@@ -469,6 +467,7 @@ radioHandler = do
     text "."
 
   pure never
+  where materialExample = materialExample' Just
 
 rangeHandler
   :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
@@ -510,32 +509,30 @@ selectHandler = do
     _ <- labeled
       "Select material"
       selectInput
-      (inputConfig (Just M14307))
+      materialExample
         { _inputConfig_status = constDyn
           $ InputNeutral (Just "Select the material to be used")
         }
     _ <- labeled
       "Error"
       selectInput
-      (inputConfig (Just M14307)) { _inputConfig_status = constDyn $ InputError
-                                    "Error"
-                                  }
+      materialExample { _inputConfig_status = constDyn $ InputError "Error" }
 
     _ <- labeled
       "Disabled"
       selectInput
-      (inputConfig (Just M14307)) { _inputConfig_status = constDyn InputDisabled
-                                  }
+      materialExample { _inputConfig_status = constDyn InputDisabled }
 
     _ <- labeled
       "Success"
       selectInput
-      (inputConfig (Just M14307))
+      materialExample
         { _inputConfig_status = constDyn $ InputSuccess "Success message"
         }
     pure ()
 
   pure never
+  where materialExample = materialExample' Just
 
 textareaHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 textareaHandler = do

@@ -309,10 +309,10 @@ containerTable = do
       el "tr" $ do
         el "td" blank
         el "td" blank
-        _ <- el "td" $ textInput (inputConfig "")
-        _ <- el "td" $ textInput (inputConfig "")
-        _ <- el "td" $ textInput (inputConfig "")
-        _ <- el "td" $ textInput (inputConfig "")
+        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
+        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
+        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
+        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
         pure selectAllEv
     let selectAllEv = updated selectAllEv'
     selcountDyn <- elAttr "tbody" ("style" =: "height:10rem") $ do

@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -21,6 +22,8 @@ module Components.Input.Basic
   , InputConfig'(..)
   , InputConfig
   , NumberInputConfig
+  , EnumInputConfig
+  , OpElem(..)
   , DomInputEl
   , inputConfig
   , inputConfig'
@@ -34,7 +37,6 @@ module Components.Input.Basic
   , randomId
   , holdDynAttributes
   , NumberRange(..)
-  , HasLabel(..)
   , selectInput
   , textAreaInput
   , rangeInput
@@ -75,6 +77,7 @@ import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
+import           Data.Proxy
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
@@ -122,6 +125,17 @@ instance Semigroup InputStatus where
 type InputConfig = InputConfig' (Const ())
 
 type NumberInputConfig t = InputConfig' (NumberRange t) t
+
+newtype OpElem m a = OpElem { getOpElem :: Elem a -> m () }
+
+-- | Strips away the functor type
+type family Elem a where
+  Elem (f x) = x
+  Elem x = x
+
+-- | To show the enum values, we need a list of labels for each enum value.
+-- That is, the extra config is a map 'a -> m ()'. This is precisely 'Op (m ()) a'
+type EnumInputConfig t m = InputConfig' (OpElem m) t
 
 type DomInputEl t m = InputEl (DomBuilderSpace m) t
 
@@ -591,7 +605,7 @@ randomId = do
 
 statusModAttrEv'
   :: (PostBuild t m)
-  => InputConfig t a
+  => InputConfig' c t a
   -> m (Event t (Map AttributeName (Maybe Text)))
 statusModAttrEv' cfg = statusModAttrEv
   (_inputConfig_attributes cfg Map.!? "class")
@@ -844,11 +858,14 @@ numberRangeInput isReg cfg = do
 
 showFloat :: RealFloat a => Maybe Int -> a -> Text
 showFloat Nothing x = pack (show (fromRational $ toRational x :: Double))
-showFloat (Just precision) x =
-  let r        = pack (show (Prelude.round (x * (10 ^^ precision)) :: Integer))
-      (r0, r1) = Text.splitAt (Text.length r - 3) r
-      r0'      = if Text.null r0 || r0 == "-" then r0 <> "0" else r0
-  in  r0' <> "." <> r1
+showFloat (Just precision) x
+  | precision > 0
+  = let r = pack (show (Prelude.round (x * (10 ^^ precision)) :: Integer))
+        (r0, r1) = Text.splitAt (Text.length r - 3) r
+        r0' = if Text.null r0 || r0 == "-" then r0 <> "0" else r0
+    in  r0' <> "." <> r1
+  | otherwise
+  = pack (show (Prelude.round x :: Integer))
 
 toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
@@ -863,15 +880,8 @@ toggleInput lbl cfg = do
     cfg { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs }
 
 togglesInput
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , Ord a
-     , HasLabel a
-     , Enum a
-     , Bounded a
-     )
-  => InputConfig t (Set a)
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  => EnumInputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
 togglesInput cfg = do
   let initAttrs = "class" =: "toggle"
@@ -881,21 +891,17 @@ togglesInput cfg = do
     }
 
 checkboxesInput
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , Ord a
-     , HasLabel a
-     , Enum a
-     , Bounded a
-     )
-  => InputConfig t (Set a)
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  => EnumInputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
-checkboxesInput cfg =
-  checkboxesInputMap (allPossibleMap (_inputConfig_initialValue cfg)) cfg
+checkboxesInput cfg = checkboxesInputMap
+  (allPossibleMap toLabel)
+  cfg { _inputConfig_extra = Const () }
+  where toLabel = getOpElem (_inputConfig_extra cfg)
 
-allPossibleMap :: (HasLabel a, Bounded a, Enum a, Ord a) => f a -> Map a Text
-allPossibleMap = Map.fromList . fmap (\x -> (x, toLabel x)) . allPossible
+allPossibleMap :: (Bounded a, Enum a, Ord a) => (a -> m ()) -> Map a (m ())
+allPossibleMap toLabel =
+  Map.fromList . fmap (\x -> (x, toLabel x)) $ allPossible (Proxy :: Proxy a)
 
 idAttr :: (Ord a, IsString a) => Maybe Text -> Map a Text
 idAttr = maybe mempty (Map.singleton "id")
@@ -903,7 +909,7 @@ idAttr = maybe mempty (Map.singleton "id")
 -- | Same as 'checkboxesInput' but with a map containing all options
 checkboxesInputMap
   :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
-  => Map a Text
+  => Map a (m ())
   -> InputConfig t (Set a)
   -> m (DomInputEl t m (Set a))
 checkboxesInputMap opts cfg =
@@ -927,7 +933,7 @@ checkboxesInputMap opts cfg =
   mkCheckbox modAttrEv k x =
     let cfg' = ((k `elem`) <$> cfg)
     in  checkboxInput'
-          (constDyn x)
+          x
           cfg'
             { _inputConfig_modifyAttributes = mergeWith
                                                 (<>)
@@ -946,7 +952,7 @@ checkboxesInputDynMap
      , MonadFix m
      , Ord a
      )
-  => Dynamic t (Map a Text)
+  => Dynamic t (Map a (m ()))
   -> InputConfig t (Set a)
   -> m (DomInputEl t m (Set a))
 checkboxesInputDynMap opts cfg =
@@ -971,7 +977,7 @@ checkboxesInputDynMap opts cfg =
   mkCheckbox modAttrEv k x =
     let cfg' = ((k `elem`) <$> cfg)
     in  checkboxInput'
-          x
+          (dyn_ x)
           cfg'
             { _inputConfig_modifyAttributes = mergeWith
                                                 (<>)
@@ -993,12 +999,12 @@ checkboxInput
   -> InputConfig t Bool
   -> m (DomInputEl t m Bool)
 checkboxInput lbl cfg = fmap (Prelude.not . Set.null) <$> checkboxesInputMap
-  (Map.singleton () lbl)
+  (Map.singleton () (text lbl))
   ((\x -> if x then Set.singleton () else Set.empty) <$> cfg)
 
 checkboxInput'
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
-  => Dynamic t Text
+  => m ()
   -> InputConfig t Bool
   -> m (DomInputEl t m Bool)
 checkboxInput' lbl cfg = el "div" $ do
@@ -1020,7 +1026,7 @@ checkboxInput' lbl cfg = el "div" $ do
     .  elementConfig_modifyAttributes
     .~ _inputConfig_modifyAttributes cfg
 
-  elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label") $ dynText lbl
+  elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label") lbl
 
   pure $ InputEl { _inputEl_value    = _inputElement_checked n
                  , _inputEl_hasFocus = _inputElement_hasFocus n
@@ -1047,12 +1053,9 @@ checkboxInputSimple initOpen setOpen attrs = do
     .~           initOpen
   pure (_inputElement_checked r)
 
-class HasLabel a where
-  toLabel :: a -> Text
-
 selectInput
-  :: (PostBuild t m, DomBuilder t m, HasLabel a, Enum a, Bounded a)
-  => InputConfig t (Maybe a)
+  :: (PostBuild t m, DomBuilder t m, Enum a, Bounded a)
+  => EnumInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 selectInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
@@ -1088,7 +1091,8 @@ selectInput cfg = do
       , _inputEl_elements = constDyn [_selectElement_element (fst n)]
       }
  where
-  mkOption x = elAttr "option" ("value" =: showNum (Just x)) (text (toLabel x))
+  mkOption x = elAttr "option" ("value" =: showNum (Just x)) (toLabel x)
+  toLabel = getOpElem (_inputConfig_extra cfg)
 
 selectIcon :: (PostBuild t m, DomBuilder t m) => m ()
 selectIcon = inputIcon arrowElement
@@ -1108,19 +1112,13 @@ parseEnum :: Enum a => Text -> Maybe a
 parseEnum = fmap toEnum . readMaybe . unpack
 
 radioInput
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , Ord a
-     , HasLabel a
-     , Enum a
-     , Bounded a
-     )
-  => InputConfig t (Maybe a)
+  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  => EnumInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
-  (fmap (maybe Set.empty Set.singleton) cfg)
+  (fmap (maybe Set.empty Set.singleton) cfg { _inputConfig_extra = Const () })
     { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs
+    , _inputConfig_extra      = OpElem (getOpElem (_inputConfig_extra cfg))
     }
  where
   initAttrs = "type" =: "radio" <> maybe mempty

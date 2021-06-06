@@ -16,6 +16,7 @@ module Components.Table
   , showHideColumns
   , linkCell
   , angleDoubleRightIcon
+  , withFilterCondition
   )
 where
 
@@ -134,6 +135,9 @@ tableStyle = do
       marginBottom (rem (-1 / 2))
 
     input # ("type" @= "checkbox") ? marginTop (rem (-1 / 8))
+
+    Clay.select ? do
+      borderBottomColor nord4'
 
     input ? do
       borderBottomColor nord4'
@@ -304,7 +308,7 @@ showHideColumns columns = do
     el "h3" $ text "Show columns"
     let allCols = Map.keysSet columns
     rec dynSet <- elClass "div" "show-hide-columns" $ checkboxesInputMap
-          columns
+          (fmap text columns)
           (inputConfig allCols) { _inputConfig_setValue = allCols <$ selectAllEv
                                 }
         selectAllEv <- btn def { _buttonConfig_priority = ButtonTertiary }
@@ -328,8 +332,8 @@ data PageSize = Page10 | Page20 | Page50 | Page100 deriving (Eq, Show, Enum, Bou
 instance Default PageSize where
   def = Page10
 
-instance HasLabel PageSize where
-  toLabel = pack . show . pageSize
+printPageSize :: DomBuilder t m => PageSize -> m ()
+printPageSize = text . pack . show . pageSize
 
 pageSize :: PageSize -> Int
 pageSize Page10  = 10
@@ -389,7 +393,8 @@ paginationInput
   -> m (Dynamic t Page)
 paginationInput totalResults = elClass "div" "pagination" $ do
   el "span" $ text "Results per page"
-  dynLim <- _inputEl_value <$> selectInput (inputConfig (Just Page10))
+  dynLim <- _inputEl_value
+    <$> selectInput (inputConfig' (OpElem printPageSize) (Just Page10))
   let pageSizeDyn = pageSize' <$> dynLim
   let maxPageDyn  = maxPage <$> totalResults <*> pageSizeDyn
   rec
@@ -472,4 +477,48 @@ paginationInput totalResults = elClass "div" "pagination" $ do
   resultSummary pageSz pageNum Nothing =
     let (r0, r1) = pageRange pageSz pageNum
     in  pack (show r0) <> "-" <> pack (show r1)
+
+
+data FilterCondition
+  = Equal
+  | DoesNotEqual
+  | GreaterThan
+  | LessThan
+  | GreaterThanOrEqual
+  | LessThanOrEqual
+  | StartsWith
+  | EndsWith
+  | Contains
+  | Matches
+  | DoesNotStartWith
+  | DoesNotEndWith
+  | DoesNotContain
+  | DoesNotMatch
+  deriving (Eq, Enum, Show, Bounded)
+
+printFilterCond :: DomBuilder t m => FilterCondition -> m ()
+printFilterCond Equal              = text "="
+printFilterCond DoesNotEqual       = text "/="
+printFilterCond GreaterThan        = text ">"
+printFilterCond LessThan           = text "<"
+printFilterCond GreaterThanOrEqual = text ">="
+printFilterCond LessThanOrEqual    = text "<="
+printFilterCond StartsWith         = text "starts"
+printFilterCond EndsWith           = text "ends"
+printFilterCond Contains           = text "contains"
+printFilterCond Matches            = text "like"
+printFilterCond DoesNotStartWith   = text "!contains"
+printFilterCond DoesNotEndWith     = text "!endswith"
+printFilterCond DoesNotContain     = text "!contains"
+printFilterCond DoesNotMatch       = text "!match"
+
+withFilterCondition
+  :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
+  => m a
+  -> m (Dynamic t FilterCondition, a)
+withFilterCondition editor = inputGroup def $ do
+  dynCond <- selectInput (inputConfig' (OpElem printFilterCond) (Just Contains))
+  x       <- editor
+
+  pure (fromMaybe Contains <$> _inputEl_value dynCond, x)
 
