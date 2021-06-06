@@ -101,30 +101,23 @@ let
     buildCommand = ''
       mkdir -p $out
 
-      cp ${sources.MathJax}/es5/tex-chtml.js $out/tex-chtml.js
+      # cp ${sources.MathJax}/es5/tex-chtml.js $out/tex-chtml.js
 
-      ${pkgs.closurecompiler}/bin/closure-compiler \
-        $out/tex-chtml.js \
-        > $out/tex-chtml.min.js
-      ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
+      # ${pkgs.closurecompiler}/bin/closure-compiler \
+      #  $out/tex-chtml.js \
+      #  > $out/tex-chtml.min.js
+      # ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
 
-      mkdir -p $out/codemirror
-      cp -r ${codemirror}/lib/node_modules/codemirror/lib/* $out/codemirror
-      cp ${codemirror}/lib/node_modules/codemirror/theme/nord.css $out/codemirror/
-      cp ${codemirror}/lib/node_modules/codemirror/mode/markdown/markdown.js $out/codemirror/
+      mkdir -p $out/ace
+      cp -r ${sources.ace-builds}/src-min-noconflict/* $out/ace
 
-      ${pkgs.closurecompiler}/bin/closure-compiler \
-        $out/codemirror/codemirror.js \
-        > $out/codemirror/codemirror.min.js
-
-      ${pkgs.closurecompiler}/bin/closure-compiler \
-        $out/codemirror/markdown.js \
-        > $out/codemirror/markdown.min.js
-
-      ${pkgs.zopfli}/bin/zopfli -i1000 $out/codemirror/*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ace*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ext*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/keybinding*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/mode*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/theme*
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/worker*
     '';
   };
 
-  codemirror = unstable.customNodePackages.codemirror;
-
-in project // { inherit frontend-min vendor-lib codemirror; }
+in project // { inherit frontend-min vendor-lib; }

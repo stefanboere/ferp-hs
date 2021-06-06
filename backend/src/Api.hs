@@ -82,27 +82,13 @@ prerenderApp page = do
           , rel_ "preload"
           , makeAttribute "as" "script"
           ]
-        mapM_
-          asyncScript
-          [ "/static/vendor/codemirror/codemirror.min.js"
-          , "/static/vendor/tex-chtml.min.js"
-          ]
-        link_
-          [ href_ "/static/vendor/codemirror/codemirror.css"
-          , rel_ "stylesheet"
-          , type_ "text/css"
-          ]
-        link_
-          [ href_ "/static/vendor/codemirror/nord.css"
-          , rel_ "stylesheet"
-          , type_ "text/css"
-          ]
+        mapM_ asyncScript
+              ["/static/vendor/ace/ace.js", "/static/vendor/tex-chtml.min.js"]
       body_ $ do
         toHtmlRaw body
         script_
           [src_ "/static/all.min.js", type_ "text/javascript", defer_ "defer"]
           ("" :: ByteString)
-        asyncScript "/static/vendor/codemirror/markdown.min.js"
 
  where
   asyncScript src =
