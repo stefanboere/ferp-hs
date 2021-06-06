@@ -32,6 +32,7 @@ module Components.Input.Basic
   , labeled
   , labeledDyn
   , randomId
+  , holdDynAttributes
   , NumberRange(..)
   , HasLabel(..)
   , selectInput
@@ -1250,12 +1251,11 @@ inputGroup cfg cnt = do
   modAttrEv <- statusModAttrEv (Just "input input-group")
                                (_inputConfig_status cfg)
 
-  dynAttr <- foldDyn
-    updateAttrs
+  dynAttr <- holdDynAttributes
     (_inputConfig_attributes cfg <> initAttrs)
     (mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg])
 
-  elDynAttr "div" (Map.mapKeys unNamespace <$> dynAttr) $ do
+  elDynAttr "div" dynAttr $ do
     result <- elClass "div" "flex-row" $ do
       result' <- cnt
 
@@ -1270,12 +1270,21 @@ inputGroup cfg cnt = do
  where
   initAttrs = "class" =: "input input-group" <> idAttr (_inputConfig_id cfg)
 
-  unNamespace (AttributeName _ x) = x
-
+holdDynAttributes
+  :: (Reflex t, MonadHold t m, MonadFix m)
+  => Map AttributeName Text
+  -> Event t (Map AttributeName (Maybe Text))
+  -> m (Dynamic t (Map Text Text))
+holdDynAttributes initAttrs modAttrEv = do
+  dynAttr <- foldDyn updateAttrs initAttrs modAttrEv
+  pure $ Map.mapKeys unNamespace <$> dynAttr
+ where
   updateAttrs updates m = Map.foldrWithKey go m updates
    where
     go :: Ord k => k -> Maybe a -> Map k a -> Map k a
     go k ma = Map.alter (const ma) k
+
+  unNamespace (AttributeName _ x) = x
 
 
 passwordInput

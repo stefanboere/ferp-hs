@@ -11,6 +11,18 @@
         "url": "https://github.com/mathjax/MathJax/archive/be11806df1ae075508e33500c990497062ef3c5a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "ace-builds": {
+        "branch": "master",
+        "description": "Packaged version of Ace code editor",
+        "homepage": "",
+        "owner": "ajaxorg",
+        "repo": "ace-builds",
+        "rev": "a4103cb0a672a4fec9a16fc344f3116b51d6bcda",
+        "sha256": "0rdw5wk6gafl3i8fv2h1mw4q5vwcxqj6q25ikg3fxg67ya3lqcnq",
+        "type": "tarball",
+        "url": "https://github.com/ajaxorg/ace-builds/archive/a4103cb0a672a4fec9a16fc344f3116b51d6bcda.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "gitignore": {
         "branch": "master",
         "description": "Nix function for filtering local git sources",
@@ -59,16 +71,16 @@
         "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/c7e3896e35ceea480a7484ec1709be7bdda8849d.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
-    "reflex-codemirror": {
+    "reflex-dom-ace": {
         "branch": "master",
-        "description": "Reflex FRP CodeMirror",
-        "homepage": null,
-        "owner": "Atidot",
-        "repo": "reflex-codemirror",
-        "rev": "82181580a0d61b0c860fd98d061bf9e5d7d1b91c",
-        "sha256": "0rxscdjrk12zn37cqzajdmxwjkxay41vvc79kldg2wz00x9c3l6m",
+        "description": "Reflex wrapper for the ACE editor",
+        "homepage": "https://reflex-frp.org/",
+        "owner": "SlimTim10",
+        "repo": "reflex-dom-ace",
+        "rev": "60921aad5a25b856e9bd2121e159f1e4b2971d56",
+        "sha256": "155kcdizjrqb2g84dy2bkvnisamwz173vml5gs53g5c1fdyrcg61",
         "type": "tarball",
-        "url": "https://github.com/Atidot/reflex-codemirror/archive/82181580a0d61b0c860fd98d061bf9e5d7d1b91c.tar.gz",
+        "url": "https://github.com/SlimTim10/reflex-dom-ace/archive/60921aad5a25b856e9bd2121e159f1e4b2971d56.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "reflex-dom-contrib": {

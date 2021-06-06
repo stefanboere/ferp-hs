@@ -146,17 +146,23 @@ blogEdit bid = do
         el "form"
         $    getCompose
         $    pure initBlog
-        <**> prop textInput          "Title" blogName    initBlog modBlogEv
+        <**> prop def textInput          "Title" blogName    initBlog modBlogEv
 
-        <**> prop (checkboxInput "") "Extra" blogIsExtra initBlog modBlogEv
+        <**> prop def (checkboxInput "") "Extra" blogIsExtra initBlog modBlogEv
 
-        <**> prop (toggleInput "")
+        <**> prop def
+                  (toggleInput "")
                   "Published"
                   blogIsPublished
                   initBlog
                   modBlogEv
 
-        <**> prop markdownInput "Description" blogDescription initBlog modBlogEv
+        <**> prop cdnAceConfig
+                  markdownInput
+                  "Description"
+                  blogDescription
+                  initBlog
+                  modBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
       patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
@@ -171,8 +177,8 @@ blogEdit bid = do
 -- 2. The output dynamic is only updated on lose focus
 respectFocus
   :: (DomBuilder t m, MonadFix m)
-  => (InputConfig t b -> m (DomInputEl t m b))
-  -> InputConfig t b
+  => (InputConfig' c t b -> m (DomInputEl t m b))
+  -> InputConfig' c t b
   -> m (DomInputEl t m b)
 respectFocus editor cfg = do
   rec r <- editor cfg
@@ -184,17 +190,20 @@ respectFocus editor cfg = do
 
 prop
   :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
-  => (InputConfig t b -> m (DomInputEl t m b))
+  => c b
+  -> (InputConfig' c t b -> m (DomInputEl t m b))
   -> Text
   -> Lens' a b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
-prop editor lbl l initVal update =
+prop c editor lbl l initVal update =
   Compose $ fmap (set l) . _inputEl_value <$> labeled
     lbl
     (respectFocus editor)
-    (inputConfig (view l initVal)) { _inputConfig_setValue = view l <$> update }
+    (inputConfig' c (view l initVal)) { _inputConfig_setValue = view l
+                                        <$> update
+                                      }
 
 triStateBtn
   :: (PostBuild t m, DomBuilder t m)
