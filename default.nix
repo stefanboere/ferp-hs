@@ -83,6 +83,7 @@ let
         --compilation_level=ADVANCED_OPTIMIZATIONS \
         --jscomp_off=checkVars \
         --externs=${frontend}/bin/${pname}.jsexe/all.js.externs \
+        --externs="${./frontend}/externs.js" \
         > $out/all.min.js
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/all.min.js
 
@@ -101,12 +102,12 @@ let
     buildCommand = ''
       mkdir -p $out
 
-      # cp ${sources.MathJax}/es5/tex-chtml.js $out/tex-chtml.js
+      cp ${sources.MathJax}/es5/tex-chtml.js $out/tex-chtml.js
 
-      # ${pkgs.closurecompiler}/bin/closure-compiler \
-      #  $out/tex-chtml.js \
-      #  > $out/tex-chtml.min.js
-      # ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
+      ${pkgs.closurecompiler}/bin/closure-compiler \
+        $out/tex-chtml.js \
+        > $out/tex-chtml.min.js
+      ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
 
       mkdir -p $out/ace
       cp -r ${sources.ace-builds}/src-min-noconflict/* $out/ace
