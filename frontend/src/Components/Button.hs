@@ -12,14 +12,14 @@ module Components.Button
   , closeBtn
   , btnDropdown
   , btnOverflow
+  , angleIconEl
   , dropdownHeader
   , divider
   , signpost
   , signpost'
   , TooltipPosition(..)
   , tooltip
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( rem )
 
@@ -29,8 +29,8 @@ import           Clay                    hiding ( (&)
 import qualified Clay                           ( (&) )
 import qualified Clay.Media                    as Media
 import           Control.Monad.Fix              ( MonadFix )
-import           Data.Char                      ( isUpper
-                                                , isLower
+import           Data.Char                      ( isLower
+                                                , isUpper
                                                 )
 import           Data.Default
 import           Data.Map                      as Map
@@ -40,9 +40,9 @@ import           Data.Text                      ( Text
                                                 )
 import qualified Data.Text                     as Text
 import           Reflex
-import           Reflex.Dom              hiding ( textInput
+import           Reflex.Dom              hiding ( button
                                                 , rangeInput
-                                                , button
+                                                , textInput
                                                 )
 
 import           Components.Class
@@ -78,8 +78,8 @@ instance Monoid ActionState where
 
 data ButtonConfig t = ButtonConfig
   { _buttonConfig_priority :: ButtonPriority
-  , _buttonConfig_state :: Dynamic t ActionState
-  , _buttonConfig_class :: Dynamic t Text
+  , _buttonConfig_state    :: Dynamic t ActionState
+  , _buttonConfig_class    :: Dynamic t Text
   }
 
 instance Reflex t => Default (ButtonConfig t) where
@@ -353,13 +353,12 @@ btnDropdown
   -> m a
   -> m (Event t b)
   -> m (Event t b)
-btnDropdown cfg titl cnt = snd <$> btnDropdown'
-  "dropdown"
-  cfg
-  (  titl
-  >> icon def { _iconConfig_class = constDyn $ Just "angle-icon" } angleIcon
-  )
-  (((), ) <$> cnt)
+btnDropdown cfg titl cnt =
+  snd <$> btnDropdown' "dropdown" cfg (titl >> angleIconEl) (((), ) <$> cnt)
+
+angleIconEl :: (DomBuilder t m, PostBuild t m) => m ()
+angleIconEl =
+  icon def { _iconConfig_class = constDyn $ Just "angle-icon" } angleIcon
 
 btnOverflow
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -379,7 +378,11 @@ btnDropdown'
   -> m (x, Event t b)
   -> m (x, Event t b)
 btnDropdown' typeStr' cfg titl cnt = elClass "div" typeStr $ do
-  rec clickEv       <- btn cfg { _buttonConfig_class = mkCls <$> openDyn } titl
+  rec clickEv <- btn
+        cfg
+          { _buttonConfig_class = mkCls' <$> openDyn <*> _buttonConfig_class cfg
+          }
+        titl
 
       (x, actionEv) <- elDynClass
         "div"
@@ -392,8 +395,9 @@ btnDropdown' typeStr' cfg titl cnt = elClass "div" typeStr $ do
 
  where
   (typeStr, typeStrOther) = Text.span (/= ' ') typeStr'
-  mkCls True  = "open"
-  mkCls False = ""
+  mkCls' True  x = "open " <> x
+  mkCls' False x = x
+  mkCls x = mkCls' x ""
 
 dropdownHeader :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m ()
 dropdownHeader = elClass "h4" "dropdown-header" . dynText

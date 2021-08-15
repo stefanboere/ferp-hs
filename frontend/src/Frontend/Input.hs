@@ -9,8 +9,7 @@ module Frontend.Input
   ( inputHandler
   , inputLinks
   , InputApi
-  )
-where
+  ) where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -154,7 +153,8 @@ basicHandler = do
   pure never
 
 
-checkboxHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+checkboxHandler
+  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 checkboxHandler = do
   el "h1" $ text "Checkbox"
 
@@ -223,8 +223,11 @@ comboboxHandler
 comboboxHandler = do
   el "h1" $ text "Combobox"
   el "form" $ do
-    x <- labeled "Flavours" (comboboxInput showOpt flavors) def
+    flav <- labeled "Flavours" (comboboxInput showOpt flavors) def
 
+    x    <- labeled "Material" altSelectInput (materialExample' Just)
+
+    display (_inputEl_value flav)
     display (_inputEl_value x)
 
   pure never
@@ -232,7 +235,17 @@ comboboxHandler = do
   showOpt k v = dynText ((<> " ") . pack . show <$> k) >> dynText v
   flavors = constDyn $ Map.fromList $ zip
     [(10 :: Integer), 9 ..]
-    ["Cherry", "Mint chip", "Vanilla", "Lemon"]
+    [ "Cherry"
+    , "Mint chip"
+    , "Vanilla"
+    , "Lemon"
+    , "Banana"
+    , "Apple"
+    , "Strawberry"
+    , "Chocolate chip"
+    , "abc"
+    , "axxbc"
+    ]
 
 datalistHandler
   :: (MonadIO m, PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
@@ -487,9 +500,9 @@ rangeHandler = do
     _ <- labeled
       "Disabled"
       rangeInput
-      (inputConfig (50 :: Double)) { _inputConfig_status = constDyn
-                                     InputDisabled
-                                   }
+      (inputConfig (50 :: Double))
+        { _inputConfig_status = constDyn InputDisabled
+        }
 
     _ <- labeled
       "Success"
@@ -534,7 +547,8 @@ selectHandler = do
   pure never
   where materialExample = materialExample' Just
 
-textareaHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+textareaHandler
+  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 textareaHandler = do
   el "h1" $ text "Textarea"
 

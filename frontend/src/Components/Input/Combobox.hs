@@ -1,28 +1,35 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Components.Input.Combobox
   ( comboboxStyle
   , ComboboxValue(..)
   , comboboxInput
-  )
-where
+  , altSelectInput
+  , altSelectInput'
+  ) where
 
-import           Prelude                 hiding ( rem
-                                                , (**)
+import           Prelude                 hiding ( (**)
+                                                , rem
                                                 )
 
 import           Clay                    hiding ( icon )
+import           Control.Applicative            ( Const(..) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
+import           Data.List                      ( find )
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import           Text.Fuzzy
 import           Reflex.Dom              hiding ( (&)
                                                 , display
                                                 )
+import           Text.Fuzzy
 
+import           Components.Button
 import           Components.Input.Basic
 import           Nordtheme
 
@@ -52,7 +59,7 @@ comboboxStyle = ".combobox-menu" ? do
 
 data ComboboxValue k = ComboboxValue
   { _cb_selection :: k
-  , _cb_text :: Text
+  , _cb_text      :: Text
   }
   deriving (Show, Eq)
 
@@ -60,15 +67,16 @@ instance Default k => Default (ComboboxValue k) where
   def = ComboboxValue def mempty
 
 comboboxInput
-  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Eq k)
+  :: forall t m k
+   . (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
   => (Dynamic t k -> Dynamic t Text -> m ())
   -> Dynamic t (Map k Text)
-  -> InputConfig t (ComboboxValue (Maybe k))
+  -> InputConfig t m (ComboboxValue (Maybe k))
   -> m (DomInputEl t m (ComboboxValue (Maybe k)))
 comboboxInput showOpt allOptions cfg = do
   rec
     (searchStrInput, selectEv) <- textInputWithIco'
-      (after' dynSelection options hasFocusDyn)
+      (after' dynSelection options hasFocusDyn setOpenEv)
       (_cb_text <$> cfg)
         { _inputConfig_attributes = _inputConfig_attributes cfg
                                     <> maybe
@@ -80,23 +88,37 @@ comboboxInput showOpt allOptions cfg = do
                                     <> "class"
                                     =: "combobox"
         , _inputConfig_setValue   = leftmost
-          [_inputConfig_setValue (_cb_text <$> cfg), setTextEv]
+          [_inputConfig_setValue (_cb_text <$> cfg), setTextOnLostFocusEv]
         , _inputConfig_status     = _inputConfig_status cfg <> dynStatus
+        , _inputConfig_eventSpec  = addEventSpecFlags
+                                      (Nothing :: Maybe (DomBuilderSpace m))
+                                      Keydown
+                                      preventArrowDef
         }
     let hasFocusDyn = _inputEl_hasFocus searchStrInput
 
 -- Filter possible keys with fuzzyfind
     let options =
           filterOptions <$> _inputEl_value searchStrInput <*> allOptions
+    let keyIndices =
+          Map.fromList
+            .   fmap (\(ind, (k, t)) -> (k, (ind, t)))
+            .   Map.toList
+            <$> options
 
 -- Clear the selection if the text is null
-    let clearEv    = ffilter Text.null $ updated (_inputEl_value searchStrInput)
+    let clearEv  = ffilter Text.null $ updated (_inputEl_value searchStrInput)
 
 -- Tab completion
-    let inputEls   = _inputEl_elements searchStrInput
+    let inputEls = _inputEl_elements searchStrInput
+    let arrowUpDownEv = ffilter (`elem` 9 : arrowKeys)
+          $ switchDyn (leftmost . fmap (domEvent Keydown) <$> inputEls)
 
 -- Whenever the current selection is not in the list any more, clear it
-    let autofillEv = fmap autofill (updated options)
+    let selectNextEv = attachPromptlyDynWith selectNext
+                                             ((,) <$> options <*> keyIndices)
+                                             arrowUpDownEv
+    let setOpenEv = False <$ ffilter (== 13) arrowUpDownEv
 
 -- Update the text on lose focus if a value has been selected
     let
@@ -105,17 +127,16 @@ comboboxInput showOpt allOptions cfg = do
             (current (Prelude.not . Text.null <$> _inputEl_value searchStrInput)
             )
           $ ffilter Prelude.not (updated hasFocusDyn)
-    let selectOnLostFocusEv =
-          fmapMaybe (fmap snd . Map.lookupMin)
-            $ tagPromptlyDyn options lostFocusEv
-    let setTextEv = snd <$> selectOnLostFocusEv
+    let setTextOnLostFocusEv = attachPromptlyDynWith
+          selectionText
+          keyIndices
+          (tagPromptlyDyn dynSelection
+                          (leftmost [() <$ lostFocusEv, () <$ arrowUpDownEv])
+          )
 
-    dynSelection <- holdDyn Nothing $ leftmost
-      [ Just <$> selectEv
-      , Just . fst <$> selectOnLostFocusEv
-      , Nothing <$ clearEv
-      , autofillEv
-      ]
+    dynSelection <-
+      foldDyn ($) (_cb_selection $ _inputConfig_initialValue cfg) $ leftmost
+        [const . Just <$> selectEv, const Nothing <$ clearEv, selectNextEv]
 
 -- Show an error if selection is null and the value is not null, and show it on lose focus
     let dynStatus =
@@ -137,14 +158,36 @@ comboboxInput showOpt allOptions cfg = do
     = InputNeutral Nothing
   mkStatus _ _ _ = InputNeutral Nothing
 
+  selectionText :: Map k (a, Text) -> Maybe k -> Text
+  selectionText _ Nothing  = ""
+  selectionText m (Just k) = maybe "" snd $ m Map.!? k
+
   autofill opts = fst . snd <$> Map.lookupMin opts
 
-  filterOptions :: Text -> Map k Text -> Map Integer (k, Text)
-  filterOptions pat opts =
-    let r = Text.Fuzzy.filter pat (Map.toList opts) "" "" snd False
-    in  Map.fromList $ zip [1, 0 ..] (Prelude.map original r)
+  selectNext
+    :: (Map Integer (k, Text), Map k (Integer, Text))
+    -> Word
+    -> (Maybe k -> Maybe k)
+  selectNext _              13  x        = x
+  selectNext (opts, keyInd) key Nothing  = autofill opts
+  selectNext (opts, keyInd) key (Just k) = fromMaybe (Just k) $ do
+    (ind, _) <- keyInd Map.!? k
+    let offs = case key of
+          38 -> -1
+          40 -> 1
+          _  -> 0
+    r <- opts Map.!? (ind + offs)
+    pure $ Just (fst r)
 
-  after' dynSelection options hasFocusDyn = do
+  filterOptions :: Text -> Map k Text -> Map Integer (k, Text)
+  filterOptions pat opts
+    | pat `elem` Map.elems opts
+    = Map.fromList $ zip [0, 1 ..] (Map.toList opts)
+    | otherwise
+    = let r = Text.Fuzzy.filter pat (Map.toList opts) "" "" snd False
+      in  Map.fromList $ zip [0, 1 ..] (Prelude.map original r)
+
+  after' dynSelection options hasFocusDyn setOpenEv = do
     selectIcon
 
     rec (e, dynOptEv) <-
@@ -152,12 +195,13 @@ comboboxInput showOpt allOptions cfg = do
             $ listViewWithKey options (mkOption dynSelection)
 
         -- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
-        mousePressed <- holdDyn False
-          $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
+        mousePressed <- holdDyn False $ leftmost
+          [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
 
         openDyn <- holdDyn False $ leftmost
           [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
           , False <$ dynOptEv
+          , setOpenEv
           ]
 
     let
@@ -189,3 +233,44 @@ comboboxInput showOpt allOptions cfg = do
   mkDatalistAttr isOpen =
     Map.singleton "class" ("combobox-menu" <> if isOpen then " open" else "")
       <> maybe mempty (Map.singleton "id") (_inputConfig_id cfg)
+
+  arrowKeys = [13, 38, 40]
+  preventArrowDef Nothing = preventDefault
+  preventArrowDef (Just (EventResult key)) =
+    if key `elem` arrowKeys then preventDefault else mempty
+
+-- | A select input without using the select html element
+altSelectInput'
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , Enum a
+     , Bounded a
+     , Ord a
+     , MonadHold t m
+     , MonadFix m
+     )
+  => (a -> Text)
+  -> EnumInputConfig t m (Maybe a)
+  -> m (DomInputEl t m (Maybe a))
+altSelectInput' toLabel cfg = fmap _cb_selection <$> comboboxInput
+  printElem
+  (constDyn $ allPossibleMap toLabel)
+  (fmap toCb (cfg { _inputConfig_extra = Const () }))
+ where
+  printElem k _ = dyn_ (getOpElem (_inputConfig_extra cfg) <$> k)
+  toCb k = ComboboxValue { _cb_selection = k, _cb_text = maybe "" toLabel k }
+
+-- | A select input without using the select html element, using show instance to produce search text
+altSelectInput
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , Enum a
+     , Bounded a
+     , Ord a
+     , Show a
+     , MonadHold t m
+     , MonadFix m
+     )
+  => EnumInputConfig t m (Maybe a)
+  -> m (DomInputEl t m (Maybe a))
+altSelectInput = altSelectInput' (Text.pack . show)

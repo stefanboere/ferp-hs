@@ -6,8 +6,7 @@
 module Components.Input.Numeric
   ( Overridable(..)
   , overridableNumberInput
-  )
-where
+  ) where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -20,8 +19,9 @@ import           Components.Input.Basic
 
 data Overridable a = Overridable
   { ovr_calculation :: a
-  , ovr_value :: Maybe a
-  } deriving (Eq, Show)
+  , ovr_value       :: Maybe a
+  }
+  deriving (Eq, Show)
 
 overridableValue :: Overridable a -> a
 overridableValue (Overridable _ (Just x)) = x
@@ -47,7 +47,7 @@ overridableNumberInput
      , MonadIO m
      )
   => Event t a
-  -> InputConfig t (Overridable a)
+  -> InputConfig t m (Overridable a)
   -> m (DomInputEl t m (Maybe (Overridable a)))
 overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
   rec

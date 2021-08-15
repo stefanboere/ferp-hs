@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Components.Input.Basic
   ( hiddenInput
@@ -38,6 +39,7 @@ module Components.Input.Basic
   , holdDynAttributes
   , NumberRange(..)
   , selectInput
+  , allPossibleMap
   , textAreaInput
   , rangeInput
   , radioInput
@@ -55,8 +57,7 @@ module Components.Input.Basic
   , statusModAttrEv'
   , statusMessageDiv
   , requiredInput
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( rem )
 
@@ -73,17 +74,18 @@ import           Clay.Stylesheet                ( key )
 import           Control.Applicative            ( (<|>)
                                                 , Const(..)
                                                 )
+import           Control.Lens                   ( (%~) )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
-import           Data.Proxy
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
                                                 )
 import           Data.Monoid                    ( Any(..) )
+import           Data.Proxy
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           Data.String                    ( IsString )
@@ -135,18 +137,21 @@ type family Elem a where
 
 -- | To show the enum values, we need a list of labels for each enum value.
 -- That is, the extra config is a map 'a -> m ()'. This is precisely 'Op (m ()) a'
-type EnumInputConfig t m = InputConfig' (OpElem m) t
+type EnumInputConfig t m = InputConfig' (OpElem m) t m
 
 type DomInputEl t m = InputEl (DomBuilderSpace m) t
 
-data InputConfig' extraConfig t a = InputConfig
+data InputConfig' extraConfig t m a = InputConfig
   { _inputConfig_initialValue     :: a
   , _inputConfig_setValue         :: Event t a
   , _inputConfig_id               :: Maybe Text
   , _inputConfig_status           :: Dynamic t InputStatus
   , _inputConfig_attributes       :: Map AttributeName Text
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
-  , _inputConfig_extra            :: extraConfig a
+  , _inputConfig_eventSpec
+      :: EventSpec (DomBuilderSpace m) EventResult
+      -> EventSpec (DomBuilderSpace m) EventResult
+  , _inputConfig_extra :: extraConfig a
   }
 
 -- | The result of an input widget
@@ -199,7 +204,11 @@ hiddenInput x = InputEl { _inputEl_value    = x
                         , _inputEl_elements = constDyn []
                         }
 
-inputConfig' :: (Reflex t) => c a -> a -> InputConfig' c t a
+inputConfig'
+  :: (Reflex t, DomSpace (DomBuilderSpace m))
+  => c a
+  -> a
+  -> InputConfig' c t m a
 inputConfig' extra initval = InputConfig
   { _inputConfig_initialValue     = initval
   , _inputConfig_setValue         = never
@@ -208,18 +217,22 @@ inputConfig' extra initval = InputConfig
   , _inputConfig_attributes       = def
   , _inputConfig_modifyAttributes = never
   , _inputConfig_extra            = extra
+  , _inputConfig_eventSpec        = def
   }
 
-inputConfig :: (Default (c a), Reflex t) => a -> InputConfig' c t a
+inputConfig
+  :: (Default (c a), Reflex t, DomSpace (DomBuilderSpace m))
+  => a
+  -> InputConfig' c t m a
 inputConfig = inputConfig' def
 
 instance Default (Const () a) where
   def = Const ()
 
-instance (Default a, Default (c a), Reflex t) => Default (InputConfig' c t a) where
+instance (Default a, Default (c a), Reflex t, DomSpace (DomBuilderSpace m)) => Default (InputConfig' c t m a) where
   def = inputConfig' def def
 
-instance (Functor c, Reflex t) => Functor (InputConfig' c t) where
+instance (Functor c, Reflex t) => Functor (InputConfig' c t m) where
   fmap f cfg = cfg
     { _inputConfig_initialValue = f $ _inputConfig_initialValue cfg
     , _inputConfig_setValue     = f <$> _inputConfig_setValue cfg
@@ -423,35 +436,36 @@ radioStyle = input # ("type" @= "radio") ? do
 
 
 inputElementStyle :: Css
-inputElementStyle = (input <> Clay.select <> textarea <> ".dropzone") ? do
-  background transparent
-  borderWidth 0
-  borderBottomWidth 1
-  paddingAll (rem 0.25)
-  borderColor grey0'
-  outlineWidth 0
-  flexGrow 1
-  fontColor inherit
-  "font" -: "inherit"
+inputElementStyle =
+  (input <> Clay.select <> textarea <> ".dropzone" <> ".select") ? do
+    background transparent
+    borderWidth 0
+    borderBottomWidth 1
+    paddingAll (rem 0.25)
+    borderColor grey0'
+    outlineWidth 0
+    flexGrow 1
+    fontColor inherit
+    "font" -: "inherit"
 
-  focus Clay.& do
-    borderBottomWidth 2
-    borderColor nord10'
-    marginBottom (px (-1))
+    focus Clay.& do
+      borderBottomWidth 2
+      borderColor nord10'
+      marginBottom (px (-1))
 
-  "::placeholder" Clay.& fontColor grey0'
+    "::placeholder" Clay.& fontColor grey0'
 
-  disabled Clay.& do
-    fontColor grey0'
-    cursor notAllowed
+    disabled Clay.& do
+      fontColor grey0'
+      cursor notAllowed
 
-  ".has-error" Clay.& borderColor nord11'
+    ".has-error" Clay.& borderColor nord11'
 
-  ".has-success" Clay.& borderColor green1'
+    ".has-success" Clay.& borderColor green1'
 
 selectElementStyle :: Css
 selectElementStyle = do
-  Clay.select ? do
+  (Clay.select <> ".select") ? do
     paddingRight (rem (3 / 2))
     cursor pointer
     flexGrow 1
@@ -459,7 +473,7 @@ selectElementStyle = do
     "-webkit-appearance" -: "none"
     "-moz-appearance" -: "none"
 
-  (input <> Clay.select) |+ ".input-icon" ? do
+  (input <> Clay.select <> ".select") |+ ".input-icon" ? do
     Clay.display inlineBlock
     left (rem (-1.2))
     top (rem 0.2)
@@ -533,10 +547,12 @@ inputGroupStyle = ".input-group" ? do
   label ? Clay.display none
 
   ".has-error" Clay.& do
-    (Clay.select <> textarea <> input <> ".drozone") ? borderColor nord11'
+    (Clay.select <> textarea <> input <> ".drozone" <> ".select")
+      ? borderColor nord11'
 
   ".has-success" Clay.& do
-    (Clay.select <> textarea <> input <> ".dropzone") ? borderColor green1'
+    (Clay.select <> textarea <> input <> ".dropzone" <> ".select")
+      ? borderColor green1'
 
 formStyle :: Css
 formStyle = do
@@ -605,7 +621,7 @@ randomId = do
 
 statusModAttrEv'
   :: (PostBuild t m)
-  => InputConfig' c t a
+  => InputConfig' c t m a
   -> m (Event t (Map AttributeName (Maybe Text)))
 statusModAttrEv' cfg = statusModAttrEv
   (_inputConfig_attributes cfg Map.!? "class")
@@ -674,16 +690,16 @@ labelFor dynLabel = do
 labeled
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
-  -> (InputConfig' c t a -> m b)
-  -> InputConfig' c t a
+  -> (InputConfig' c t m a -> m b)
+  -> InputConfig' c t m a
   -> m b
 labeled lbl = labeledDyn (constDyn lbl)
 
 labeledDyn
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Dynamic t Text
-  -> (InputConfig' c t a -> m b)
-  -> InputConfig' c t a
+  -> (InputConfig' c t m a -> m b)
+  -> InputConfig' c t m a
   -> m b
 labeledDyn lbl editor cfg = do
   idStr <- labelFor lbl
@@ -691,21 +707,22 @@ labeledDyn lbl editor cfg = do
 
 textInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
-  => InputConfig t Text
+  => InputConfig t m Text
   -> m (DomInputEl t m Text)
 textInput = textInputWithIco (pure (never, never))
 
 textInputWithIco
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t (Map AttributeName (Maybe Text)), Event t Text)
-  -> InputConfig t Text
+  -> InputConfig t m Text
   -> m (DomInputEl t m Text)
 textInputWithIco after' cfg = fst <$> textInputWithIco' (((), ) <$> after') cfg
 
 textInputWithIco'
-  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  :: forall t m a
+   . (PostBuild t m, DomBuilder t m, MonadFix m)
   => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
-  -> InputConfig t Text
+  -> InputConfig t m Text
   -> m (DomInputEl t m Text, a)
 textInputWithIco' after' cfg = do
   modAttrEv <- statusModAttrEv' cfg
@@ -715,7 +732,7 @@ textInputWithIco' after' cfg = do
       rec
         n' <-
           inputElement
-          $  def
+          $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
           &  inputElementConfig_initialValue
           .~ _inputConfig_initialValue cfg
           &  inputElementConfig_setValue
@@ -728,6 +745,9 @@ textInputWithIco' after' cfg = do
           .  elementConfig_modifyAttributes
           .~ mergeWith (<>)
                        [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
+          &  inputElementConfig_elementConfig
+          .  elementConfig_eventSpec
+          %~ _inputConfig_eventSpec cfg
 
         (x, (attrEv, setValEv)) <- after'
 
@@ -753,20 +773,20 @@ numberInput
      , Read a
      , RealFloat a
      )
-  => NumberInputConfig t a
+  => NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
 numberInput = numberRangeInput True
 
 integralInput
   :: forall t m a
    . (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m, Integral a)
-  => NumberInputConfig t a
+  => NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
 integralInput cfg = conv <$> numberInput
   (fromIntegral <$> cfg
-    { _inputConfig_extra = (_inputConfig_extra cfg) { _numberRange_precision = Just
-                                                      0
-                                                    }
+    { _inputConfig_extra = (_inputConfig_extra cfg)
+                             { _numberRange_precision = Just 0
+                             }
     }
   )
  where
@@ -782,7 +802,7 @@ numberRangeInput
      , RealFloat a
      )
   => Bool
-  -> NumberInputConfig t a
+  -> NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
 numberRangeInput isReg cfg = do
   let
@@ -870,7 +890,7 @@ showFloat (Just precision) x
 toggleInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
-  -> InputConfig t Bool
+  -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
 toggleInput lbl cfg = do
   let initAttrs = "class" =: "toggle"
@@ -899,7 +919,7 @@ checkboxesInput cfg = checkboxesInputMap
   cfg { _inputConfig_extra = Const () }
   where toLabel = getOpElem (_inputConfig_extra cfg)
 
-allPossibleMap :: (Bounded a, Enum a, Ord a) => (a -> m ()) -> Map a (m ())
+allPossibleMap :: (Bounded a, Enum a, Ord a) => (a -> b) -> Map a b
 allPossibleMap toLabel =
   Map.fromList . fmap (\x -> (x, toLabel x)) $ allPossible (Proxy :: Proxy a)
 
@@ -910,7 +930,7 @@ idAttr = maybe mempty (Map.singleton "id")
 checkboxesInputMap
   :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
   => Map a (m ())
-  -> InputConfig t (Set a)
+  -> InputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
 checkboxesInputMap opts cfg =
   elAttr "div" ("class" =: "input" <> idAttr (_inputConfig_id cfg)) $ do
@@ -953,7 +973,7 @@ checkboxesInputDynMap
      , Ord a
      )
   => Dynamic t (Map a (m ()))
-  -> InputConfig t (Set a)
+  -> InputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
 checkboxesInputDynMap opts cfg =
   elAttr "div" ("class" =: "input" <> idAttr (_inputConfig_id cfg)) $ do
@@ -996,22 +1016,23 @@ statusMessageDiv status = elClass "div" "statusmessage" $ do
 checkboxInput
   :: (PostBuild t m, DomBuilder t m, MonadIO m)
   => Text
-  -> InputConfig t Bool
+  -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
 checkboxInput lbl cfg = fmap (Prelude.not . Set.null) <$> checkboxesInputMap
   (Map.singleton () (text lbl))
   ((\x -> if x then Set.singleton () else Set.empty) <$> cfg)
 
 checkboxInput'
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m, MonadIO m)
   => m ()
-  -> InputConfig t Bool
+  -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
 checkboxInput' lbl cfg = el "div" $ do
   idStr <- randomId
   n     <-
     inputElement
-    $  def
+    $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
     &  inputElementConfig_initialChecked
     .~ _inputConfig_initialValue cfg
     &  inputElementConfig_setChecked
@@ -1025,6 +1046,9 @@ checkboxInput' lbl cfg = el "div" $ do
     &  inputElementConfig_elementConfig
     .  elementConfig_modifyAttributes
     .~ _inputConfig_modifyAttributes cfg
+    &  inputElementConfig_elementConfig
+    .  elementConfig_eventSpec
+    %~ _inputConfig_eventSpec cfg
 
   elAttr "label" ("for" =: idStr <> "class" =: "checkbox-label") lbl
 
@@ -1054,7 +1078,8 @@ checkboxInputSimple initOpen setOpen attrs = do
   pure (_inputElement_checked r)
 
 selectInput
-  :: (PostBuild t m, DomBuilder t m, Enum a, Bounded a)
+  :: forall t m a
+   . (PostBuild t m, DomBuilder t m, Enum a, Bounded a)
   => EnumInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 selectInput cfg = do
@@ -1063,7 +1088,7 @@ selectInput cfg = do
   elClass "div" "input" $ do
     n <- elClass "div" "flex-row" $ do
       n' <- selectElement
-        (  def
+        (  (def :: SelectElementConfig EventResult t (DomBuilderSpace m))
         &  selectElementConfig_initialValue
         .~ showNum (_inputConfig_initialValue cfg)
         &  selectElementConfig_setValue
@@ -1075,6 +1100,9 @@ selectInput cfg = do
         &  selectElementConfig_elementConfig
         .  elementConfig_modifyAttributes
         .~ modAttrEv
+        &  selectElementConfig_elementConfig
+        .  elementConfig_eventSpec
+        %~ _inputConfig_eventSpec cfg
         )
         (mapM_ mkOption (allPossible (_inputConfig_initialValue cfg)))
 
@@ -1126,8 +1154,9 @@ radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
                                          (_inputConfig_id cfg)
 
 textAreaInput
-  :: (PostBuild t m, DomBuilder t m)
-  => InputConfig t Text
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
+  => InputConfig t m Text
   -> m (DomInputEl t m Text)
 textAreaInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
@@ -1135,7 +1164,7 @@ textAreaInput cfg = do
   elClass "div" "input" $ do
     n <- elClass "div" "flex-row" $ do
       n' <- textAreaElement
-        (  def
+        (  (def :: TextAreaElementConfig EventResult t (DomBuilderSpace m))
         &  textAreaElementConfig_initialValue
         .~ _inputConfig_initialValue cfg
         &  textAreaElementConfig_setValue
@@ -1147,6 +1176,9 @@ textAreaInput cfg = do
         &  textAreaElementConfig_elementConfig
         .  elementConfig_modifyAttributes
         .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+        &  textAreaElementConfig_elementConfig
+        .  elementConfig_eventSpec
+        %~ _inputConfig_eventSpec cfg
         )
 
       statusMessageIcon (_inputConfig_status cfg)
@@ -1167,13 +1199,14 @@ rangeInput
      , Read a
      , RealFloat a
      )
-  => NumberInputConfig t a
+  => NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
 rangeInput = numberRangeInput False
 
 fileInput
-  :: (PostBuild t m, DomBuilder t m)
-  => InputConfig t ()
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
+  => InputConfig t m ()
   -> m (DomInputEl t m [DOM.File])
 fileInput cfg = do
   modAttrEv <- statusModAttrEv' cfg
@@ -1183,7 +1216,7 @@ fileInput cfg = do
       icon def folderIcon
       el "span" (text "Browse")
       inputElement
-        $  def
+        $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
         &  inputElementConfig_elementConfig
         .  elementConfig_initialAttributes
         .~ (_inputConfig_attributes cfg <> initAttrs)
@@ -1191,6 +1224,9 @@ fileInput cfg = do
         &  inputElementConfig_elementConfig
         .  elementConfig_modifyAttributes
         .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+        &  inputElementConfig_elementConfig
+        .  elementConfig_eventSpec
+        %~ _inputConfig_eventSpec cfg
 
     elClass "div" "statusmessage" $ do
       statusMessageIcon (_inputConfig_status cfg)
@@ -1210,7 +1246,7 @@ fileInput cfg = do
 datalistInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k, Show k)
   => Dynamic t (Map k Text)
-  -> InputConfig t Text
+  -> InputConfig t m Text
   -> m (DomInputEl t m Text)
 datalistInput options cfg = textInputWithIco
   after'
@@ -1242,7 +1278,7 @@ datalistInput options cfg = textInputWithIco
 
 inputGroup
   :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
-  => InputConfig t ()
+  => InputConfig t m ()
   -> m a
   -> m a
 inputGroup cfg cnt = do
@@ -1287,7 +1323,7 @@ holdDynAttributes initAttrs modAttrEv = do
 
 passwordInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => InputConfig t Text
+  => InputConfig t m Text
   -> m (DomInputEl t m Text)
 passwordInput cfg = textInputWithIco
   after'
@@ -1317,7 +1353,7 @@ eyeIconEl hide = do
 
 timeOfDayInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Maybe TimeOfDay)
+  => NumberInputConfig t m (Maybe TimeOfDay)
   -> m (DomInputEl t m (Maybe TimeOfDay))
 timeOfDayInput = timeInput
 
@@ -1330,7 +1366,7 @@ timeInput
      , Ord a
      , MonadHold t m
      )
-  => NumberInputConfig t (Maybe a)
+  => NumberInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 timeInput cfg = datetimeInput formatTime' parseTime' "time" clockIcon cfg
  where
@@ -1376,7 +1412,7 @@ datetimeInput
   -> (Text -> Maybe a)
   -> Text
   -> m ()
-  -> NumberInputConfig t (Maybe a)
+  -> NumberInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 datetimeInput formatTime' parseTime' typeStr ico cfg = do
 
@@ -1444,7 +1480,7 @@ inputIcon ico = elClass "div" "input-icon nopointer" arrowElement
 
 dateInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Maybe Day)
+  => NumberInputConfig t m (Maybe Day)
   -> m (DomInputEl t m (Maybe Day))
 dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
  where
@@ -1454,7 +1490,7 @@ dateInput = datetimeInput formatTime' parseTime' "date" calendarIcon
 
 localtimeInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Maybe LocalTime)
+  => NumberInputConfig t m (Maybe LocalTime)
   -> m (DomInputEl t m (Maybe LocalTime))
 localtimeInput = datetimeInput formatTime'
                                parseTime'
@@ -1467,7 +1503,7 @@ localtimeInput = datetimeInput formatTime'
 
 weekInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Maybe (Integer, Int))
+  => NumberInputConfig t m (Maybe (Integer, Int))
   -> m (DomInputEl t m (Maybe (Integer, Int)))
 weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
  where
@@ -1481,7 +1517,7 @@ weekInput = datetimeInput formatTime' parseTime' "week" calendarIcon
 
 monthInput
   :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m)
-  => NumberInputConfig t (Maybe (Integer, Int))
+  => NumberInputConfig t m (Maybe (Integer, Int))
   -> m (DomInputEl t m (Maybe (Integer, Int)))
 monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
  where
@@ -1495,8 +1531,8 @@ monthInput = datetimeInput formatTime' parseTime' "month" calendarIcon
 
 requiredInput
   :: (Reflex t, MonadHold t m, MonadFix m)
-  => (InputConfig' c t (Maybe a) -> m (DomInputEl t m (Maybe a)))
-  -> InputConfig' c t (Maybe a)
+  => (InputConfig' c t m (Maybe a) -> m (DomInputEl t m (Maybe a)))
+  -> InputConfig' c t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 requiredInput fn cfg = do
   rec r <- fn cfg

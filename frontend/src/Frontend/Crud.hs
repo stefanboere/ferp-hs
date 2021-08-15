@@ -10,8 +10,7 @@ module Frontend.Crud
   ( crudHandler
   , crudLinks
   , CrudApi
-  )
-where
+  ) where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Lens
@@ -177,8 +176,8 @@ blogEdit bid = do
 -- 2. The output dynamic is only updated on lose focus
 respectFocus
   :: (DomBuilder t m, MonadFix m)
-  => (InputConfig' c t b -> m (DomInputEl t m b))
-  -> InputConfig' c t b
+  => (InputConfig' c t m b -> m (DomInputEl t m b))
+  -> InputConfig' c t m b
   -> m (DomInputEl t m b)
 respectFocus editor cfg = do
   rec r <- editor cfg
@@ -191,7 +190,7 @@ respectFocus editor cfg = do
 prop
   :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
   => c b
-  -> (InputConfig' c t b -> m (DomInputEl t m b))
+  -> (InputConfig' c t m b -> m (DomInputEl t m b))
   -> Text
   -> Lens' a b
   -> a
@@ -201,9 +200,9 @@ prop c editor lbl l initVal update =
   Compose $ fmap (set l) . _inputEl_value <$> labeled
     lbl
     (respectFocus editor)
-    (inputConfig' c (view l initVal)) { _inputConfig_setValue = view l
-                                        <$> update
-                                      }
+    (inputConfig' c (view l initVal))
+      { _inputConfig_setValue = view l <$> update
+      }
 
 triStateBtn
   :: (PostBuild t m, DomBuilder t m)

@@ -1,11 +1,11 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Components.Input.File
   ( fileDropzone
   , fileDropzoneStyle
   , fileDropzoneScript
-  )
-where
+  ) where
 
 
 import           Prelude                 hiding ( rem )
@@ -15,6 +15,7 @@ import           Clay                    hiding ( (&)
                                                 , not
                                                 )
 import qualified Clay                           ( (&) )
+import           Control.Lens                   ( (%~) )
 import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
@@ -45,13 +46,14 @@ fileDropzoneStyle = ".dropzone" ? do
 
 
 fileDropzone
-  :: ( PostBuild t m
+  :: forall t m js
+   . ( PostBuild t m
      , DomBuilder t m
      , Prerender js t m
      , MonadFix m
      , MonadHold t m
      )
-  => InputConfig t ()
+  => InputConfig t m ()
   -> m (DomInputEl t m [DOM.File])
 fileDropzone cfg = do
   modAttrEv <- statusModAttrEv' cfg
@@ -64,7 +66,7 @@ fileDropzone cfg = do
               icon def folderIcon
               el "span" (text "Browse")
               inputElement
-                $  def
+                $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
                 &  inputElementConfig_elementConfig
                 .  elementConfig_initialAttributes
                 .~ (_inputConfig_attributes cfg <> initAttrs)
@@ -72,6 +74,9 @@ fileDropzone cfg = do
                 &  inputElementConfig_elementConfig
                 .  elementConfig_modifyAttributes
                 .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+                &  inputElementConfig_elementConfig
+                .  elementConfig_eventSpec
+                %~ _inputConfig_eventSpec cfg
 
       let dragoverEv  = domEvent Dragover e
       let dropEv      = domEvent Drop e

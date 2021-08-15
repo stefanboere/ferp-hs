@@ -10,8 +10,7 @@ module Components.Input.Markdown
   , markdownInputStyle
   , markdownInput
   , markdownInputWithPreview
-  )
-where
+  ) where
 
 import           Clay                    hiding ( button
                                                 , id
@@ -21,8 +20,8 @@ import           Clay                    hiding ( button
 import           Commonmark
 import           Commonmark.Extensions
 import           Commonmark.Pandoc
-import           Control.Lens                   ( (^.)
-                                                , Const(..)
+import           Control.Lens                   ( Const(..)
+                                                , (^.)
                                                 )
 import           Control.Monad                  ( join
                                                 , void
@@ -90,7 +89,7 @@ codeInput
      , PerformEvent t m
      , MonadFix m
      )
-  => CodeInputConfig t Text
+  => CodeInputConfig t m Text
   -> m (DomInputEl t m Text)
 codeInput cfg = do
 
@@ -292,7 +291,7 @@ markdownInput
      , Prerender js t m
      , MonadFix m
      )
-  => CodeInputConfig t Text
+  => CodeInputConfig t m Text
   -> m (DomInputEl t m Text)
 markdownInput cfg = elClass "div" "code-editor" $ codeInput
   (cfg
@@ -314,7 +313,7 @@ markdownInputWithPreview
      , Prerender js t m
      )
   => SyntaxMap
-  -> CodeInputConfig t Text
+  -> CodeInputConfig t m Text
   -> m (DomInputEl t m Text)
 markdownInputWithPreview syntaxMap cfg = elClass "div" "code-input" $ do
   textDEl <- markdownInput cfg
