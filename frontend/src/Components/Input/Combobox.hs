@@ -37,7 +37,7 @@ comboboxStyle = ".combobox-menu" ? do
   important $ top (rem (7 / 4))
   width (pct 100)
 
-  option ? do
+  (option <> i) ? do
     Clay.display flex
     justifyContent spaceBetween
     alignItems center
@@ -47,6 +47,8 @@ comboboxStyle = ".combobox-menu" ? do
     backgroundColor inherit
     color nord3'
     "fill" -: showColor nord3'
+
+  option ? do
     cursor pointer
 
     ".active" Clay.& do
@@ -188,19 +190,23 @@ comboboxInput showOpt allOptions cfg = do
   after' dynSelection options hasFocusDyn setOpenEv = do
     selectIcon
 
-    rec (e, dynOptEv) <-
-          elDynAttr' "datalist" (mkDatalistAttr <$> openDyn)
-            $ listViewWithKey options (mkOption dynSelection)
+    rec
+      (e, dynOptEv) <- elDynAttr' "datalist" (mkDatalistAttr <$> openDyn) $ do
+        elDynClass
+            "i"
+            ((\opts -> if Map.null opts then "" else "hidden") <$> options)
+          $ text "No results found"
+        listViewWithKey options (mkOption dynSelection)
 
-        -- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
-        mousePressed <- holdDyn False $ leftmost
-          [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
+-- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
+      mousePressed <- holdDyn False
+        $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
 
-        openDyn <- holdDyn False $ leftmost
-          [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
-          , False <$ dynOptEv
-          , setOpenEv
-          ]
+      openDyn <- holdDyn False $ leftmost
+        [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
+        , False <$ dynOptEv
+        , setOpenEv
+        ]
 
     let
       setOpenAttrEv =

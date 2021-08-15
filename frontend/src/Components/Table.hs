@@ -17,32 +17,31 @@ module Components.Table
   , linkCell
   , angleDoubleRightIcon
   , withFilterCondition
-  )
-where
+  ) where
 
-import           Prelude                 hiding ( rem
-                                                , (**)
-                                                , span
-                                                )
 import           Clay                    hiding ( icon )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Set                       ( Set )
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
                                                 , pack
+                                                )
+import           Prelude                 hiding ( (**)
+                                                , rem
+                                                , span
                                                 )
 import           Reflex.Dom              hiding ( display
                                                 , tableDynAttr
                                                 )
 
 import           Components.Button
-import           Components.Input.Basic
-import           Components.Icon
 import           Components.Class
+import           Components.Icon
+import           Components.Input.Basic
 import           Nordtheme
 
 
@@ -322,7 +321,7 @@ columnHead :: (DomBuilder t m) => m a -> m a
 columnHead = el "th" . elClass "div" "flex-row"
 
 data Page = Page
-  { _page_num :: Int
+  { _page_num  :: Int
   , _page_size :: Int
   }
   deriving (Eq, Show)
@@ -368,7 +367,8 @@ rowMultiSelect fullRowSelect setSelectEv cnt = do
 
 selectedCountStyle :: Css
 selectedCountStyle = do
-  ".hidden" ? display none
+  ".hidden" ? do
+    important $ display none
 
   ".selected-count" ? do
     marginLeft (rem (1 / 4))

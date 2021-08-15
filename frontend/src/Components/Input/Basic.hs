@@ -121,8 +121,9 @@ instance Default InputStatus where
   def = InputNeutral Nothing
 
 instance Semigroup InputStatus where
-  (InputNeutral _) <> x = x
-  x                <> _ = x
+  (InputNeutral x) <> (InputNeutral y) = InputNeutral (x <> y)
+  (InputNeutral _) <> x                = x
+  x                <> _                = x
 
 type InputConfig = InputConfig' (Const ())
 

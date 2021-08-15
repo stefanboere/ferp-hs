@@ -223,18 +223,33 @@ comboboxHandler
 comboboxHandler = do
   el "h1" $ text "Combobox"
   el "form" $ do
-    flav <- labeled "Flavours" (comboboxInput showOpt flavors) def
+    _ <- labeled
+      "Flavours"
+      (comboboxInput showOpt flavors)
+      def
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Choose your favorite flavour")
+        }
+    _ <- labeled "Error"
+                 (comboboxInput showOpt flavors)
+                 def { _inputConfig_status = constDyn $ InputError "Error" }
 
-    x    <- labeled "Material" altSelectInput (materialExample' Just)
+    _ <- labeled "Disabled"
+                 (comboboxInput showOpt flavors)
+                 def { _inputConfig_status = constDyn InputDisabled }
 
-    display (_inputEl_value flav)
-    display (_inputEl_value x)
+    _ <- labeled
+      "Success"
+      (comboboxInput showOpt flavors)
+      def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
 
-  pure never
+    _ <- labeled "Material" altSelectInput (materialExample' Just)
+
+    pure never
  where
   showOpt k v = dynText ((<> " ") . pack . show <$> k) >> dynText v
   flavors = constDyn $ Map.fromList $ zip
-    [(10 :: Integer), 9 ..]
+    [(1 :: Integer), 2 ..]
     [ "Cherry"
     , "Mint chip"
     , "Vanilla"
@@ -243,8 +258,6 @@ comboboxHandler = do
     , "Apple"
     , "Strawberry"
     , "Chocolate chip"
-    , "abc"
-    , "axxbc"
     ]
 
 datalistHandler
