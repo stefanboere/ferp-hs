@@ -6,6 +6,7 @@ module Components.Input.Combobox
   ( comboboxStyle
   , ComboboxValue(..)
   , comboboxInput
+  , comboboxInput'
   , altSelectInput
   , altSelectInput'
   ) where
@@ -29,10 +30,14 @@ import           Reflex.Dom              hiding ( (&)
 import           Text.Fuzzy
 
 import           Components.Input.Basic
+import           Components.Progress
 import           Nordtheme
 
 comboboxStyle :: Css
-comboboxStyle = ".combobox-menu" ? do
+comboboxStyle = singleComboboxStyle <> multiComboboxStyle
+
+singleComboboxStyle :: Css
+singleComboboxStyle = ".combobox-menu" ? do
   display block
   important $ top (rem (7 / 4))
   width (pct 100)
@@ -48,6 +53,8 @@ comboboxStyle = ".combobox-menu" ? do
     color nord3'
     "fill" -: showColor nord3'
 
+  i ? paddingBottom (rem (1 / 4))
+
   option ? do
     cursor pointer
 
@@ -56,6 +63,16 @@ comboboxStyle = ".combobox-menu" ? do
       hover Clay.& backgroundColor nord4'
 
     hover Clay.& background nord6'
+
+multiComboboxStyle :: Css
+multiComboboxStyle = ".multi-combobox" ? do
+  borderStyle solid
+  paddingTop nil
+  paddingBottom nil
+  paddingRight nil
+
+  ".combobox" ? do
+    borderBottomWidth nil
 
 data ComboboxValue k = ComboboxValue
   { _cb_selection :: k
@@ -73,7 +90,17 @@ comboboxInput
   -> Dynamic t (Map k Text)
   -> InputConfig t m (ComboboxValue (Maybe k))
   -> m (DomInputEl t m (ComboboxValue (Maybe k)))
-comboboxInput showOpt allOptions cfg = do
+comboboxInput = comboboxInput' (constDyn False)
+
+comboboxInput'
+  :: forall t m k
+   . (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
+  => Dynamic t Bool
+  -> (Dynamic t k -> Dynamic t Text -> m ())
+  -> Dynamic t (Map k Text)
+  -> InputConfig t m (ComboboxValue (Maybe k))
+  -> m (DomInputEl t m (ComboboxValue (Maybe k)))
+comboboxInput' loadingDyn showOpt allOptions cfg = do
   rec
     (searchStrInput, selectEv) <- textInputWithIco'
       (after' dynSelection options hasFocusDyn setOpenEv)
@@ -190,23 +217,30 @@ comboboxInput showOpt allOptions cfg = do
   after' dynSelection options hasFocusDyn setOpenEv = do
     selectIcon
 
-    rec
-      (e, dynOptEv) <- elDynAttr' "datalist" (mkDatalistAttr <$> openDyn) $ do
-        elDynClass
-            "i"
-            ((\opts -> if Map.null opts then "" else "hidden") <$> options)
-          $ text "No results found"
-        listViewWithKey options (mkOption dynSelection)
+    rec (e, dynOptEv) <- elDynAttr' "datalist" (mkDatalistAttr <$> openDyn) $ do
+          elDynClass
+              "i"
+              (   (\opts loading ->
+                    mkVisible (Map.null opts && Prelude.not loading)
+                  )
+              <$> options
+              <*> loadingDyn
+              )
+            $ text "No results found"
+          r <- listViewWithKey options (mkOption dynSelection)
+          elDynClass "i" (mkVisible <$> loadingDyn)
+            $ spinner Inline "Searching for matches"
+          pure r
 
--- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
-      mousePressed <- holdDyn False
-        $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
+  -- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
+        mousePressed <- holdDyn False $ leftmost
+          [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
 
-      openDyn <- holdDyn False $ leftmost
-        [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
-        , False <$ dynOptEv
-        , setOpenEv
-        ]
+        openDyn <- holdDyn False $ leftmost
+          [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
+          , False <$ dynOptEv
+          , setOpenEv
+          ]
 
     let
       setOpenAttrEv =
@@ -218,6 +252,9 @@ comboboxInput showOpt allOptions cfg = do
     let selectedKeyEv = snd . Map.findMin <$> dynOptEv
 
     pure (fst <$> selectedKeyEv, (setOpenAttrEv, snd <$> selectedKeyEv))
+
+  mkVisible True  = ""
+  mkVisible False = "hidden"
 
   mkOption dynSelection _ dynOpt = do
     let (dynK, dynV) = splitDynPure dynOpt
