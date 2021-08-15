@@ -18,7 +18,6 @@ import           Clay                    hiding ( icon )
 import           Control.Applicative            ( Const(..) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
-import           Data.List                      ( find )
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
@@ -29,7 +28,6 @@ import           Reflex.Dom              hiding ( (&)
                                                 )
 import           Text.Fuzzy
 
-import           Components.Button
 import           Components.Input.Basic
 import           Nordtheme
 
@@ -169,7 +167,7 @@ comboboxInput showOpt allOptions cfg = do
     -> Word
     -> (Maybe k -> Maybe k)
   selectNext _              13  x        = x
-  selectNext (opts, keyInd) key Nothing  = autofill opts
+  selectNext (opts, _     ) _   Nothing  = autofill opts
   selectNext (opts, keyInd) key (Just k) = fromMaybe (Just k) $ do
     (ind, _) <- keyInd Map.!? k
     let offs = case key of
