@@ -1,122 +1,122 @@
 {
-    "MathJax": {
-        "branch": "master",
-        "description": "Beautiful and accessible math in all browsers",
-        "homepage": "http://www.mathjax.org/",
-        "owner": "mathjax",
-        "repo": "MathJax",
-        "rev": "be11806df1ae075508e33500c990497062ef3c5a",
-        "sha256": "1rvg27yq01njks21yvbrwcra7iw52zryb9kx8k6cl0jl23rj08dy",
-        "type": "tarball",
-        "url": "https://github.com/mathjax/MathJax/archive/be11806df1ae075508e33500c990497062ef3c5a.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "ace-builds": {
-        "branch": "master",
-        "description": "Packaged version of Ace code editor",
-        "homepage": "",
-        "owner": "ajaxorg",
-        "repo": "ace-builds",
-        "rev": "a4103cb0a672a4fec9a16fc344f3116b51d6bcda",
-        "sha256": "0rdw5wk6gafl3i8fv2h1mw4q5vwcxqj6q25ikg3fxg67ya3lqcnq",
-        "type": "tarball",
-        "url": "https://github.com/ajaxorg/ace-builds/archive/a4103cb0a672a4fec9a16fc344f3116b51d6bcda.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "gitignore": {
-        "branch": "master",
-        "description": "Nix function for filtering local git sources",
-        "homepage": "",
-        "owner": "hercules-ci",
-        "repo": "gitignore",
-        "rev": "211907489e9f198594c0eb0ca9256a1949c9d412",
-        "sha256": "06j7wpvj54khw0z10fjyi31kpafkr6hi1k0di13k1xp8kywvfyx8",
-        "type": "tarball",
-        "url": "https://github.com/hercules-ci/gitignore/archive/211907489e9f198594c0eb0ca9256a1949c9d412.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "niv": {
-        "branch": "master",
-        "description": "Easy dependency management for Nix projects",
-        "homepage": "https://github.com/nmattia/niv",
-        "owner": "nmattia",
-        "repo": "niv",
-        "rev": "3cd7914b2c4cff48927e11c216dadfab7d903fe5",
-        "sha256": "1agq4nvbhrylf2s77kb4xhh9k7xcwdwggq764k4jgsbs70py8cw3",
-        "type": "tarball",
-        "url": "https://github.com/nmattia/niv/archive/3cd7914b2c4cff48927e11c216dadfab7d903fe5.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "nixpkgs": {
-        "branch": "nixpkgs-unstable",
-        "description": "Nix Packages collection",
-        "homepage": "",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "417b19df406ae6106d80a6c551787cd13d0299dd",
-        "sha256": "1vvmqcn4m9c2i8xm0bvwh7bjfwrsvnm3mmjyzndpb53iydzdy8hw",
-        "type": "tarball",
-        "url": "https://github.com/NixOS/nixpkgs/archive/417b19df406ae6106d80a6c551787cd13d0299dd.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "pre-commit-hooks.nix": {
-        "branch": "master",
-        "description": "Seamless integration of https://pre-commit.com git hooks with Nix.",
-        "homepage": "",
-        "owner": "cachix",
-        "repo": "pre-commit-hooks.nix",
-        "rev": "c7e3896e35ceea480a7484ec1709be7bdda8849d",
-        "sha256": "0xl9f6ydgk8gnn22f392p3zna0cishwj8id1vpy0p0s06wsbhfs5",
-        "type": "tarball",
-        "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/c7e3896e35ceea480a7484ec1709be7bdda8849d.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "reflex-dom-ace": {
-        "branch": "master",
-        "description": "Reflex wrapper for the ACE editor",
-        "homepage": "https://reflex-frp.org/",
-        "owner": "SlimTim10",
-        "repo": "reflex-dom-ace",
-        "rev": "60921aad5a25b856e9bd2121e159f1e4b2971d56",
-        "sha256": "155kcdizjrqb2g84dy2bkvnisamwz173vml5gs53g5c1fdyrcg61",
-        "type": "tarball",
-        "url": "https://github.com/SlimTim10/reflex-dom-ace/archive/60921aad5a25b856e9bd2121e159f1e4b2971d56.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "reflex-dom-contrib": {
-        "branch": "master",
-        "description": null,
-        "homepage": null,
-        "owner": "reflex-frp",
-        "repo": "reflex-dom-contrib",
-        "rev": "09d1223a3eadda768a6701410b4532fda8c7033d",
-        "sha256": "1qr2z4y2savwhalwyrljjs8aip7sxhsvhl21a02chd5dj45fa7q2",
-        "type": "tarball",
-        "url": "https://github.com/reflex-frp/reflex-dom-contrib/archive/09d1223a3eadda768a6701410b4532fda8c7033d.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "reflex-dom-pandoc": {
-        "branch": "master",
-        "repo": "/home/stefan/Projects/reflex-dom-pandoc",
-        "rev": "6b7933d2932aba61e1d94e7411c71c6bcfd349bc",
-        "type": "git"
-    },
-    "reflex-platform": {
-        "branch": "develop",
-        "description": "A curated package set and set of tools that let you build Haskell packages so they can run on a variety of platforms. reflex-platform is built on top of the nix package manager.",
-        "homepage": "https://reflex-frp.org",
-        "owner": "reflex-frp",
-        "repo": "reflex-platform",
-        "rev": "f019863c21ee85498e6a6e0072e617b2462b70ed",
-        "sha256": "146xfjqdwd55s9jg1ggi6akcxxxd5c0pvc4bpjx3whwiikpcv8y4",
-        "type": "tarball",
-        "url": "https://github.com/reflex-frp/reflex-platform/archive/f019863c21ee85498e6a6e0072e617b2462b70ed.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "servant-subscriber": {
-        "branch": "master",
-        "repo": "/home/stefan/Projects/servant-subscriber",
-        "rev": "023a737aa6767918b6f1da18c530d2454fa55ad9",
-        "type": "git"
-    }
+  "MathJax": {
+    "branch": "master",
+    "description": "Beautiful and accessible math in all browsers",
+    "homepage": "http://www.mathjax.org/",
+    "owner": "mathjax",
+    "repo": "MathJax",
+    "rev": "7146ffa47956e7dae05739cfe905d8aaf1e4780a",
+    "sha256": "0j53pydpfrp3i7x3finffqcqcpd2v73vzmhb79i3181db54rsmdh",
+    "type": "tarball",
+    "url": "https://github.com/mathjax/MathJax/archive/7146ffa47956e7dae05739cfe905d8aaf1e4780a.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "ace-builds": {
+    "branch": "master",
+    "description": "Packaged version of Ace code editor",
+    "homepage": "",
+    "owner": "ajaxorg",
+    "repo": "ace-builds",
+    "rev": "a4103cb0a672a4fec9a16fc344f3116b51d6bcda",
+    "sha256": "0rdw5wk6gafl3i8fv2h1mw4q5vwcxqj6q25ikg3fxg67ya3lqcnq",
+    "type": "tarball",
+    "url": "https://github.com/ajaxorg/ace-builds/archive/a4103cb0a672a4fec9a16fc344f3116b51d6bcda.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "gitignore": {
+    "branch": "master",
+    "description": "Nix function for filtering local git sources",
+    "homepage": "",
+    "owner": "hercules-ci",
+    "repo": "gitignore",
+    "rev": "211907489e9f198594c0eb0ca9256a1949c9d412",
+    "sha256": "06j7wpvj54khw0z10fjyi31kpafkr6hi1k0di13k1xp8kywvfyx8",
+    "type": "tarball",
+    "url": "https://github.com/hercules-ci/gitignore/archive/211907489e9f198594c0eb0ca9256a1949c9d412.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "niv": {
+    "branch": "master",
+    "description": "Easy dependency management for Nix projects",
+    "homepage": "https://github.com/nmattia/niv",
+    "owner": "nmattia",
+    "repo": "niv",
+    "rev": "e0ca65c81a2d7a4d82a189f1e23a48d59ad42070",
+    "sha256": "1pq9nh1d8nn3xvbdny8fafzw87mj7gsmp6pxkdl65w2g18rmcmzx",
+    "type": "tarball",
+    "url": "https://github.com/nmattia/niv/archive/e0ca65c81a2d7a4d82a189f1e23a48d59ad42070.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "nixpkgs": {
+    "branch": "nixpkgs-unstable",
+    "description": "Nix Packages collection",
+    "homepage": "",
+    "owner": "NixOS",
+    "repo": "nixpkgs",
+    "rev": "6525bbc06a39f26750ad8ee0d40000ddfdc24acb",
+    "sha256": "1irrvwzfj37awf0l7ww4n5dbs7scf7jkb436gwgyzs1bn4r5w7nq",
+    "type": "tarball",
+    "url": "https://github.com/NixOS/nixpkgs/archive/6525bbc06a39f26750ad8ee0d40000ddfdc24acb.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "pre-commit-hooks.nix": {
+    "branch": "master",
+    "description": "Seamless integration of https://pre-commit.com git hooks with Nix.",
+    "homepage": "",
+    "owner": "cachix",
+    "repo": "pre-commit-hooks.nix",
+    "rev": "397f0713d007250a2c7a745e555fa16c5dc8cadb",
+    "sha256": "0hjbq4pf8a2qdndx0xdb3yjhx9l3l5grk4mlk78vw4zm32fgyrq2",
+    "type": "tarball",
+    "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/397f0713d007250a2c7a745e555fa16c5dc8cadb.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "reflex-dom-ace": {
+    "branch": "master",
+    "description": "Reflex wrapper for the ACE editor",
+    "homepage": "https://reflex-frp.org/",
+    "owner": "SlimTim10",
+    "repo": "reflex-dom-ace",
+    "rev": "60921aad5a25b856e9bd2121e159f1e4b2971d56",
+    "sha256": "155kcdizjrqb2g84dy2bkvnisamwz173vml5gs53g5c1fdyrcg61",
+    "type": "tarball",
+    "url": "https://github.com/SlimTim10/reflex-dom-ace/archive/60921aad5a25b856e9bd2121e159f1e4b2971d56.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "reflex-dom-contrib": {
+    "branch": "master",
+    "description": null,
+    "homepage": null,
+    "owner": "reflex-frp",
+    "repo": "reflex-dom-contrib",
+    "rev": "09d1223a3eadda768a6701410b4532fda8c7033d",
+    "sha256": "1qr2z4y2savwhalwyrljjs8aip7sxhsvhl21a02chd5dj45fa7q2",
+    "type": "tarball",
+    "url": "https://github.com/reflex-frp/reflex-dom-contrib/archive/09d1223a3eadda768a6701410b4532fda8c7033d.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "reflex-dom-pandoc": {
+    "branch": "master",
+    "repo": "/home/stefan/Projects/reflex-dom-pandoc",
+    "rev": "6b7933d2932aba61e1d94e7411c71c6bcfd349bc",
+    "type": "git"
+  },
+  "reflex-platform": {
+    "branch": "develop",
+    "description": "A curated package set and set of tools that let you build Haskell packages so they can run on a variety of platforms. reflex-platform is built on top of the nix package manager.",
+    "homepage": "https://reflex-frp.org",
+    "owner": "reflex-frp",
+    "repo": "reflex-platform",
+    "rev": "55da77c8654c2f9a78c446ee730688bf94a7bde4",
+    "sha256": "085cb18gdm2xbw846j26x4a8vcx8pl0hh4ajrxdlykxiawp6a8v0",
+    "type": "tarball",
+    "url": "https://github.com/reflex-frp/reflex-platform/archive/55da77c8654c2f9a78c446ee730688bf94a7bde4.tar.gz",
+    "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+  },
+  "servant-subscriber": {
+    "branch": "master",
+    "repo": "/home/stefan/Projects/servant-subscriber",
+    "rev": "023a737aa6767918b6f1da18c530d2454fa55ad9",
+    "type": "git"
+  }
 }

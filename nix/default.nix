@@ -9,6 +9,7 @@ let
       hooks.hlint.enable = true;
       hooks.brittany.enable = true;
       hooks.nixfmt.enable = true;
+      hooks.prettier.enable = true;
       src = self.gitignoreSource ../.;
     };
     customNodePackages = pkgs.lib.dontRecurseIntoAttrs

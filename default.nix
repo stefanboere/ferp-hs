@@ -56,6 +56,8 @@ let
         servant-subscriber =
           self.callCabal2nix "servant-subscriber" sources.servant-subscriber
           { };
+        reflex-dom-core = disableCabalFlag
+          (disableCabalFlag super.reflex-dom-core "hydration-tests") "gc-tests";
 
         reflex-dom-pandoc =
           self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };
