@@ -6,7 +6,7 @@ module Components.Input.Combobox
   ( comboboxStyle
   , ComboboxValue(..)
   , comboboxInput
-  , comboboxInput'
+  , multiComboboxInput
   , altSelectInput
   , altSelectInput'
   ) where
@@ -22,6 +22,8 @@ import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           Reflex.Dom              hiding ( (&)
@@ -31,48 +33,61 @@ import           Text.Fuzzy
 
 import           Components.Input.Basic
 import           Components.Progress
+import           Components.Tag
 import           Nordtheme
 
 comboboxStyle :: Css
-comboboxStyle = singleComboboxStyle <> multiComboboxStyle
+comboboxStyle = do
+  ".combobox-menu" ? do
+    display block
+    important $ top (rem (7 / 4))
+    width (pct 100)
 
-singleComboboxStyle :: Css
-singleComboboxStyle = ".combobox-menu" ? do
-  display block
-  important $ top (rem (7 / 4))
-  width (pct 100)
+    (option <> i) ? do
+      Clay.display flex
+      justifyContent spaceBetween
+      alignItems center
+      paddingLeft (rem 1)
+      height (rem (3 / 2))
+      textTransform none
+      backgroundColor inherit
+      color nord3'
+      "fill" -: showColor nord3'
 
-  (option <> i) ? do
-    Clay.display flex
-    justifyContent spaceBetween
-    alignItems center
-    paddingLeft (rem 1)
-    height (rem (3 / 2))
-    textTransform none
-    backgroundColor inherit
-    color nord3'
-    "fill" -: showColor nord3'
+    i ? paddingBottom (rem (1 / 4))
 
-  i ? paddingBottom (rem (1 / 4))
+    option ? do
+      cursor pointer
 
-  option ? do
-    cursor pointer
+      ".active" Clay.& do
+        background nord4'
+        hover Clay.& backgroundColor nord4'
 
-    ".active" Clay.& do
-      background nord4'
-      hover Clay.& backgroundColor nord4'
+      hover Clay.& background nord6'
 
-    hover Clay.& background nord6'
+  ".combobox-wrapper" ? do
+    borderStyle solid
+    paddingTop nil
+    paddingBottom nil
+    paddingRight nil
 
-multiComboboxStyle :: Css
-multiComboboxStyle = ".multi-combobox" ? do
-  borderStyle solid
-  paddingTop nil
-  paddingBottom nil
-  paddingRight nil
+    ".disabled" Clay.& ".tag" ? do
+      cursor notAllowed
+      hover Clay.& backgroundColor inherit
 
-  ".combobox" ? do
-    borderBottomWidth nil
+    ".tag" ? do
+      marginTop (rem (1 / 8))
+      marginBottom (rem (1 / 8))
+      paddingRight (rem (1 / 4))
+
+    ":focus-within" Clay.& do
+      borderBottomWidth 2
+      borderColor nord10'
+      marginBottom (px (-1))
+
+    ".combobox" ? do
+      borderBottomWidth nil
+
 
 data ComboboxValue k = ComboboxValue
   { _cb_selection :: k
@@ -83,6 +98,9 @@ data ComboboxValue k = ComboboxValue
 instance Default k => Default (ComboboxValue k) where
   def = ComboboxValue def mempty
 
+instance Functor ComboboxValue where
+  fmap f x = x { _cb_selection = f (_cb_selection x) }
+
 comboboxInput
   :: forall t m k
    . (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
@@ -90,19 +108,30 @@ comboboxInput
   -> Dynamic t (Map k Text)
   -> InputConfig t m (ComboboxValue (Maybe k))
   -> m (DomInputEl t m (ComboboxValue (Maybe k)))
-comboboxInput = comboboxInput' (constDyn False)
+comboboxInput showOpt allOptions cfg =
+  (\(x, _, _) -> x)
+    <$> comboboxInputKS' (pure ())
+                         (pure ())
+                         (constDyn False)
+                         showOpt
+                         allOptions
+                         cfg
 
-comboboxInput'
-  :: forall t m k
+comboboxInputKS'
+  :: forall t m k b aftr
    . (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
-  => Dynamic t Bool
+  => m b
+  -> m aftr
+  -> Dynamic t Bool
   -> (Dynamic t k -> Dynamic t Text -> m ())
   -> Dynamic t (Map k Text)
   -> InputConfig t m (ComboboxValue (Maybe k))
-  -> m (DomInputEl t m (ComboboxValue (Maybe k)))
-comboboxInput' loadingDyn showOpt allOptions cfg = do
+  -> m (DomInputEl t m (ComboboxValue (Maybe k)), b, aftr)
+comboboxInputKS' before' aftr' loadingDyn showOpt allOptions cfg = do
   rec
-    (searchStrInput, selectEv) <- textInputWithIco'
+    (searchStrInput, b', (selectEv, mousePressed, a')) <- textInputWithIco''
+      "combobox-wrapper select"
+      before'
       (after' dynSelection options hasFocusDyn setOpenEv)
       (_cb_text <$> cfg)
         { _inputConfig_attributes = _inputConfig_attributes cfg
@@ -122,7 +151,8 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
                                       Keydown
                                       preventArrowDef
         }
-    let hasFocusDyn = _inputEl_hasFocus searchStrInput
+    let hasFocusDyn =
+          (||) <$> _inputEl_hasFocus searchStrInput <*> mousePressed
 
 -- Filter possible keys with fuzzyfind
     let options =
@@ -134,7 +164,10 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
             <$> options
 
 -- Clear the selection if the text is null
-    let clearEv  = ffilter Text.null $ updated (_inputEl_value searchStrInput)
+    let clearEv = ffilter Text.null $ updated (_inputEl_value searchStrInput)
+    let clearNoOptionEv = ffilter Map.null $ updated options
+    let autofillEv =
+          fmapMaybe autofill $ ffilter ((== 1) . Map.size) $ updated options
 
 -- Tab completion
     let inputEls = _inputEl_elements searchStrInput
@@ -154,7 +187,7 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
             (current (Prelude.not . Text.null <$> _inputEl_value searchStrInput)
             )
           $ ffilter Prelude.not (updated hasFocusDyn)
-    let setTextOnLostFocusEv = attachPromptlyDynWith
+    let setTextOnLostFocusEv = attachPromptlyDynWithMaybe
           selectionText
           keyIndices
           (tagPromptlyDyn dynSelection
@@ -163,7 +196,12 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
 
     dynSelection <-
       foldDyn ($) (_cb_selection $ _inputConfig_initialValue cfg) $ leftmost
-        [const . Just <$> selectEv, const Nothing <$ clearEv, selectNextEv]
+        [ const . Just <$> selectEv
+        , const Nothing <$ clearEv
+        , const Nothing <$ clearNoOptionEv
+        , selectNextEv
+        , const . Just <$> autofillEv
+        ]
 
 -- Show an error if selection is null and the value is not null, and show it on lose focus
     let dynStatus =
@@ -175,7 +213,7 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
   let comboVal =
         ComboboxValue <$> dynSelection <*> _inputEl_value searchStrInput
 
-  pure $ InputEl comboVal hasFocusDyn inputEls
+  pure (InputEl comboVal hasFocusDyn inputEls, b', a')
  where
   mkStatus :: Text -> Maybe k -> Bool -> InputStatus
   mkStatus x Nothing False
@@ -185,9 +223,9 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
     = InputNeutral Nothing
   mkStatus _ _ _ = InputNeutral Nothing
 
-  selectionText :: Map k (a, Text) -> Maybe k -> Text
-  selectionText _ Nothing  = ""
-  selectionText m (Just k) = maybe "" snd $ m Map.!? k
+  selectionText :: Map k (a, Text) -> Maybe k -> Maybe Text
+  selectionText _ Nothing  = Nothing
+  selectionText m (Just k) = snd <$> m Map.!? k
 
   autofill opts = fst . snd <$> Map.lookupMin opts
 
@@ -216,6 +254,7 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
 
   after' dynSelection options hasFocusDyn setOpenEv = do
     selectIcon
+    a' <- aftr'
 
     rec (e, dynOptEv) <- elDynAttr' "datalist" (mkDatalistAttr <$> openDyn) $ do
           elDynClass
@@ -251,7 +290,10 @@ comboboxInput' loadingDyn showOpt allOptions cfg = do
 
     let selectedKeyEv = snd . Map.findMin <$> dynOptEv
 
-    pure (fst <$> selectedKeyEv, (setOpenAttrEv, snd <$> selectedKeyEv))
+    pure
+      ( (fst <$> selectedKeyEv, mousePressed, a')
+      , (setOpenAttrEv, snd <$> selectedKeyEv)
+      )
 
   mkVisible True  = ""
   mkVisible False = "hidden"
@@ -315,3 +357,59 @@ altSelectInput
   => EnumInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 altSelectInput = altSelectInput' (Text.pack . show)
+
+multiComboboxInput
+  :: forall t m k
+   . (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
+  => (Dynamic t k -> Dynamic t Text -> m ())
+  -> Dynamic t (Map k Text)
+  -> InputConfig t m (ComboboxValue (Set k))
+  -> m (DomInputEl t m (ComboboxValue (Set k)))
+multiComboboxInput showOpt allOptions cfg = do
+  rec
+    (r, dEv, _) <- comboboxInputKS'
+      (before' dynValue)
+      (pure ())
+      (constDyn False)
+      showOpt
+      allOptions
+      (cfg { _inputConfig_initialValue = def
+           , _inputConfig_setValue     = leftmost [def <$ addOnChange]
+           , _inputConfig_extra        = Const ()
+           }
+      )
+
+    let selectionDyn = _cb_selection <$> _inputEl_value r
+
+    let addOnChange = fmapMaybe Prelude.id $ gate
+          (current (Prelude.not <$> _inputEl_hasFocus r))
+          (updated selectionDyn)
+
+    dynPop <- hold Nothing (Just <$> addOnChange)
+    let addOnChange' =
+          attachWithMaybe onNothingPop dynPop (updated selectionDyn)
+
+    let enabledDyn = current ((/= InputDisabled) <$> _inputConfig_status cfg)
+
+    dynValue <-
+      foldDyn ($) (_cb_selection $ _inputConfig_initialValue cfg) $ leftmost
+        [ gate enabledDyn $ Set.insert <$> addOnChange'
+        , gate enabledDyn ((\m xs -> Set.difference xs (Map.keysSet m)) <$> dEv)
+        , const . _cb_selection <$> _inputConfig_setValue cfg
+        ]
+  pure $ r
+    { _inputEl_value = ComboboxValue
+                       <$> dynValue
+                       <*> (_cb_text <$> _inputEl_value r)
+    }
+ where
+  onNothingPop x Nothing = x
+  onNothingPop _ _       = Nothing
+
+  before' dynValues =
+    listViewWithKey (Map.restrictKeys <$> allOptions <*> dynValues) $ \_ v -> do
+      tagEl def { _tagConfig_action = Just TagDismiss } v
+
+
+
+

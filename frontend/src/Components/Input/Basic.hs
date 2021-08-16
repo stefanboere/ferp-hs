@@ -31,6 +31,7 @@ module Components.Input.Basic
   , textInput
   , textInputWithIco
   , textInputWithIco'
+  , textInputWithIco''
   , InputStatus(..)
   , InputEl(..)
   , labeled
@@ -275,6 +276,7 @@ inputStyle = do
     Clay.display flex
     flexDirection row
     position relative
+    flexGrow 1
 
   ".input" ? do
     Clay.display flex
@@ -460,9 +462,11 @@ inputElementStyle =
       fontColor grey0'
       cursor notAllowed
 
-    ".has-error" Clay.& borderColor nord11'
+    ".has-error" Clay.& do
+      important $ borderColor nord11'
 
-    ".has-success" Clay.& borderColor green1'
+    ".has-success" Clay.& do
+      important $ borderColor green1'
 
 selectElementStyle :: Css
 selectElementStyle = do
@@ -725,35 +729,53 @@ textInputWithIco'
   => m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
   -> InputConfig t m Text
   -> m (DomInputEl t m Text, a)
-textInputWithIco' after' cfg = do
+textInputWithIco' after' cfg =
+  (\(e, _, a') -> (e, a')) <$> textInputWithIco'' "" (pure ()) after' cfg
+
+textInputWithIco''
+  :: forall t m a b
+   . (PostBuild t m, DomBuilder t m, MonadFix m)
+  => Text
+  -> m b
+  -> m (a, (Event t (Map AttributeName (Maybe Text)), Event t Text))
+  -> InputConfig t m Text
+  -> m (DomInputEl t m Text, b, a)
+textInputWithIco'' cls before' after' cfg = do
   modAttrEv <- statusModAttrEv' cfg
 
-  elClass "div" "input" $ do
-    (n, x) <- elClass "div" "flex-row" $ do
-      rec
-        n' <-
-          inputElement
-          $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
-          &  inputElementConfig_initialValue
-          .~ _inputConfig_initialValue cfg
-          &  inputElementConfig_setValue
-          .~ leftmost [setValEv, _inputConfig_setValue cfg]
-          &  inputElementConfig_elementConfig
-          .  elementConfig_initialAttributes
-          .~ _inputConfig_attributes cfg
-          <> idAttr (_inputConfig_id cfg)
-          &  inputElementConfig_elementConfig
-          .  elementConfig_modifyAttributes
-          .~ mergeWith (<>)
-                       [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
-          &  inputElementConfig_elementConfig
-          .  elementConfig_eventSpec
-          %~ _inputConfig_eventSpec cfg
+  let dynStatusCls = mkCls <$> _inputConfig_status cfg
 
-        (x, (attrEv, setValEv)) <- after'
+  elClass "div" "input" $ do
+    (n, bf, af) <- elClass "div" "flex-row" $ do
+      (n', bf', af') <-
+        elDynClass "div" (joinCls ["flex-row", cls] <$> dynStatusCls) $ do
+          bf'' <- before'
+          rec
+            n'' <-
+              inputElement
+              $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
+              &  inputElementConfig_initialValue
+              .~ _inputConfig_initialValue cfg
+              &  inputElementConfig_setValue
+              .~ leftmost [setValEv, _inputConfig_setValue cfg]
+              &  inputElementConfig_elementConfig
+              .  elementConfig_initialAttributes
+              .~ _inputConfig_attributes cfg
+              <> idAttr (_inputConfig_id cfg)
+              &  inputElementConfig_elementConfig
+              .  elementConfig_modifyAttributes
+              .~ mergeWith
+                   (<>)
+                   [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
+              &  inputElementConfig_elementConfig
+              .  elementConfig_eventSpec
+              %~ _inputConfig_eventSpec cfg
+
+            (af'', (attrEv, setValEv)) <- after'
+          pure (n'', bf'', af'')
 
       statusMessageIcon (_inputConfig_status cfg)
-      pure (n', x)
+      pure (n', bf', af')
 
     statusMessageElement (_inputConfig_status cfg)
 
@@ -762,8 +784,14 @@ textInputWithIco' after' cfg = do
                 , _inputEl_hasFocus = _inputElement_hasFocus n
                 , _inputEl_elements = constDyn [_inputElement_element n]
                 }
-      , x
+      , bf
+      , af
       )
+
+ where
+  joinCls xs x = Text.unwords $ Prelude.filter (not . Text.null) (x : xs)
+  mkCls InputDisabled = "disabled"
+  mkCls x             = colorCls x
 
 
 numberInput

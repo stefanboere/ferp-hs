@@ -7,19 +7,18 @@ module Components.Tag
   , tagEl
   , badge
   , badge'
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( rem )
 
-import           Control.Monad                  ( when )
 import           Clay                    hiding ( icon )
+import           Control.Monad                  ( when )
 import           Data.Default
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import           Reflex.Dom              hiding ( display
+import           Reflex.Dom              hiding ( (&)
+                                                , display
                                                 , tag
-                                                , (&)
                                                 )
 
 import           Components.Class
@@ -41,9 +40,9 @@ instance Default TagColor where
 data TagAction = TagClick | TagDismiss deriving (Eq, Show)
 
 data TagConfig t = TagConfig
-  { _tagConfig_badge :: Maybe (Dynamic t Integer)
+  { _tagConfig_badge  :: Maybe (Dynamic t Integer)
   , _tagConfig_action :: Maybe TagAction
-  , _tagConfig_color :: TagColor
+  , _tagConfig_color  :: TagColor
   }
 
 instance Default (TagConfig t) where
@@ -62,6 +61,8 @@ tagStyle' = ".tag" ? do
   padding (rem (1 / 8)) (rem (1 / 2)) (rem (1 / 8)) (rem (1 / 2))
   marginRight (rem (1 / 2))
   whiteSpace nowrap
+  display inlineFlex
+  alignItems center
 
   ".clickable" & do
     cursor pointer
@@ -69,8 +70,8 @@ tagStyle' = ".tag" ? do
       backgroundColor nord6'
 
   ".icon" ? do
-    position relative
-    top (rem (1 / 4))
+    marginTop (rem (-1 / 8))
+    marginBottom (rem (-1 / 8))
 
   ".badge" ? do
     marginLeft (rem (2 / 8))

@@ -245,6 +245,33 @@ comboboxHandler = do
 
     _ <- labeled "Material" altSelectInput (materialExample' Just)
 
+    pure ()
+
+  el "h2" $ text "Multi selection list"
+  el "form" $ do
+    _ <- labeled
+      "Flavours"
+      (multiComboboxInput showOpt flavors)
+      def
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Choose your favorite flavour")
+        }
+    _ <- labeled "Error"
+                 (multiComboboxInput showOpt flavors)
+                 def { _inputConfig_status = constDyn $ InputError "Error" }
+
+    _ <- labeled
+      "Disabled"
+      (multiComboboxInput showOpt flavors)
+      def { _inputConfig_status       = constDyn InputDisabled
+          , _inputConfig_initialValue = ComboboxValue (Set.singleton 2) mempty
+          }
+
+    _ <- labeled
+      "Success"
+      (multiComboboxInput showOpt flavors)
+      def { _inputConfig_status = constDyn $ InputSuccess "Success message" }
+
     pure never
  where
   showOpt k v = dynText ((<> " ") . pack . show <$> k) >> dynText v
