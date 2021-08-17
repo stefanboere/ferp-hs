@@ -9,8 +9,7 @@ module Frontend.Container
   ( containerHandler
   , containerLinks
   , ContainerApi
-  )
-where
+  ) where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -315,7 +314,7 @@ containerTable = do
         _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
         pure selectAllEv
     let selectAllEv = updated selectAllEv'
-    selcountDyn <- elAttr "tbody" ("style" =: "height:10rem") $ do
+    selcountDyn <- elAttr "tbody" ("style" =: "height:20rem") $ do
       (s1, _) <- rowMultiSelect False selectAllEv $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"

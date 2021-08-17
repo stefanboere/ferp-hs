@@ -43,20 +43,22 @@ comboboxStyle = do
     important $ top (rem (7 / 4))
     width (pct 100)
 
-    (option <> i) ? do
+    (option <> ".option" <> i) ? do
       Clay.display flex
-      justifyContent spaceBetween
       alignItems center
       paddingLeft (rem 1)
+      paddingRight (rem 1)
       height (rem (3 / 2))
       textTransform none
       backgroundColor inherit
       color nord3'
       "fill" -: showColor nord3'
 
+    ".icon" ? marginRight (rem (1 / 4))
+
     i ? paddingBottom (rem (1 / 4))
 
-    option ? do
+    (option <> ".option") ? do
       cursor pointer
 
       ".active" Clay.& do
@@ -256,7 +258,7 @@ comboboxInputKS' before' aftr' loadingDyn showOpt allOptions cfg = do
     selectIcon
     a' <- aftr'
 
-    rec (e, dynOptEv) <- elDynAttr' "datalist" (mkDatalistAttr <$> openDyn) $ do
+    rec (e, dynOptEv) <- elDynAttr' "div" (mkDatalistAttr <$> openDyn) $ do
           elDynClass
               "i"
               (   (\opts loading ->
@@ -301,7 +303,7 @@ comboboxInputKS' before' aftr' loadingDyn showOpt allOptions cfg = do
   mkOption dynSelection _ dynOpt = do
     let (dynK, dynV) = splitDynPure dynOpt
     (e, _) <- elDynAttr'
-      "option"
+      "div"
       (  (("value" =:) . snd <$> dynOpt)
       <> (mkCurrentCls <$> dynK <*> dynSelection)
       )
@@ -309,9 +311,10 @@ comboboxInputKS' before' aftr' loadingDyn showOpt allOptions cfg = do
     let clickEv = domEvent Click e
     pure $ tagPromptlyDyn dynOpt clickEv
 
-  mkCurrentCls _ Nothing = Map.empty
-  mkCurrentCls k (Just kSel) | k == kSel = Map.singleton "class" "active"
-                             | otherwise = Map.empty
+  mkCurrentCls _ Nothing = Map.singleton "class" "option"
+  mkCurrentCls k (Just kSel)
+    | k == kSel = Map.singleton "class" "option active"
+    | otherwise = Map.singleton "class" "option"
 
   mkDatalistAttr isOpen =
     Map.singleton "class" ("combobox-menu" <> if isOpen then " open" else "")

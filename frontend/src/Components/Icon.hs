@@ -47,8 +47,17 @@ module Components.Icon
   , floppyIcon
   , refreshIcon
   , pencilIcon
-  )
-where
+  , equalsIcon
+  , doesNotEqualIcon
+  , greaterThanOrEqIcon
+  , lessThanOrEqIcon
+  , doesNotStartWithIcon
+  , doesNotEndWithIcon
+  , doesNotContainIcon
+  , startsWithIcon
+  , endsWithIcon
+  , containsIcon
+  ) where
 
 import           Data.Default
 import           Data.Map                       ( Map )
@@ -70,10 +79,10 @@ instance Default Direction where
   def = DirUp
 
 data IconConfig t = IconConfig
-  { _iconConfig_size :: Double
-  , _iconConfig_status :: Dynamic t (Maybe Status)
+  { _iconConfig_size      :: Double
+  , _iconConfig_status    :: Dynamic t (Maybe Status)
   , _iconConfig_direction :: Dynamic t Direction
-  , _iconConfig_class :: Dynamic t (Maybe Text)
+  , _iconConfig_class     :: Dynamic t (Maybe Text)
   }
 
 instance Reflex t => Default (IconConfig t) where
@@ -148,6 +157,12 @@ circle (cx, cy) r = elSvg
     ("cx" =: pack (show cx) <> "cy" =: pack (show cy) <> "r" =: pack (show r))
   )
   blank
+
+svgText :: (PostBuild t m, DomBuilder t m) => Double -> Double -> Text -> m ()
+svgText x y t = elSvg
+  "text"
+  (constDyn ("x" =: pack (show x) <> "y" =: pack (show y)))
+  (text t)
 
 rect
   :: (PostBuild t m, DomBuilder t m)
@@ -423,3 +438,52 @@ pencilIcon =
   svg
     $ path
         "M33.87,8.32,28,2.42a2.07,2.07,0,0,0-2.92,0L4.27,23.2l-1.9,8.2a2.06,2.06,0,0,0,2,2.5,2.14,2.14,0,0,0,.43,0L13.09,32,33.87,11.24A2.07,2.07,0,0,0,33.87,8.32ZM12.09,30.2,4.32,31.83l1.77-7.62L21.66,8.7l6,6ZM29,13.25l-6-6,3.48-3.46,5.9,6Z"
+
+equalsIcon :: (PostBuild t m, DomBuilder t m) => m ()
+equalsIcon = svg $ do
+  path "M32,23H4a1,1,0,0,1,0-2H32a1,1,0,0,1,0,2Z"
+  path "M32,13H4a1,1,0,0,1,0-2H32a1,1,0,0,1,0,2Z"
+
+doesNotEqualIcon :: (PostBuild t m, DomBuilder t m) => m ()
+doesNotEqualIcon = svg $ do
+  path "M32,23H4a1,1,0,0,1,0-2H32a1,1,0,0,1,0,2Z"
+  path "M32,13H4a1,1,0,0,1,0-2H32a1,1,0,0,1,0,2Z"
+  path "M12,31,12,31a1,1,0,0,1-2-1L24,5a1,1,0,0,1,2,1Z"
+
+greaterThanOrEqIcon :: (PostBuild t m, DomBuilder t m) => m ()
+greaterThanOrEqIcon = svg $ do
+  path
+    "M13.48,25.52,25.4,14,13.48,2.48A1.7,1.7,0,0,0,11.12,4.93L20.51,14,11.12,23.08A1.7,1.7,0,0,0,13.48,25.53Z"
+  path
+    "M27.48,19.52,15.68,31.32A1,1,0,0,1,14.27,29.91L26.07,18.11A1,1,0,0,1,27.48,19.52Z"
+
+lessThanOrEqIcon :: (PostBuild t m, DomBuilder t m) => m ()
+lessThanOrEqIcon = svg $ do
+  path
+    "M22.52,25.52,10.6,14,22.52,2.48A1.7,1.7,0,0,1,24.88,4.93L15.49,14,24.88,23.08A1.7,1.7,0,0,1,22.52,25.53Z"
+  path
+    "M8.52,19.52,20.32,31.32A1,1,0,0,0,21.73,29.91L9.93,18.11A1,1,0,0,0,8.52,19.52Z"
+
+doesNotStartWithIcon :: (PostBuild t m, DomBuilder t m) => m ()
+doesNotStartWithIcon = svg $ do
+  svgText 6 22 "a__"
+  path "M6,27.75,6,27.75A.75.75,0,0,1,4.5,27L15,8.25A.75.75,0,0,1,16.5,9Z"
+
+doesNotEndWithIcon :: (PostBuild t m, DomBuilder t m) => m ()
+doesNotEndWithIcon = svg $ do
+  svgText 6 22 "__c"
+  path "M21,27.75,21,27.75A.75.75,0,0,1,19.5,27L30,8.25A.75.75,0,0,1,31.5,9Z"
+
+doesNotContainIcon :: (PostBuild t m, DomBuilder t m) => m ()
+doesNotContainIcon = svg $ do
+  svgText 6 22 "_b_"
+  path "M13.5,27.75,13.5,27.75A.75.75,0,0,1,12,27L22.5,8.25A.75.75,0,0,1,24,9Z"
+
+startsWithIcon :: (PostBuild t m, DomBuilder t m) => m ()
+startsWithIcon = svg $ svgText 6 22 "a__"
+
+endsWithIcon :: (PostBuild t m, DomBuilder t m) => m ()
+endsWithIcon = svg $ svgText 6 22 "__c"
+
+containsIcon :: (PostBuild t m, DomBuilder t m) => m ()
+containsIcon = svg $ svgText 6 22 "_b_"

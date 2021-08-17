@@ -297,7 +297,7 @@ dropdownStyle = do
 
   (".dropdown-menu" <> ".combobox-menu") ? do
     flexDirection column
-    minWidth (rem 10)
+    minWidth (rem 12)
     top (rem 2)
     boxShadow . pure $ bsColor grey0' $ shadowWithBlur nil
                                                        (rem (1 / 16))

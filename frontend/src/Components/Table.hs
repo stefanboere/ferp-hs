@@ -42,11 +42,16 @@ import           Components.Button
 import           Components.Class
 import           Components.Icon
 import           Components.Input.Basic
+import           Components.Input.Combobox
 import           Nordtheme
 
 
 tableStyle :: Css
 tableStyle = do
+  ".flex-center" ? do
+    display flex
+    alignItems center
+
   selectedCountStyle
   (  ".datagrid"
     ** th
@@ -102,6 +107,9 @@ tableStyle = do
       backgroundColor inherit
       "fill" -: showColor (lighten 0.5 grey0')
 
+  (".dropdown-menu" <> ".combobox-menu") ? do
+    backgroundColor white
+
   ".show-hide-columns" ? do
     marginTop (rem 1)
     marginBottom (rem 1)
@@ -135,7 +143,7 @@ tableStyle = do
 
     input # ("type" @= "checkbox") ? marginTop (rem (-1 / 8))
 
-    Clay.select ? do
+    (Clay.select <> ".select") ? do
       borderBottomColor nord4'
 
     input ? do
@@ -146,6 +154,20 @@ tableStyle = do
       important
         $ margin (rem (-1 / 4)) (rem (1 / 4)) (rem (-1 / 4)) (rem (1 / 4))
       paddingAll (rem (1 / 4))
+
+    ".dropdown-menu" ? Clay.button ? do
+      important $ marginAll nil
+      padding nil (rem 1) nil (rem 1)
+
+    ".dropdown-menu" ? do
+      top (rem (3 / 2))
+
+    ".dropdown-select" ? do
+      paddingRight nil
+      important $ borderWidth nil
+      hover Clay.& do
+        important $ fontColor nord3'
+        important $ "fill" -: showColor nord3'
 
   (thead <> tbody <> tfoot) ** tr ? do
     "display" -: "table"
@@ -489,36 +511,76 @@ data FilterCondition
   | StartsWith
   | EndsWith
   | Contains
-  | Matches
   | DoesNotStartWith
   | DoesNotEndWith
   | DoesNotContain
-  | DoesNotMatch
-  deriving (Eq, Enum, Show, Bounded)
+  deriving (Eq, Enum, Show, Bounded, Ord)
 
-printFilterCond :: DomBuilder t m => FilterCondition -> m ()
-printFilterCond Equal              = text "="
-printFilterCond DoesNotEqual       = text "/="
-printFilterCond GreaterThan        = text ">"
-printFilterCond LessThan           = text "<"
-printFilterCond GreaterThanOrEqual = text ">="
-printFilterCond LessThanOrEqual    = text "<="
-printFilterCond StartsWith         = text "starts"
-printFilterCond EndsWith           = text "ends"
-printFilterCond Contains           = text "contains"
-printFilterCond Matches            = text "like"
-printFilterCond DoesNotStartWith   = text "!contains"
-printFilterCond DoesNotEndWith     = text "!endswith"
-printFilterCond DoesNotContain     = text "!contains"
-printFilterCond DoesNotMatch       = text "!match"
+instance Default FilterCondition where
+  def = Contains
+
+filterConditionText :: FilterCondition -> Text
+filterConditionText x = case x of
+  Equal              -> "Equals"
+  DoesNotEqual       -> "Does not equal"
+  GreaterThan        -> "Greater than"
+  LessThan           -> "Less than"
+  GreaterThanOrEqual -> "Greater than or equal"
+  LessThanOrEqual    -> "Less than or equal"
+  StartsWith         -> "Starts with"
+  EndsWith           -> "Ends with"
+  Contains           -> "Contains"
+  DoesNotStartWith   -> "Does not start with"
+  DoesNotEndWith     -> "Does not end with"
+  DoesNotContain     -> "Does not contain"
+
+filterConditionIcon
+  :: (DomBuilder t m, PostBuild t m) => FilterCondition -> m ()
+filterConditionIcon x = case x of
+  Equal        -> icon sml equalsIcon
+  DoesNotEqual -> icon sml doesNotEqualIcon
+  GreaterThan ->
+    icon sml { _iconConfig_direction = constDyn DirRight } angleIcon
+  LessThan -> icon sml { _iconConfig_direction = constDyn DirLeft } angleIcon
+  GreaterThanOrEqual -> icon sml greaterThanOrEqIcon
+  LessThanOrEqual    -> icon sml lessThanOrEqIcon
+  StartsWith         -> icon lg startsWithIcon
+  EndsWith           -> icon lg endsWithIcon
+  Contains           -> icon lg containsIcon
+  DoesNotStartWith   -> icon lg doesNotStartWithIcon
+  DoesNotEndWith     -> icon lg doesNotEndWithIcon
+  DoesNotContain     -> icon lg doesNotContainIcon
+   where
+ where
+  sml = def { _iconConfig_size = 1.25 }
+  lg  = def { _iconConfig_size = 1.5 }
+
+printFilterCond :: (PostBuild t m, DomBuilder t m) => FilterCondition -> m ()
+printFilterCond x =
+  filterConditionIcon x >> el "span" (text (filterConditionText x))
 
 withFilterCondition
   :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
   => m a
   -> m (Dynamic t FilterCondition, a)
 withFilterCondition editor = inputGroup def $ do
-  dynCond <- selectInput (inputConfig' (OpElem printFilterCond) (Just Contains))
-  x       <- editor
+  rec selectEv <-
+        btnDropdown
+          def { _buttonConfig_class    = "dropdown-select select"
+              , _buttonConfig_priority = ButtonTertiary
+              }
+          (dyn_ (filterConditionIcon <$> dynVal))
+        $   leftmost
+        <$> mapM
+              (\c -> do
+                ev <- btn def (elClass "div" "flex-center" (printFilterCond c))
+                pure (c <$ ev)
+              )
+              [minBound .. maxBound]
 
-  pure (fromMaybe Contains <$> _inputEl_value dynCond, x)
+      dynVal <- holdDyn def selectEv
+
+  x <- editor
+
+  pure (dynVal, x)
 
