@@ -17,8 +17,8 @@ module Components.Navigation
   , coerceUri
   , safelink
   , safelinkGroup
-  )
-where
+  , ahrefPreventDefault
+  ) where
 
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media

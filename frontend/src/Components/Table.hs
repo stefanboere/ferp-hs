@@ -1,10 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 module Components.Table
   ( tableDyn
   , tableStyle
   , tableEl
   , datagrid
+  , datagridDyn
   , tableAttr
   , sortlabel
   , filterEl
@@ -17,15 +19,24 @@ module Components.Table
   , linkCell
   , angleDoubleRightIcon
   , withFilterCondition
+  , headMultiSelect
+  , formProp
+  , gridProp
+  , Property(..)
   ) where
 
 import           Clay                    hiding ( icon )
+import           Control.Lens            hiding ( (#)
+                                                , none
+                                                )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
+import           Data.Functor.Compose
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Sum(..) )
 import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
                                                 , pack
@@ -37,12 +48,18 @@ import           Prelude                 hiding ( (**)
 import           Reflex.Dom              hiding ( display
                                                 , tableDynAttr
                                                 )
+import           Servant.API                    ( toUrlPiece )
+import qualified Servant.Links                 as L
+                                                ( Link
+                                                , linkURI
+                                                )
+import           URI.ByteString                 ( URI )
 
 import           Components.Button
 import           Components.Class
 import           Components.Icon
 import           Components.Input.Basic
-import           Components.Input.Combobox
+import           Components.Navigation
 import           Nordtheme
 
 
@@ -255,6 +272,13 @@ datagrid i' = tableAttr ("class" =: ("datagrid datagrid-" <> pack (show i')))
 linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
 linkCell dynHref =
   elClass "td" "center" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
+
+safelinkCell
+  :: (DomBuilder t m, PostBuild t m) => L.Link -> m () -> m (Event t URI)
+safelinkCell lnk cnt = do
+  clickEv <- elClass "td" "center"
+    $ ahrefPreventDefault ("/" <> toUrlPiece lnk) (constDyn False) cnt
+  pure $ coerceUri (L.linkURI lnk) <$ clickEv
 
 angleDoubleRightIcon :: (DomBuilder t m, PostBuild t m) => m ()
 angleDoubleRightIcon =
@@ -584,3 +608,138 @@ withFilterCondition editor = inputGroup def $ do
 
   pure (dynVal, x)
 
+headMultiSelect :: (DomBuilder t m) => m a -> m (Event t Bool, a)
+headMultiSelect theadTr = el "tr" $ do
+  selectAllDyn <- el "th" $ checkboxInputSimple False never mempty
+  x            <- theadTr
+  pure (updated selectAllDyn, x)
+
+
+
+data Property a c t m b = Property
+  { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
+  , _prop_extraConfig :: c b
+  , _prop_label       :: Text
+  , _prop_lens        :: Lens' a b
+  }
+
+-- | Converts an editor into an editor which accounts for focus
+--
+-- 1. If the user is focussed, no external set value events are applied
+-- 2. The output dynamic is only updated on lose focus
+respectFocus
+  :: (DomBuilder t m, MonadFix m)
+  => (InputConfig' c t m b -> m (DomInputEl t m b))
+  -> InputConfig' c t m b
+  -> m (DomInputEl t m b)
+respectFocus editor cfg = do
+  rec r <- editor cfg
+        { _inputConfig_setValue = gate
+                                    (current
+                                      (Prelude.not <$> _inputEl_hasFocus r)
+                                    )
+                                    (_inputConfig_setValue cfg)
+        }
+
+  pure r
+
+formProp
+  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  => Property a c t m b
+  -> a
+  -> Event t a
+  -> Compose m (Dynamic t) (a -> a)
+formProp prp initVal update =
+  Compose $ fmap (set (_prop_lens prp)) . _inputEl_value <$> labeled
+    (_prop_label prp)
+    (_prop_editor prp)
+    (propInputConfig prp initVal update)
+
+propInputConfig
+  :: (DomBuilder t m)
+  => Property a c t m b
+  -> a
+  -> Event t a
+  -> InputConfig' c t m b
+propInputConfig prp initVal update =
+  (inputConfig' (_prop_extraConfig prp) (view (_prop_lens prp) initVal))
+    { _inputConfig_setValue = view (_prop_lens prp) <$> update
+    }
+
+gridProp
+  :: (DomBuilder t m, MonadFix m)
+  => Property a c t m b
+  -> (Text, k -> a -> Event t a -> Compose m (Dynamic t) (a -> a))
+gridProp prp =
+  ( _prop_label prp
+  , \_ initVal update ->
+    Compose $ fmap (set (_prop_lens prp)) . _inputEl_value <$> respectFocus
+      (_prop_editor prp)
+      (propInputConfig prp initVal update)
+  )
+
+
+datagridDyn
+  :: ( Ord k
+     , DomBuilder t m
+     , MonadHold t m
+     , PostBuild t m
+     , MonadFix m
+     , MonadIO m
+     )
+  => (k -> L.Link)
+  -> [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
+  -> Map k r
+  -> Event t (Map k (Maybe r))
+  -> m (Event t URI)
+datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
+  selectAllEv <- el "thead" $ do
+    (selectAllEv, _) <- headMultiSelect $ do
+      el "th" blank
+      mapM_
+        (\c -> columnHead $ do
+          _ <- sortlabel (fst c)
+          filterEl BottomRight (constDyn True) blank
+        )
+        cols'
+    el "tr" $ do
+      el "td" blank
+      el "td" blank
+      mapM_
+        (\_ -> el "td" $ withFilterCondition $ Components.Input.Basic.textInput
+          (inputConfig "")
+        )
+        cols'
+      pure selectAllEv
+  dynR <-
+    elAttr "tbody" ("style" =: "height:20rem")
+    $ listWithKeyShallowDiff initRows updateRows
+    $ \k initR updateR -> do
+        rowMultiSelect False selectAllEv $ do
+          lnkEv <- safelinkCell (toLnk k) angleDoubleRightIcon
+          rcols <- mapM (\(_, f) -> el "td" $ getCompose $ f k initR updateR)
+                        cols'
+          let r = foldResult initR rcols
+          pure (lnkEv, r)
+
+  let selcountDyn = (countSelected . Map.elems) =<< dynR
+
+  el "tfoot" $ do
+    _ <- tfooter $ do
+      selectedCountInfo selcountDyn
+      _ <- showHideColumns $ Map.fromList $ zip ([1 ..] :: [Int])
+                                                (fmap fst cols')
+      paginationInput (constDyn (Just 51))
+    pure ()
+
+  pure $ switchDyn (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
+
+ where
+  foldResult :: Reflex t => a -> [Dynamic t (a -> a)] -> Dynamic t a
+  foldResult x = foldr (<*>) (pure x)
+
+  countSelected :: Reflex t => [(Dynamic t Bool, b)] -> Dynamic t Int
+  countSelected = fmap getSum . mconcat . fmap (fmap (Sum . boolToNum) . fst)
+
+  boolToNum True  = 1
+  boolToNum False = 0

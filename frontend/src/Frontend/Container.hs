@@ -292,11 +292,11 @@ containerTable = do
     (constDyn
       (1 =: ("First row", "Foo bar") <> (2 :: Int) =: ("Second row", "Bazz"))
     )
+
   el "h2" $ text "Datagrid"
   datagrid 2 $ do
-    selectAllEv' <- el "thead" $ do
-      selectAllEv <- el "tr" $ do
-        selectAllEv <- el "th" $ checkboxInputSimple False never mempty
+    selectAllEv <- el "thead" $ do
+      (selectAllEv, _) <- headMultiSelect $ do
         el "th" $ text ""
         columnHead $ do
           _ <- sortlabel "User ID"
@@ -304,7 +304,6 @@ containerTable = do
         el "th" $ text "Name"
         el "th" $ text "Creation date"
         el "th" $ text "Tickets"
-        pure selectAllEv
       el "tr" $ do
         el "td" blank
         el "td" blank
@@ -313,7 +312,6 @@ containerTable = do
         _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
         _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
         pure selectAllEv
-    let selectAllEv = updated selectAllEv'
     selcountDyn <- elAttr "tbody" ("style" =: "height:20rem") $ do
       (s1, _) <- rowMultiSelect False selectAllEv $ do
         linkCell "#" angleDoubleRightIcon

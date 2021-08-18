@@ -14,7 +14,6 @@ module Frontend.Crud
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Lens
-import           Control.Monad                  ( void )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
@@ -35,6 +34,7 @@ import           Common.Auth
 import           Common.Schema
 import           Components
 import           Frontend.Api
+import           Reflex.Dom.Ace                 ( AceConfig )
 
 
 -- brittany-disable-next-binding
@@ -69,6 +69,7 @@ blogsHandler
      , MonadHold t m
      , Prerender js t m
      , MonadFix m
+     , MonadIO m
      )
   => ApiWidget t m (Event t URI)
 blogsHandler = do
@@ -77,19 +78,13 @@ blogsHandler = do
   postBuildEv <- getPostBuild
 
   let getBlogEv = getBlogs mempty <$ postBuildEv
-  recEv    <- orAlertF $ requestingJs getBlogEv
+  recEv <- orAlertF $ requestingJs getBlogEv
 
-  mayOkDyn <- holdDyn Nothing (Just . getResponse <$> recEv)
-
-  loading mayOkDyn $ \okDyn -> do
-    tableDyn
-      [ (text "Title"      , \_ b -> dynText (_blogName <$> b))
-      , (text "Description", \_ b -> dynText (_blogDescription <$> b))
-      ]
-      (Map.fromList . zip [(0 :: Int) ..] <$> okDyn)
-
-
-  pure never
+  datagridDyn (blogLink . BlogId)
+              [gridProp blogTitleProp, gridProp blogDescriptionPropTextbox]
+              Map.empty
+              (toMap . getResponse <$> recEv)
+  where toMap = Map.fromList . fmap (\b -> (_blogId b, Just b))
 
 
 blogEdit
@@ -142,23 +137,10 @@ blogEdit bid = do
         el "form"
         $    getCompose
         $    pure initBlog
-        <**> prop def textInput          "Title" blogName    initBlog modBlogEv
-
-        <**> prop def (checkboxInput "") "Extra" blogIsExtra initBlog modBlogEv
-
-        <**> prop def
-                  (toggleInput "")
-                  "Published"
-                  blogIsPublished
-                  initBlog
-                  modBlogEv
-
-        <**> prop cdnAceConfig
-                  markdownInput
-                  "Description"
-                  blogDescription
-                  initBlog
-                  modBlogEv
+        <**> formProp blogTitleProp       initBlog modBlogEv
+        <**> formProp blogIsExtraProp     initBlog modBlogEv
+        <**> formProp blogIsPublishedProp initBlog modBlogEv
+        <**> formProp blogDescriptionProp initBlog modBlogEv
 
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
       patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
@@ -166,40 +148,58 @@ blogEdit bid = do
 
   pure never
 
+blogTitleProp
+  :: (DomBuilder t m, PostBuild t m, MonadFix m)
+  => Property Blog (Const ()) t m Text
+blogTitleProp = Property { _prop_editor      = textInput
+                         , _prop_extraConfig = def
+                         , _prop_label       = "Title"
+                         , _prop_lens        = blogName
+                         }
 
--- | Converts an editor into an editor which accounts for focus
---
--- 1. If the user is focussed, no external set value events are applied
--- 2. The output dynamic is only updated on lose focus
-respectFocus
-  :: (DomBuilder t m, MonadFix m)
-  => (InputConfig' c t m b -> m (DomInputEl t m b))
-  -> InputConfig' c t m b
-  -> m (DomInputEl t m b)
-respectFocus editor cfg = do
-  rec r <- editor cfg
-        { _inputConfig_setValue = gate (current (not <$> _inputEl_hasFocus r))
-                                       (_inputConfig_setValue cfg)
-        }
+blogIsExtraProp
+  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  => Property Blog (Const ()) t m Bool
+blogIsExtraProp = Property { _prop_editor      = checkboxInput ""
+                           , _prop_extraConfig = def
+                           , _prop_label       = "Extra"
+                           , _prop_lens        = blogIsExtra
+                           }
 
-  pure r
+blogIsPublishedProp
+  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  => Property Blog (Const ()) t m Bool
+blogIsPublishedProp = Property { _prop_editor      = toggleInput ""
+                               , _prop_extraConfig = def
+                               , _prop_label       = "Published"
+                               , _prop_lens        = blogIsPublished
+                               }
 
-prop
-  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
-  => c b
-  -> (InputConfig' c t m b -> m (DomInputEl t m b))
-  -> Text
-  -> Lens' a b
-  -> a
-  -> Event t a
-  -> Compose m (Dynamic t) (a -> a)
-prop c editor lbl l initVal update =
-  Compose $ fmap (set l) . _inputEl_value <$> labeled
-    lbl
-    (respectFocus editor)
-    (inputConfig' c (view l initVal))
-      { _inputConfig_setValue = view l <$> update
-      }
+blogDescriptionProp
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , TriggerEvent t m
+     , MonadHold t m
+     , PerformEvent t m
+     , MonadIO (Performable m)
+     , MonadFix m
+     , Prerender js t m
+     )
+  => Property Blog (Const AceConfig) t m Text
+blogDescriptionProp = Property { _prop_editor      = markdownInput
+                               , _prop_extraConfig = cdnAceConfig
+                               , _prop_label       = "Description"
+                               , _prop_lens        = blogDescription
+                               }
+
+blogDescriptionPropTextbox
+  :: (DomBuilder t m, PostBuild t m, MonadFix m)
+  => Property Blog (Const ()) t m Text
+blogDescriptionPropTextbox = Property { _prop_editor      = textInput
+                                      , _prop_extraConfig = def
+                                      , _prop_label       = "Description"
+                                      , _prop_lens        = blogDescription
+                                      }
 
 triStateBtn
   :: (PostBuild t m, DomBuilder t m)
@@ -225,13 +225,3 @@ saveBtn = triStateBtn floppyIcon ("Save", "Saving", "Saved")
 refreshBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
 refreshBtn = triStateBtn refreshIcon ("Reload", "Reloading", "Reloaded")
-
-loading
-  :: (MonadFix m, PostBuild t m, DomBuilder t m, MonadHold t m)
-  => Dynamic t (Maybe a)
-  -> (Dynamic t a -> m b)
-  -> m ()
-loading dynX w = do
-  factored <- maybeDyn dynX
-
-  dyn_ $ maybe (pure ()) (void . w) <$> factored
