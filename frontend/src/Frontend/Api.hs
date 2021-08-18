@@ -27,8 +27,7 @@ module Frontend.Api
   , usingCookie
   , refreshAccessTokenEvery
   , ApiWidget
-  )
-where
+  ) where
 
 import           Control.Exception.Base         ( displayException )
 import           Control.Monad.Fix              ( MonadFix )
@@ -54,8 +53,8 @@ import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
-                                                , FreeClient
                                                 , ClientError(..)
+                                                , FreeClient
                                                 )
 
 import           Common.Api
@@ -84,23 +83,23 @@ showError (FailureResponse rq rsp) =
   let status  = Sub.responseStatusCode rsp
       statusI = statusCode status
       msg =
-          Text.unlines
-            . catMaybes
-            $ [ Just
-              $  "The request to "
-              <> showUrl (Sub.requestPath rq)
-              <> " failed. The server responded with "
-              <> (Text.pack . show $ statusI)
-              <> " "
-              <> (Text.decodeUtf8 . statusMessage $ status)
-              <> "."
-              , if BL.null (Sub.responseBody rsp)
-                then Nothing
-                else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
-              , if statusI == 403
-                then Just "Please try reloading this page."
-                else Nothing
-              ]
+        Text.unlines
+          . catMaybes
+          $ [ Just
+            $  "The request to "
+            <> showUrl (Sub.requestPath rq)
+            <> " failed. The server responded with "
+            <> (Text.pack . show $ statusI)
+            <> " "
+            <> (Text.decodeUtf8 . statusMessage $ status)
+            <> "."
+            , if BL.null (Sub.responseBody rsp)
+              then Nothing
+              else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
+            , if statusI == 403
+              then Just "Please try reloading this page."
+              else Nothing
+            ]
   in  (msg, if statusI == 403 then reloadAction else pure ())
 
 showError (DecodeFailure x _) =
@@ -212,7 +211,7 @@ runApi
   :: (MonadHold t m, MonadFix m, Prerender js t m) => ApiWidget t m a -> m a
 runApi = Sub.runApiWidget "ws://localhost:3005/subscriber"
 
-getBlog :: Token -> BlogId -> FreeClient Blog
+getBlog :: BlogId -> FreeClient Blog
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent

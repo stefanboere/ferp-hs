@@ -7,8 +7,7 @@ module Common.Api
   , clientApi
   , Be
   , View
-  )
-where
+  ) where
 
 
 import           Data.Proxy
@@ -33,7 +32,7 @@ type Api' be = ("blogs" :> BlogApi' be)
 -- It really is a different api therefore, but we can still reuse our existing generic implementation
 -- brittany-disable-next-binding
 type BlogApi' be
-  = (Auth Admin :> Get_ BlogT)
+  = Get_ BlogT
       :<|>
       (Auth Admin :> Put_ BlogT)
       :<|>

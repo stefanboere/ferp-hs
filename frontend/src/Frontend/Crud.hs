@@ -110,15 +110,12 @@ blogEdit bid = do
   el "h1" $ text "Blog 1"
 
   postBuildEv <- getPostBuild
-  let getRespEv = getBlog usingCookie bid <$ postBuildEv
+  let getRespEv = getBlog bid <$ postBuildEv
   (initEv, getNextEv) <- orAlertF (requestingJs getRespEv) >>= headTailE
 
   widgetHold_ (pure ()) $ ffor initEv $ \initBlog -> do
 
-    getResp <- requestBtn refreshBtn
-                          (getBlog usingCookie bid <$)
-                          (constDyn False)
-                          never
+    getResp <- requestBtn refreshBtn (getBlog bid <$) (constDyn False) never
 
     rec
       let patchBlogReq ev = attachPromptlyDynWith

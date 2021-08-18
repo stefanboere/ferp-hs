@@ -14,8 +14,7 @@ module Api
   , server
   , api
   , Api
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( div )
 
@@ -64,7 +63,8 @@ type instance IsSubscribable' sa (PathInfo :> sb) = IsSubscribable sa sb
 type instance IsSubscribable' sa (QObj r :> sb) = IsSubscribable sa sb
 
 -- For us any GET endpoint is subscribable
-type instance IsSubscribable' sa (Get '[JSON, CSV] r) = ()
+type instance IsSubscribable' sa (Get '[JSON , CSV] r)
+  = ()
 
 notifyBlogs :: MonadIO m => Subscriber (Api' Postgres) -> m ()
 notifyBlogs sub = liftIO $ atomically $ notify
@@ -83,7 +83,7 @@ notifyBlog sub blogid = liftIO $ atomically $ notify
 -- | The blog server
 blogServer :: AppServer BlogApi
 blogServer =
-  const (_get gBlog)
+  _get gBlog
     :<|> const (_put gBlog)
     :<|> const patchBlogs
     :<|> const (_delete gBlog)
