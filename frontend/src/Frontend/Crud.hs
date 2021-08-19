@@ -17,7 +17,6 @@ import           Control.Lens
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
-import qualified Data.Map                      as Map
 import           Data.Proxy
 import           Data.Text                      ( Text )
 import           Reflex.Dom              hiding ( Link(..)
@@ -80,11 +79,10 @@ blogsHandler = do
   let getBlogEv = getBlogs mempty <$ postBuildEv
   recEv <- orAlertF $ requestingJs getBlogEv
 
-  datagridDyn (blogLink . BlogId)
+  datagridDyn (blogLink . BlogId . _blogId)
               [gridProp blogTitleProp, gridProp blogDescriptionPropTextbox]
-              Map.empty
-              (toMap . getResponse <$> recEv)
-  where toMap = Map.fromList . fmap (\b -> (_blogId b, Just b))
+              def
+              (fmap Just . getListToMapsubset <$> recEv)
 
 
 blogEdit

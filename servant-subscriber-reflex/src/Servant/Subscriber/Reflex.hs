@@ -18,8 +18,7 @@ module Servant.Subscriber.Reflex
   , findCookie
   , C.RequestF(..)
   , module Servant.Client.Free
-  )
-where
+  ) where
 
 import           Control.Exception.Base         ( Exception
                                                 , SomeException(..)
@@ -197,8 +196,7 @@ performWebSocketRequests url req =
              | otherwise             = S.SimpleRequest r
 
   parseResp :: S.Response -> Maybe (HttpRequest, HttpResponse)
-  parseResp (S.Modified rq resp) =
-    Just (rq, HttpResponse (S.Status 200 "") [] resp)
+  parseResp (S.Modified          rq resp) = Just (rq, resp)
   parseResp (S.HttpRequestFailed rq resp) = Just (rq, resp)
   parseResp _                             = Nothing
 

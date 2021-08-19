@@ -44,8 +44,7 @@ module Database.Beam.API
     -- * Advanced
   , Orderable
   , OrderBy'
-  )
-where
+  ) where
 
 import           Prelude
 
@@ -57,9 +56,9 @@ import           Database.Beam.Backend.SQL      ( BeamSqlBackend
                                                 )
 import           Database.Beam.Expand           ( Named )
 import           Database.Beam.Extra            ( runCountIn )
-import           Database.Beam.Operator         ( matching_
-                                                , FieldsFulfillConstraintFilter
+import           Database.Beam.Operator         ( FieldsFulfillConstraintFilter
                                                 , Operator
+                                                , matching_
                                                 )
 import           Database.Beam.Query.Internal
 import           GHC.Generics                   ( Rep )
@@ -68,16 +67,16 @@ import           Servant.Crud.API
 import           Servant.Crud.Headers           ( PathInfo
                                                 , TotalCount(..)
                                                 )
-import           Servant.Crud.OrderBy           ( OrderBy(..)
-                                                , Direction(..)
-                                                , HSelector(..)
-                                                , Selectors(..)
+import           Servant.Crud.OrderBy           ( Direction(..)
                                                 , GSelectors
-                                                , leaf
+                                                , HSelector(..)
+                                                , OrderBy(..)
+                                                , Selectors(..)
                                                 , defaultSelectors
+                                                , leaf
                                                 )
-import           Servant.Crud.QueryObject       ( QObj
-                                                , Options(..)
+import           Servant.Crud.QueryObject       ( Options(..)
+                                                , QObj
                                                 , defaultOptions
                                                 )
 import           Servant.Crud.QueryOperator     ( Filter
@@ -311,5 +310,5 @@ runCountInView
        (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
   -> m (Maybe TotalCount)
 runCountInView v =
-  fmap (fmap TotalCount) . runCountIn . offset_ 0 . limit_ 1 . matching_
+  fmap (fmap TotalCount) . runCountIn . offset_ 0 . offset_ 0 . matching_
     (filters v)

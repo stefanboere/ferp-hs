@@ -23,6 +23,7 @@ module Components.Table
   , formProp
   , gridProp
   , Property(..)
+  , MapSubset(..)
   ) where
 
 import           Clay                    hiding ( icon )
@@ -275,11 +276,14 @@ linkCell dynHref =
   elClass "td" "center" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
 
 safelinkCell
-  :: (DomBuilder t m, PostBuild t m) => L.Link -> m () -> m (Event t URI)
+  :: (DomBuilder t m, PostBuild t m)
+  => Dynamic t L.Link
+  -> m ()
+  -> m (Event t URI)
 safelinkCell lnk cnt = do
   clickEv <- elClass "td" "center"
-    $ ahrefPreventDefault ("/" <> toUrlPiece lnk) (constDyn False) cnt
-  pure $ coerceUri (L.linkURI lnk) <$ clickEv
+    $ ahrefPreventDefault (("/" <>) . toUrlPiece <$> lnk) (constDyn False) cnt
+  pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
 
 angleDoubleRightIcon :: (DomBuilder t m, PostBuild t m) => m ()
 angleDoubleRightIcon =
@@ -368,8 +372,8 @@ columnHead :: (DomBuilder t m) => m a -> m a
 columnHead = el "th" . elClass "div" "flex-row"
 
 data Page = Page
-  { _page_num  :: Int
-  , _page_size :: Int
+  { _page_num  :: Integer
+  , _page_size :: Integer
   }
   deriving (Eq, Show)
 
@@ -381,7 +385,7 @@ instance Default PageSize where
 printPageSize :: DomBuilder t m => PageSize -> m ()
 printPageSize = text . pack . show . pageSize
 
-pageSize :: PageSize -> Int
+pageSize :: PageSize -> Integer
 pageSize Page10  = 10
 pageSize Page20  = 20
 pageSize Page50  = 50
@@ -436,7 +440,7 @@ selectedCountInfo dynCount = elDynClass "div" (mkCls <$> dynCount)
 
 paginationInput
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
-  => Dynamic t (Maybe Int)
+  => Dynamic t (Maybe Integer)
   -> m (Dynamic t Page)
 paginationInput totalResults = elClass "div" "pagination" $ do
   el "span" $ text "Results per page"
@@ -465,7 +469,7 @@ paginationInput totalResults = elClass "div" "pagination" $ do
                                  , _numberRange_precision = Just 0
                                  }
                                )
-                               (1 :: Int)
+                               (1 :: Integer)
                              )
       { _inputConfig_setValue = leftmost
         [ 1 <$ prevAllEv
@@ -679,6 +683,16 @@ gridProp prp =
       (propInputConfig prp initVal update)
   )
 
+data MapSubset k a = MapSubset
+  { _ms_data       :: Map k a
+  , _ms_totalCount :: Maybe Integer
+  }
+
+instance Default (MapSubset k a) where
+  def = MapSubset Map.empty Nothing
+
+instance Functor (MapSubset k) where
+  fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
 datagridDyn
   :: ( Ord k
@@ -688,10 +702,10 @@ datagridDyn
      , MonadFix m
      , MonadIO m
      )
-  => (k -> L.Link)
+  => (r -> L.Link)
   -> [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
-  -> Map k r
-  -> Event t (Map k (Maybe r))
+  -> MapSubset k r
+  -> Event t (MapSubset k (Maybe r))
   -> m (Event t URI)
 datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
   rec
@@ -717,11 +731,12 @@ datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
 
     dynR <-
       elAttr "tbody" ("style" =: "height:20rem")
-      $ listWithKeyShallowDiff initRows updateRows
+      $ listWithKeyShallowDiff (_ms_data initRows) (_ms_data <$> updateRows)
       $ \k initR updateR -> do
           rowMultiSelect False selectAllEv $ do
-            lnkEv <- safelinkCell (toLnk k) angleDoubleRightIcon
-            rcols <- Reflex.Dom.list
+            dynLnk <- holdDyn (toLnk initR) (toLnk <$> updateR)
+            lnkEv  <- safelinkCell dynLnk angleDoubleRightIcon
+            rcols  <- Reflex.Dom.list
               dynCols
               (\dynF -> el "td" $ do
                 dynEv <- dyn
@@ -735,9 +750,11 @@ datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
 
     colKeysDyn <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
-      colKeysDyn' <- showHideColumns $ fmap fst colsIndexed
+      colKeysDyn'   <- showHideColumns $ fmap fst colsIndexed
 
-      _           <- paginationInput (constDyn (Just 51))
+      totalCountDyn <- holdDyn (_ms_totalCount initRows)
+                               (_ms_totalCount <$> updateRows)
+      _ <- paginationInput totalCountDyn
       pure colKeysDyn'
 
     let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn

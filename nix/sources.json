@@ -116,7 +116,7 @@
   "servant-subscriber": {
     "branch": "master",
     "repo": "/home/stefan/Projects/servant-subscriber",
-    "rev": "023a737aa6767918b6f1da18c530d2454fa55ad9",
+    "rev": "1a1408896d32a36045a905fb9b460a298603e53e",
     "type": "git"
   }
 }

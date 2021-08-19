@@ -3,8 +3,7 @@ module Servant.Subscriber.Compat.Response
   ( Response(..)
   , HttpResponse(..)
   , Status(..)
-  )
-where
+  ) where
 
 import           Data.Aeson
 import           Data.Text                      ( Text )
@@ -28,7 +27,7 @@ type ResponseHeaders = R.RequestHeaders
 
 data Response =
     Subscribed !R.HttpRequest
-  | Modified !R.HttpRequest !ResponseBody -- If the full response is needed an additional FullSubscribe command with an appropriate additional response type will need to be added.
+  | Modified !R.HttpRequest !HttpResponse
   | Deleted !R.Path
   | Unsubscribed !R.HttpRequest
   | HttpRequestFailed !R.HttpRequest !HttpResponse

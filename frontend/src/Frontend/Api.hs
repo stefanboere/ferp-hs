@@ -19,6 +19,7 @@ module Frontend.Api
   , postBlogs
   , getBlogs
   -- * Utils
+  , getListToMapsubset
   , orAlert
   , orAlertF
   , requestBtn
@@ -51,6 +52,7 @@ import qualified Reflex.Dom.Prerender          as Prerender
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
+import           Servant.Crud.Headers           ( TotalCount(..) )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , ClientError(..)
@@ -62,6 +64,17 @@ import           Common.Schema
 import           Components.Alert
 import           Components.Button
 import           Components.Class
+import           Components.Table               ( MapSubset(..) )
+
+getListToMapsubset :: GetListHeaders a -> MapSubset Integer a
+getListToMapsubset resp = MapSubset
+  (Map.fromList $ zip [0 ..] (getResponse resp))
+  (getCount resp)
+ where
+  getCount x =
+    case lookupResponseHeader x :: ResponseHeader "X-Total-Count" TotalCount of
+      Servant.API.Header (TotalCount c) -> Just c
+      _ -> Nothing
 
 orAlertF
   :: ( Prerender js t m

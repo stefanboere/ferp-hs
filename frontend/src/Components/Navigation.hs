@@ -214,7 +214,7 @@ navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
 ahrefPreventDefault
   :: forall t m
    . (PostBuild t m, DomBuilder t m)
-  => Text
+  => Dynamic t Text
   -> Dynamic t Bool
   -> m ()
   -> m (Event t ())
@@ -225,9 +225,11 @@ ahrefPreventDefault ref activ cnt = do
                        (const preventDefault)
     )
     "a"
-    ((\activ' -> "href" =: ref <> if activ' then "class" =: "active" else mempty
-     )
-    <$> activ
+    (   (\ref' activ' ->
+          "href" =: ref' <> if activ' then "class" =: "active" else mempty
+        )
+    <$> ref
+    <*> activ
     )
     cnt
 
@@ -265,7 +267,9 @@ safelink
   -> m ()
   -> m (Dynamic t Bool, Event t L.Link)
 safelink dynLoc lnk cnt = do
-  closeEv <- ahrefPreventDefault ("/" <> toUrlPiece lnk) isActiveDyn cnt
+  closeEv <- ahrefPreventDefault (constDyn ("/" <> toUrlPiece lnk))
+                                 isActiveDyn
+                                 cnt
   pure (isActiveDyn, lnk <$ closeEv)
  where
   isActiveDyn = (lUriPath lnk ==) . uriPath <$> dynLoc
