@@ -29,6 +29,7 @@ import           Clay                    hiding ( icon )
 import           Control.Lens            hiding ( (#)
                                                 , none
                                                 )
+import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
@@ -288,11 +289,11 @@ data SortOrder = Descending | Ascending deriving (Eq, Show)
 
 sortlabel
   :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
-  => Text
+  => Dynamic t Text
   -> m (Dynamic t (Maybe SortOrder))
-sortlabel lbl = do
+sortlabel dynLbl = do
   rec (e, _) <- elClass' "span" "sortlabel" $ do
-        el "span" $ text lbl
+        el "span" $ dynText dynLbl
         icon
           IconConfig { _iconConfig_direction = mkDir <$> dynSortOrd
                      , _iconConfig_status    = constDyn (Just Info)
@@ -693,50 +694,65 @@ datagridDyn
   -> Event t (Map k (Maybe r))
   -> m (Event t URI)
 datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
-  selectAllEv <- el "thead" $ do
-    (selectAllEv, _) <- headMultiSelect $ do
-      el "th" blank
-      mapM_
-        (\c -> columnHead $ do
-          _ <- sortlabel (fst c)
-          filterEl BottomRight (constDyn True) blank
-        )
-        cols'
-    el "tr" $ do
-      el "td" blank
-      el "td" blank
-      mapM_
-        (\_ -> el "td" $ withFilterCondition $ Components.Input.Basic.textInput
-          (inputConfig "")
-        )
-        cols'
-      pure selectAllEv
-  dynR <-
-    elAttr "tbody" ("style" =: "height:20rem")
-    $ listWithKeyShallowDiff initRows updateRows
-    $ \k initR updateR -> do
-        rowMultiSelect False selectAllEv $ do
-          lnkEv <- safelinkCell (toLnk k) angleDoubleRightIcon
-          rcols <- mapM (\(_, f) -> el "td" $ getCompose $ f k initR updateR)
-                        cols'
-          let r = foldResult initR rcols
-          pure (lnkEv, r)
+  rec
+    selectAllEv <- el "thead" $ do
+      (selectAllEv', _) <- headMultiSelect $ do
+        el "th" blank
+        Reflex.Dom.list
+          dynCols
+          (\c -> columnHead $ do
+            _ <- sortlabel (fst <$> c)
+            filterEl BottomRight (constDyn True) blank
+          )
+      el "tr" $ do
+        el "td" blank
+        el "td" blank
+        _ <- Reflex.Dom.list
+          dynCols
+          (\_ ->
+            el "td" $ withFilterCondition $ Components.Input.Basic.textInput
+              (inputConfig "")
+          )
+        pure selectAllEv'
 
-  let selcountDyn = (countSelected . Map.elems) =<< dynR
+    dynR <-
+      elAttr "tbody" ("style" =: "height:20rem")
+      $ listWithKeyShallowDiff initRows updateRows
+      $ \k initR updateR -> do
+          rowMultiSelect False selectAllEv $ do
+            lnkEv <- safelinkCell (toLnk k) angleDoubleRightIcon
+            rcols <- Reflex.Dom.list
+              dynCols
+              (\dynF -> el "td" $ do
+                dynEv <- dyn
+                  ((\(_, f) -> getCompose (f k initR updateR)) <$> dynF)
+                join <$> holdDyn (constDyn Prelude.id) dynEv
+              )
+            let r = foldResult initR rcols
+            pure (lnkEv, r)
 
-  el "tfoot" $ do
-    _ <- tfooter $ do
+    let selcountDyn = (countSelected . Map.elems) =<< dynR
+
+    colKeysDyn <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
-      _ <- showHideColumns $ Map.fromList $ zip ([1 ..] :: [Int])
-                                                (fmap fst cols')
-      paginationInput (constDyn (Just 51))
-    pure ()
+      colKeysDyn' <- showHideColumns $ fmap fst colsIndexed
+
+      _           <- paginationInput (constDyn (Just 51))
+      pure colKeysDyn'
+
+    let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
 
   pure $ switchDyn (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
 
  where
-  foldResult :: Reflex t => a -> [Dynamic t (a -> a)] -> Dynamic t a
-  foldResult x = foldr (<*>) (pure x)
+  colsIndexed = Map.fromList $ zip [0 ..] cols'
+
+  foldResult
+    :: Reflex t
+    => a
+    -> Dynamic t (Map Integer (Dynamic t (a -> a)))
+    -> Dynamic t a
+  foldResult x xs = foldr ($) x <$> joinDynThroughMap xs
 
   countSelected :: Reflex t => [(Dynamic t Bool, b)] -> Dynamic t Int
   countSelected = fmap getSum . mconcat . fmap (fmap (Sum . boolToNum) . fst)
