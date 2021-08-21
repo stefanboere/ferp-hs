@@ -55,11 +55,8 @@ crudLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
-crudLinks dynUri = safelinkGroup
-  (text "Crud")
-  [ safelink dynUri blogsLink $ text "Blogs"
-  , safelink dynUri (blogLink (BlogId 1)) $ text "Blog 1"
-  ]
+crudLinks dynUri =
+  safelinkGroup (text "Crud") [safelink dynUri blogsLink $ text "Blogs"]
 
 crudHandler
   :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
@@ -166,8 +163,8 @@ blogEdit
      )
   => BlogId
   -> ApiWidget t m (Event t URI)
-blogEdit bid = do
-  el "h1" $ text "Blog 1"
+blogEdit bid@(BlogId blogIdNum) = do
+  el "h1" $ text ("Blog " <> pack (show blogIdNum))
 
   postBuildEv <- getPostBuild
   let getRespEv = getBlog bid <$ postBuildEv
