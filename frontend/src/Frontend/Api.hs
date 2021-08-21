@@ -20,6 +20,7 @@ module Frontend.Api
   , getBlogs
   -- * Utils
   , getListToMapsubset
+  , readLocationHeader
   , orAlert
   , orAlertF
   , requestBtn
@@ -52,11 +53,17 @@ import qualified Reflex.Dom.Prerender          as Prerender
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
-import           Servant.Crud.Headers           ( TotalCount(..) )
+import           Servant.Crud.Headers           ( PathInfo(..)
+                                                , TotalCount(..)
+                                                )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , ClientError(..)
                                                 , FreeClient
+                                                )
+import           URI.ByteString                 ( Scheme(..)
+                                                , URI
+                                                , URIRef(..)
                                                 )
 
 import           Common.Api
@@ -75,6 +82,22 @@ getListToMapsubset resp = MapSubset
     case lookupResponseHeader x :: ResponseHeader "X-Total-Count" TotalCount of
       Servant.API.Header (TotalCount c) -> Just c
       _ -> Nothing
+
+readLocationHeader :: Headers '[LocationHdr] NoContent -> Maybe URI
+readLocationHeader x =
+  case lookupResponseHeader x :: ResponseHeader "Location" PathInfo of
+    Servant.API.Header c -> Just (pathInfoUri c)
+    _                    -> Nothing
+
+ where
+  pathInfoUri :: PathInfo -> URI
+  pathInfoUri (PathInfo p) = URI
+    { uriScheme    = Scheme "http"
+    , uriAuthority = Nothing
+    , uriPath      = "/" <> Text.encodeUtf8 (Text.intercalate "/" p)
+    , uriQuery     = mempty
+    , uriFragment  = Nothing
+    }
 
 orAlertF
   :: ( Prerender js t m
@@ -154,7 +177,10 @@ requestBtn
      )
   => (Dynamic t ActionState -> ApiWidget t m (Event t ()))
   -> (  Event t ()
-     -> Event t (Request (Prerender.Client (ApiWidget t m)) a)
+     -> ApiWidget
+          t
+          m
+          (Event t (Request (Prerender.Client (ApiWidget t m)) a))
      )
   -> Dynamic t Bool
   -> Event t ()
@@ -171,9 +197,11 @@ requestBtn mkBtn req dynDisabled reqEvAuto = do
         ]
 
       reqEvMan <- mkBtn ((disabledState <$> dynDisabled) <> dynState)
-      let reqEv = leftmost [reqEvAuto, reqEvMan]
+      let reqEv' = leftmost [reqEvAuto, reqEvMan]
 
-      resultEv      <- Sub.requestingJs (req reqEv)
+      reqEv         <- req reqEv'
+
+      resultEv      <- Sub.requestingJs reqEv
 
       resultEvDelay <- debounce 2 resultEv
 

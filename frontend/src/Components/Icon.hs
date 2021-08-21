@@ -44,6 +44,8 @@ module Components.Icon
   , viewColumnsIcon
   , undoIcon
   , redoIcon
+  , plusIcon
+  , trashIcon
   , floppyIcon
   , refreshIcon
   , pencilIcon
@@ -433,6 +435,21 @@ redoIcon =
     $ path
         "M24,4.22a1,1,0,0,0-1.41,1.42l5.56,5.49h-13A11,11,0,0,0,10.07,32,1,1,0,0,0,11,30.18a9,9,0,0,1-5-8,9.08,9.08,0,0,1,9.13-9h13l-5.54,5.48A1,1,0,0,0,24,20l8-7.91Z"
 
+plusIcon :: (PostBuild t m, DomBuilder t m) => m ()
+plusIcon =
+  svg
+    $ path
+        "M30,17H19V6a1,1,0,1,0-2,0V17H6a1,1,0,0,0-1,1,.91.91,0,0,0,1,.94H17V30a1,1,0,1,0,2,0V19H30a1,1,0,0,0,1-1A1,1,0,0,0,30,17Z"
+
+trashIcon :: (PostBuild t m, DomBuilder t m) => m ()
+trashIcon = svg $ do
+  path
+    "M27.14,34H8.86A2.93,2.93,0,0,1,6,31V11.23H8V31a.93.93,0,0,0,.86,1H27.14A.93.93,0,0,0,28,31V11.23h2V31A2.93,2.93,0,0,1,27.14,34Z"
+  path "M30.78,9H5A1,1,0,0,1,5,7H30.78a1,1,0,0,1,0,2Z"
+  rect 21 13 2 15
+  rect 13 13 2 15
+  path "M23,5.86H21.1V4H14.9V5.86H13V4a2,2,0,0,1,1.9-2h6.2A2,2,0,0,1,23,4Z"
+
 pencilIcon :: (PostBuild t m, DomBuilder t m) => m ()
 pencilIcon =
   svg
@@ -487,3 +504,4 @@ endsWithIcon = svg $ svgText 6 22 "__c"
 
 containsIcon :: (PostBuild t m, DomBuilder t m) => m ()
 containsIcon = svg $ svgText 6 22 "_b_"
+

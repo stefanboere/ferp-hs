@@ -167,11 +167,12 @@ buttonStyle' =
 
     disabled Clay.& do
       cursor notAllowed
-      backgroundColor disabledBg
       borderColor disabledBg
       fontColor nord0'
       (".spinner" <> ".action-icon") |+ ".icon" ? do
         important $ Clay.display none
+      ".primary" Clay.& do
+        backgroundColor disabledBg
 
  where
   disabledBg     = lighten 0.5 grey0'

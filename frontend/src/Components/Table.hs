@@ -24,6 +24,7 @@ module Components.Table
   , gridProp
   , Property(..)
   , MapSubset(..)
+  , DatagridResult(..)
   ) where
 
 import           Clay                    hiding ( icon )
@@ -39,6 +40,7 @@ import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Monoid                    ( Sum(..) )
+import qualified Data.Set                      as Set
 import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
                                                 , pack
@@ -110,7 +112,7 @@ tableStyle = do
     borderSpacing nil
     border solid (px 1) grey0'
     borderRadiusAll (px 3)
-    marginTop (rem (3 / 2))
+    marginTop (rem (1 / 2))
     width (pct 100)
     overflow scroll
 
@@ -694,6 +696,12 @@ instance Default (MapSubset k a) where
 instance Functor (MapSubset k) where
   fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
+data DatagridResult t r = DatagridResult
+  { _grid_selection :: Dynamic t [r]
+  , _grid_navigate  :: Event t URI
+  , _grid_page      :: Dynamic t Page
+  }
+
 datagridDyn
   :: ( Ord k
      , DomBuilder t m
@@ -704,12 +712,15 @@ datagridDyn
      )
   => (r -> L.Link)
   -> [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
-  -> MapSubset k r
-  -> Event t (MapSubset k (Maybe r))
-  -> m (Event t URI)
-datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
+  -> Event t Bool
+  -> Event t (MapSubset k r)
+  -> m (DatagridResult t r)
+datagridDyn toLnk cols' xSelectAllEv updateRows' = datagrid 2 $ do
   rec
-    selectAllEv <- el "thead" $ do
+    keysSet <- holdDyn Set.empty (Map.keysSet <$> updateRows)
+    let updateRows = attachWith addDeletes (current keysSet) updateRows'
+
+    iSelectAllEv <- el "thead" $ do
       (selectAllEv', _) <- headMultiSelect $ do
         el "th" blank
         Reflex.Dom.list
@@ -728,10 +739,11 @@ datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
               (inputConfig "")
           )
         pure selectAllEv'
+    let selectAllEv = leftmost [iSelectAllEv, xSelectAllEv]
 
     dynR <-
-      elAttr "tbody" ("style" =: "height:20rem")
-      $ listWithKeyShallowDiff (_ms_data initRows) (_ms_data <$> updateRows)
+      elAttr "tbody" ("style" =: "height:calc(100vh - 17.5rem)")
+      $ listWithKeyShallowDiff Map.empty updateRows
       $ \k initR updateR -> do
           rowMultiSelect False selectAllEv $ do
             dynLnk <- holdDyn (toLnk initR) (toLnk <$> updateR)
@@ -748,18 +760,25 @@ datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
 
     let selcountDyn = (countSelected . Map.elems) =<< dynR
 
-    colKeysDyn <- el "tfoot" $ tfooter $ do
+    (colKeysDyn, pageDyn) <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
       colKeysDyn'   <- showHideColumns $ fmap fst colsIndexed
 
-      totalCountDyn <- holdDyn (_ms_totalCount initRows)
-                               (_ms_totalCount <$> updateRows)
-      _ <- paginationInput totalCountDyn
-      pure colKeysDyn'
+      totalCountDyn <- holdDyn Nothing (_ms_totalCount <$> updateRows')
+      pageDyn'      <- paginationInput totalCountDyn
+      pure (colKeysDyn', pageDyn')
 
     let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
 
-  pure $ switchDyn (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
+
+  pure $ DatagridResult
+    { _grid_navigate  = switchDyn
+                          (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
+    , _grid_page      = pageDyn
+    , _grid_selection =
+      fmap snd . Map.elems . Map.filter fst <$> joinDynThroughMap
+        (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
+    }
 
  where
   colsIndexed = Map.fromList $ zip [0 ..] cols'
@@ -776,3 +795,12 @@ datagridDyn toLnk cols' initRows updateRows = datagrid 2 $ do
 
   boolToNum True  = 1
   boolToNum False = 0
+
+  addDeletes :: Ord k => Set k -> MapSubset k a -> Map k (Maybe a)
+  addDeletes oldSet m = diffMapSet oldSet (_ms_data m)
+
+diffMapSet :: (Ord k) => Set k -> Map k v -> Map k (Maybe v)
+diffMapSet olds news = fmap Just news
+  `Map.union` Map.fromSet
+                (const Nothing)
+                (Set.difference olds (Map.keysSet news))

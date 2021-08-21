@@ -15,8 +15,7 @@ module Servant.Query
   ( -- * Generic crud routes
     CrudRoutes(..)
   , defaultCrud
-  )
-where
+  ) where
 
 import           Prelude
 
@@ -87,16 +86,16 @@ throwNotFound = throwError err404
 -- ordering as described by 'OrderBy'
 -- and "offset" and "limit" parameters.
 data CrudRoutes t t2 route = CrudRoutes
-    { _get :: route :- Get_ t
-    , _put :: route :- Put_ t2
-    , _patch :: route :- Patch_ t2
-    , _delete :: route :- Delete_ t2
-    , _post :: route :- Post_ t2
-    , _getList :: route :- GetList Postgres t
-    , _deleteList :: route :- DeleteList_ t2
-    , _postList :: route :- PostList t2
-    }
-  deriving (Generic)
+  { _get        :: route :- Get_ t
+  , _put        :: route :- Put_ t2
+  , _patch      :: route :- Patch_ t2
+  , _delete     :: route :- Delete_ t2
+  , _post       :: route :- Post_ t2
+  , _getList    :: route :- GetList Postgres t
+  , _deleteList :: route :- DeleteList_ t2
+  , _postList   :: route :- PostList t2
+  }
+  deriving Generic
 
 
 defaultCrud
@@ -128,7 +127,8 @@ defaultCrud runDB db coerce coll = CrudRoutes
   , _patch      = \key -> ifInView_ key . runPatch db key
   , _delete     = \key -> ifInView_ key $ runDeleteKey db key
   , _post       = \path x ->
-                    hLocation' path <$> (runDB (runInsertOne db x) >>= insertErr)
+                    hLocation' (removeZero path)
+                      <$> (runDB (runInsertOne db x) >>= insertErr)
   , _getList    = \path view ->
                     hTotalLink' path view
                       <$> runDB (runCountInView view coll)
@@ -143,3 +143,4 @@ defaultCrud runDB db coerce coll = CrudRoutes
     found <- runDB $ runIsInView (coerce key) coll
     unless found throwNotFound
     runDB fn
+  removeZero (PathInfo xs) = PathInfo (init xs)
