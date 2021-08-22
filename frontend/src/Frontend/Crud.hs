@@ -267,6 +267,7 @@ blogTitleProp
   :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
 blogTitleProp = Property
   { _prop_editor      = textInput
+  , _prop_viewer      = dynText
   , _prop_extraConfig = def
   , _prop_label       = "Title"
   , _prop_lens        = blogName
@@ -278,6 +279,7 @@ blogIsExtraProp
   => Prop BlogT (Const ()) t m Bool
 blogIsExtraProp = Property
   { _prop_editor      = checkboxInput ""
+  , _prop_viewer      = Reflex.Dom.display
   , _prop_extraConfig = def
   , _prop_label       = "Extra"
   , _prop_lens        = blogIsExtra
@@ -289,6 +291,7 @@ blogIsPublishedProp
   => Prop BlogT (Const ()) t m Bool
 blogIsPublishedProp = Property
   { _prop_editor      = toggleInput ""
+  , _prop_viewer      = Reflex.Dom.display
   , _prop_extraConfig = def
   , _prop_label       = "Published"
   , _prop_lens        = blogIsPublished
@@ -308,6 +311,7 @@ blogDescriptionProp
   => Prop BlogT (Const AceConfig) t m Text
 blogDescriptionProp = Property
   { _prop_editor      = markdownInput
+  , _prop_viewer      = dynText
   , _prop_extraConfig = cdnAceConfig
   , _prop_label       = "Description"
   , _prop_lens        = blogDescription
@@ -318,6 +322,7 @@ blogDescriptionPropTextbox
   :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
 blogDescriptionPropTextbox = Property
   { _prop_editor      = textInput
+  , _prop_viewer      = dynText
   , _prop_extraConfig = def
   , _prop_label       = "Description"
   , _prop_lens        = blogDescription

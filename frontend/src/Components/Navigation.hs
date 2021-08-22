@@ -216,17 +216,19 @@ ahrefPreventDefault
    . (PostBuild t m, DomBuilder t m)
   => Dynamic t Text
   -> Dynamic t Bool
+  -> Map Text Text
   -> m ()
   -> m (Event t ())
-ahrefPreventDefault ref activ cnt = do
+ahrefPreventDefault ref activ attrs cnt = do
   (e, _) <- elDynAttrEventSpec'
     (addEventSpecFlags (Nothing :: Maybe (DomBuilderSpace m))
                        Click
                        (const preventDefault)
     )
     "a"
-    (   (\ref' activ' ->
-          "href" =: ref' <> if activ' then "class" =: "active" else mempty
+    (   (\ref' activ' -> attrs <> "href" =: ref' <> if activ'
+          then "class" =: "active"
+          else mempty
         )
     <$> ref
     <*> activ
@@ -269,6 +271,7 @@ safelink
 safelink dynLoc lnk cnt = do
   closeEv <- ahrefPreventDefault (constDyn ("/" <> toUrlPiece lnk))
                                  isActiveDyn
+                                 mempty
                                  cnt
   pure (isActiveDyn, lnk <$ closeEv)
  where

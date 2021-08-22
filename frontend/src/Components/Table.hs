@@ -289,8 +289,9 @@ datagrid :: DomBuilder t m => Int -> m a -> m a
 datagrid i' = tableAttr ("class" =: ("datagrid datagrid-" <> pack (show i')))
 
 linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
-linkCell dynHref =
-  elClass "td" "center link" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
+linkCell dynHref = elClass "td" "center link" . elDynAttr
+  "a"
+  ((Map.singleton "tabindex" "-1" <>) . Map.singleton "href" <$> dynHref)
 
 safelinkCell
   :: (DomBuilder t m, PostBuild t m)
@@ -298,8 +299,11 @@ safelinkCell
   -> m ()
   -> m (Event t URI)
 safelinkCell lnk cnt = do
-  clickEv <- elClass "td" "center link"
-    $ ahrefPreventDefault (("/" <>) . toUrlPiece <$> lnk) (constDyn False) cnt
+  clickEv <- elClass "td" "center link" $ ahrefPreventDefault
+    (("/" <>) . toUrlPiece <$> lnk)
+    (constDyn False)
+    (Map.singleton "tabindex" "-1")
+    cnt
   pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
 
 angleDoubleRightIcon :: (DomBuilder t m, PostBuild t m) => m ()
@@ -424,7 +428,10 @@ rowMultiSelect
 rowMultiSelect fullRowSelect setSelectEv cnt = do
   rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> dynSel) $ do
         (r', _) <- elClass' "td" "row-select"
-          $ checkboxInputSimple False (updated dynSel) mempty
+          $ checkboxInputSimple
+              False
+              (updated dynSel)
+              (Map.singleton "tabindex" "-1")
         x' <- cnt
         pure (r', x')
       let rowClickEv = domEvent Click $ if fullRowSelect then e else r
@@ -641,14 +648,16 @@ withFilterCondition editor = inputGroup def $ do
 
 headMultiSelect :: (DomBuilder t m) => m a -> m (Event t Bool, a)
 headMultiSelect theadTr = el "tr" $ do
-  selectAllDyn <- el "th" $ checkboxInputSimple False never mempty
-  x            <- theadTr
+  selectAllDyn <- el "th"
+    $ checkboxInputSimple False never (Map.singleton "tabindex" "-1")
+  x <- theadTr
   pure (updated selectAllDyn, x)
 
 
 
 data Property a c o t m b = Property
   { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
+  , _prop_viewer      :: Dynamic t b -> m ()
   , _prop_extraConfig :: c b
   , _prop_label       :: Text
   , _prop_lens        :: Lens' a b
@@ -708,6 +717,7 @@ gridProp prp = Column
                           .   _inputEl_value
                           <$> respectFocus (_prop_editor prp)
                                            (propInputConfig prp initVal update)
+  , _column_viewer  = \_ d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
   , _column_orderBy = _prop_orderBy prp
   }
 
@@ -732,6 +742,7 @@ data DatagridResult t a r = DatagridResult
 data Column t m a k r = Column
   { _column_label   :: Text
   , _column_editor  :: k -> r -> Event t r -> Compose m (Dynamic t) (r -> r)
+  , _column_viewer  :: k -> Dynamic t r -> m ()
   , _column_orderBy :: SortOrder -> a
   }
 
@@ -792,11 +803,16 @@ datagridDyn cfg = datagrid 2 $ do
             rcols <- Reflex.Dom.list
               dynCols
               (\dynF -> el "td" $ do
+                {-
                 dynEv <-
                   dyn
                     (   (\f -> getCompose (_column_editor f k initR updateR))
                     <$> dynF
                     )
+                -}
+                rDyn <- holdDyn initR updateR
+                dyn_ ((\f -> _column_viewer f k rDyn) <$> dynF)
+                let dynEv = never
                 join <$> holdDyn (constDyn Prelude.id) dynEv
               )
             let r = foldResult initR rcols

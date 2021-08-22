@@ -28,9 +28,12 @@ import           Components.Table
 
 
 toApiPage :: Page -> API.Page
-toApiPage p = API.Page { API.offset = Just (_page_size p * (_page_num p - 1))
-                       , API.limit  = Just (_page_size p)
-                       }
+toApiPage p = API.Page
+  { API.offset = if _page_num p <= 1
+                   then Nothing
+                   else Just (_page_size p * (_page_num p - 1))
+  , API.limit  = Just (_page_size p)
+  }
 
 fromApiPage :: API.Page -> Page
 fromApiPage p =
