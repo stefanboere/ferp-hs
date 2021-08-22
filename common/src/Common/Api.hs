@@ -7,6 +7,7 @@ module Common.Api
   , clientApi
   , Be
   , View
+  , ViewOrderBy
   ) where
 
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -22,12 +23,18 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import           Data.Time                      ( fromGregorian )
+import           Data.Typeable                  ( Typeable )
+import           GHC.Records                    ( HasField(..) )
+import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( View'(..) )
+import           Servant.Crud.OrderBy           ( OrderBy
+                                                , fromHasField
+                                                )
 import           Servant.Crud.QueryObject       ( QObj )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
@@ -118,7 +125,8 @@ blogsHandler vw = do
 
     let selection = _grid_selection gridResult
     let dynPage   = toApiPage <$> _grid_page gridResult
-    let dynView   = View <$> dynPage <*> constDyn mempty <*> constDyn mempty
+    let dynView =
+          View <$> dynPage <*> _grid_columns gridResult <*> constDyn mempty
     replaceLocation (blogsLink <$> updated dynView)
 
   pure
@@ -246,31 +254,46 @@ blogEdit bid@(BlogId blogIdNum) = do
       [() <$ deleteEvSuccess]
   pure (switchDyn lnks)
 
+type Prop a c t m b = Property (a Identity) c (Api.ViewOrderBy Api.Be a) t m b
+
+propOrderBy
+  :: (KnownSymbol s, HasField s r a, c a, Typeable r)
+  => Proxy s
+  -> SortOrder
+  -> OrderBy c r
+propOrderBy p = fromHasField p . toApiDirection
+
 blogTitleProp
-  :: (DomBuilder t m, PostBuild t m) => Property Blog (Const ()) t m Text
-blogTitleProp = Property { _prop_editor      = textInput
-                         , _prop_extraConfig = def
-                         , _prop_label       = "Title"
-                         , _prop_lens        = blogName
-                         }
+  :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
+blogTitleProp = Property
+  { _prop_editor      = textInput
+  , _prop_extraConfig = def
+  , _prop_label       = "Title"
+  , _prop_lens        = blogName
+  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogName")
+  }
 
 blogIsExtraProp
   :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => Property Blog (Const ()) t m Bool
-blogIsExtraProp = Property { _prop_editor      = checkboxInput ""
-                           , _prop_extraConfig = def
-                           , _prop_label       = "Extra"
-                           , _prop_lens        = blogIsExtra
-                           }
+  => Prop BlogT (Const ()) t m Bool
+blogIsExtraProp = Property
+  { _prop_editor      = checkboxInput ""
+  , _prop_extraConfig = def
+  , _prop_label       = "Extra"
+  , _prop_lens        = blogIsExtra
+  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsExtra")
+  }
 
 blogIsPublishedProp
   :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => Property Blog (Const ()) t m Bool
-blogIsPublishedProp = Property { _prop_editor      = toggleInput ""
-                               , _prop_extraConfig = def
-                               , _prop_label       = "Published"
-                               , _prop_lens        = blogIsPublished
-                               }
+  => Prop BlogT (Const ()) t m Bool
+blogIsPublishedProp = Property
+  { _prop_editor      = toggleInput ""
+  , _prop_extraConfig = def
+  , _prop_label       = "Published"
+  , _prop_lens        = blogIsPublished
+  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsPublished")
+  }
 
 blogDescriptionProp
   :: ( DomBuilder t m
@@ -282,18 +305,22 @@ blogDescriptionProp
      , MonadFix m
      , Prerender js t m
      )
-  => Property Blog (Const AceConfig) t m Text
-blogDescriptionProp = Property { _prop_editor      = markdownInput
-                               , _prop_extraConfig = cdnAceConfig
-                               , _prop_label       = "Description"
-                               , _prop_lens        = blogDescription
-                               }
+  => Prop BlogT (Const AceConfig) t m Text
+blogDescriptionProp = Property
+  { _prop_editor      = markdownInput
+  , _prop_extraConfig = cdnAceConfig
+  , _prop_label       = "Description"
+  , _prop_lens        = blogDescription
+  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
+  }
 
 blogDescriptionPropTextbox
-  :: (DomBuilder t m, PostBuild t m) => Property Blog (Const ()) t m Text
-blogDescriptionPropTextbox = Property { _prop_editor      = textInput
-                                      , _prop_extraConfig = def
-                                      , _prop_label       = "Description"
-                                      , _prop_lens        = blogDescription
-                                      }
+  :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
+blogDescriptionPropTextbox = Property
+  { _prop_editor      = textInput
+  , _prop_extraConfig = def
+  , _prop_label       = "Description"
+  , _prop_lens        = blogDescription
+  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
+  }
 

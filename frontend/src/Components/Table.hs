@@ -29,6 +29,7 @@ module Components.Table
   , Page(..)
   , pageSize
   , PageSize
+  , SortOrder(..)
   ) where
 
 import           Clay                    hiding ( icon )
@@ -42,7 +43,9 @@ import           Data.Default
 import           Data.Functor.Compose
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( fromMaybe )
+import           Data.Maybe                     ( catMaybes
+                                                , fromMaybe
+                                                )
 import           Data.Monoid                    ( Sum(..) )
 import qualified Data.Set                      as Set
 import           Data.Set                       ( Set )
@@ -644,11 +647,12 @@ headMultiSelect theadTr = el "tr" $ do
 
 
 
-data Property a c t m b = Property
+data Property a c o t m b = Property
   { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
   , _prop_extraConfig :: c b
   , _prop_label       :: Text
   , _prop_lens        :: Lens' a b
+  , _prop_orderBy     :: SortOrder -> o
   }
 
 -- | Converts an editor into an editor which accounts for focus
@@ -672,20 +676,20 @@ respectFocus editor cfg = do
   pure r
 
 formProp
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => Property a c t m b
+  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
+  => Property a c o t m b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
 formProp prp initVal update =
   Compose $ fmap (set (_prop_lens prp)) . _inputEl_value <$> labeled
     (_prop_label prp)
-    (_prop_editor prp)
+    (respectFocus (_prop_editor prp))
     (propInputConfig prp initVal update)
 
 propInputConfig
   :: (DomBuilder t m)
-  => Property a c t m b
+  => Property a c o t m b
   -> a
   -> Event t a
   -> InputConfig' c t m b
@@ -695,16 +699,17 @@ propInputConfig prp initVal update =
     }
 
 gridProp
-  :: (DomBuilder t m, MonadFix m)
-  => Property a c t m b
-  -> (Text, k -> a -> Event t a -> Compose m (Dynamic t) (a -> a))
-gridProp prp =
-  ( _prop_label prp
-  , \_ initVal update ->
-    Compose $ fmap (set (_prop_lens prp)) . _inputEl_value <$> respectFocus
-      (_prop_editor prp)
-      (propInputConfig prp initVal update)
-  )
+  :: (DomBuilder t m, MonadFix m) => Property a c o t m b -> Column t m o k a
+gridProp prp = Column
+  { _column_label   = _prop_label prp
+  , _column_editor  = \_ initVal update ->
+                        Compose
+                          $   fmap (set (_prop_lens prp))
+                          .   _inputEl_value
+                          <$> respectFocus (_prop_editor prp)
+                                           (propInputConfig prp initVal update)
+  , _column_orderBy = _prop_orderBy prp
+  }
 
 data MapSubset k a = MapSubset
   { _ms_data       :: Map k a
@@ -717,15 +722,21 @@ instance Default (MapSubset k a) where
 instance Functor (MapSubset k) where
   fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
-data DatagridResult t r = DatagridResult
+data DatagridResult t a r = DatagridResult
   { _grid_selection :: Dynamic t [r]
   , _grid_navigate  :: Event t URI
   , _grid_page      :: Dynamic t Page
+  , _grid_columns   :: Dynamic t [a]
   }
 
-data DatagridConfig t m k r = DatagridConfig
-  { _gridConfig_columns
-      :: [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
+data Column t m a k r = Column
+  { _column_label   :: Text
+  , _column_editor  :: k -> r -> Event t r -> Compose m (Dynamic t) (r -> r)
+  , _column_orderBy :: SortOrder -> a
+  }
+
+data DatagridConfig t m a k r = DatagridConfig
+  { _gridConfig_columns     :: [Column t m a k r]
   , _gridConfig_selectAll   :: Event t Bool
   , _gridConfig_setValue    :: Event t (MapSubset k r)
   , _gridConfig_toLink      :: r -> L.Link
@@ -741,22 +752,22 @@ datagridDyn
      , MonadFix m
      , MonadIO m
      )
-  => DatagridConfig t m k r
-  -> m (DatagridResult t r)
+  => DatagridConfig t m a k r
+  -> m (DatagridResult t a r)
 datagridDyn cfg = datagrid 2 $ do
   rec
     keysSet <- holdDyn Set.empty (Map.keysSet <$> updateRows)
     let updateRows =
           attachWith addDeletes (current keysSet) (_gridConfig_setValue cfg)
 
-    iSelectAllEv <- el "thead" $ do
-      (selectAllEv', _) <- headMultiSelect $ do
+    (iSelectAllEv, colheads) <- el "thead" $ do
+      (selectAllEv', colheads') <- headMultiSelect $ do
         el "th" blank
         Reflex.Dom.list
           dynCols
           (\c -> columnHead $ do
-            _ <- sortlabel (fst <$> c)
-            filterEl BottomRight (constDyn True) blank
+            dynSort <- sortlabel (_column_label <$> c)
+            pure (fmap . _column_orderBy <$> c <*> dynSort)
           )
       el "tr" $ do
         el "td" blank
@@ -767,7 +778,7 @@ datagridDyn cfg = datagrid 2 $ do
             el "td" $ withFilterCondition $ Components.Input.Basic.textInput
               (inputConfig "")
           )
-        pure selectAllEv'
+        pure (selectAllEv', colheads')
     let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
 
     dynR <-
@@ -781,8 +792,11 @@ datagridDyn cfg = datagrid 2 $ do
             rcols <- Reflex.Dom.list
               dynCols
               (\dynF -> el "td" $ do
-                dynEv <- dyn
-                  ((\(_, f) -> getCompose (f k initR updateR)) <$> dynF)
+                dynEv <-
+                  dyn
+                    (   (\f -> getCompose (_column_editor f k initR updateR))
+                    <$> dynF
+                    )
                 join <$> holdDyn (constDyn Prelude.id) dynEv
               )
             let r = foldResult initR rcols
@@ -792,7 +806,7 @@ datagridDyn cfg = datagrid 2 $ do
 
     (colKeysDyn, pageDyn) <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
-      colKeysDyn'   <- showHideColumns $ fmap fst colsIndexed
+      colKeysDyn'   <- showHideColumns $ fmap _column_label colsIndexed
 
       totalCountDyn <- holdDyn Nothing
                                (_ms_totalCount <$> _gridConfig_setValue cfg)
@@ -811,6 +825,7 @@ datagridDyn cfg = datagrid 2 $ do
     , _grid_selection =
       fmap snd . Map.elems . Map.filter fst <$> joinDynThroughMap
         (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
+    , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap colheads
     }
 
  where

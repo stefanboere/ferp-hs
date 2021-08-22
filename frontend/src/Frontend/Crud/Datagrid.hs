@@ -4,6 +4,8 @@ module Frontend.Crud.Datagrid
   ( toApiPage
   , fromApiPage
   , replaceLocation
+  , toApiDirection
+  , fromApiDirection
   ) where
 
 import           Data.Maybe                     ( fromMaybe )
@@ -15,6 +17,7 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 )
 import qualified Servant.Crud.API              as API
                                                 ( Page(..) )
+import qualified Servant.Crud.OrderBy          as API
 import           Servant.Links                  ( Link
                                                 , URI(..)
                                                 , linkURI
@@ -36,8 +39,6 @@ fromApiPage p =
            , _page_size = pagesize
            }
 
--- x :: (Symbol s, HasField s r a) => Descending -> OrderBy c r
-
 replaceLocation
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
   => Event t Link
@@ -54,3 +55,10 @@ replaceLocation lEv = prerender_ (pure ()) $ do
     , _historyStateUpdate_uri   = Just uri { uriPath = "/" <> uriPath uri }
     }
 
+fromApiDirection :: API.Direction -> SortOrder
+fromApiDirection API.Ascending  = Ascending
+fromApiDirection API.Descending = Descending
+
+toApiDirection :: SortOrder -> API.Direction
+toApiDirection Ascending  = API.Ascending
+toApiDirection Descending = API.Descending

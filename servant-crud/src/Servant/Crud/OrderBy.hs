@@ -8,6 +8,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -27,6 +28,8 @@ module Servant.Crud.OrderBy
   , orderByDirection
   , orderBySelector
   , fromSelector
+  , fromHasField
+  , prependHasField
   , extract
   , Direction(..)
   , Path
@@ -48,16 +51,22 @@ import           Prelude
 import           Data.Default                   ( Default(..) )
 import           Data.Functor.Contravariant     ( Contravariant(..) )
 import           Data.Kind                      ( Constraint )
+import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
+import           Data.Typeable                  ( Typeable )
 import           GHC.Generics
-import           GHC.TypeLits                   ( TypeError
-                                                , ErrorMessage(..)
+import           GHC.Records                    ( HasField(..) )
+import           GHC.TypeLits                   ( ErrorMessage(..)
+                                                , KnownSymbol
+                                                , TypeError
+                                                , symbolVal
                                                 )
 import           Servant.API                    ( FromHttpApiData(..)
                                                 , ToHttpApiData(..)
                                                 )
 
+import           Servant.Crud.Deriving          ( queryOptions )
 import           Servant.Crud.QueryObject       ( Options(..)
                                                 , defaultOptions
                                                 )
@@ -90,6 +99,30 @@ extract f r (OrderBy _ dir (HSelector sel)) = f dir (sel r)
 -- | Construct a OrderBy instance from the result of 'selectors' and a direction
 fromSelector :: (Path, HSelector c r) -> Direction -> OrderBy c r
 fromSelector (path, sel) ord = OrderBy path ord sel
+
+-- | Construct a OrderBy instance using HasField and the default @queryOptions@
+fromHasField
+  :: forall s r a c
+   . (KnownSymbol s, HasField s r a, c a, Typeable r)
+  => Proxy s
+  -> Direction
+  -> OrderBy c r
+fromHasField p = fromSelector
+  ( addSPrefix' (queryOptions (Proxy :: Proxy r)) (symbolVal p) mempty
+  , HSelector $ getField @s
+  )
+
+-- | Compose two steps
+prependHasField
+  :: forall s r a c
+   . (KnownSymbol s, HasField s r a, Typeable r)
+  => Proxy s
+  -> OrderBy c a
+  -> OrderBy c r
+prependHasField p x@(OrderBy _ _ (HSelector f)) =
+  x { _orderByPath = addSPrefix' (queryOptions (Proxy :: Proxy r)) (symbolVal p) (_orderByPath x)
+    , orderBySelector = HSelector (f . getField @s)
+    }
 
 -- | Create a string for debugging purposes
 dump :: forall r . r -> OrderBy Show r -> String
@@ -161,7 +194,10 @@ addCPrefix c1 opts = addPrefix (constructorTagModifier opts (conName c1))
 
 -- | Drop the selector name
 addSPrefix :: Selector s => S1 s f () -> Options -> Path -> Path
-addSPrefix s1 opts = addPrefix (fieldLabelModifier opts (selName s1))
+addSPrefix s1 opts = addSPrefix' opts (selName s1)
+
+addSPrefix' :: Options -> String -> Path -> Path
+addSPrefix' opts name = addPrefix (fieldLabelModifier opts name)
 
 mapBoth :: (a -> a1) -> (b -> b1) -> (a, b) -> (a1, b1)
 mapBoth f g (x, y) = (f x, g y)
