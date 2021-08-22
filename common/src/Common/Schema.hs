@@ -58,9 +58,9 @@ type Blog = BlogT Identity
 type BlogPatch = BlogT MaybeLast
 type BlogId = PrimaryKey BlogT Identity
 
-{-# HLINT ignore "Redundant bracket" #-}
+{- HLINT ignore "Redundant bracket" -}
 $(instances ''BlogT)
-{-# HLINT ignore "Redundant bracket" #-}
+{- HLINT ignore "Redundant bracket" -}
 $(instancesId ''BlogT ''Int64)
 
 instance ToName BlogT where

@@ -6,6 +6,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -128,6 +129,8 @@ import           Servant.Links
 import           Servant.Client.Core            ( HasClient(..)
                                                 , appendToQueryString
                                                 )
+import Unsafe.TrueName
+import Language.Haskell.TH.Syntax
 
 -- | This type replaces 'QueryParam' or 'QueryFlag' or 'QueryParams'
 --
@@ -553,6 +556,14 @@ instance (HasLink api, ToQueryText v, KnownSymbol sym)
     toParam (x, Nothing) = FlagParam (Text.unpack x)
     toParam (x, Just y ) = SingleParam (Text.unpack x) y
 
-    -- FIXME Fix this when addQueryParam is exported from servant
     addQueryParam :: Param -> Link -> Link
-    addQueryParam _ = id
+    addQueryParam qp lk = mkLink (segments lk) (qp : linkQueryParams lk)
+
+    -- I just wanted to use addQueryParam, even though it is unexported
+    -- Here is how, see the package true-name
+    -- If addQueryParam is exported, then this can be removed, including
+    -- the template-haskell and true-name packages
+    mkLink = $(fmap ConE $ summon "Link" =<< summon "Link" 'linkURI)
+    segments = $(fmap VarE $ summon "_segments" =<< summon "Link" 'linkURI)
+
+

@@ -24,7 +24,11 @@ module Components.Table
   , gridProp
   , Property(..)
   , MapSubset(..)
+  , DatagridConfig(..)
   , DatagridResult(..)
+  , Page(..)
+  , pageSize
+  , PageSize
   ) where
 
 import           Clay                    hiding ( icon )
@@ -156,6 +160,14 @@ tableStyle = do
   td ? do
     ".right" Clay.& textAlign end
     ".center" Clay.& textAlign center
+    ".link" Clay.& do
+      paddingAll nil
+      important $ width (rem (5 / 2))
+      a ? do
+        width (rem (3 / 2))
+        display inlineBlock
+        paddingAll (rem (1 / 2))
+
     paddingAll (rem (1 / 2))
     textAlign start
     ".input" ? do
@@ -275,7 +287,7 @@ datagrid i' = tableAttr ("class" =: ("datagrid datagrid-" <> pack (show i')))
 
 linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
 linkCell dynHref =
-  elClass "td" "center" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
+  elClass "td" "center link" . elDynAttr "a" (Map.singleton "href" <$> dynHref)
 
 safelinkCell
   :: (DomBuilder t m, PostBuild t m)
@@ -283,7 +295,7 @@ safelinkCell
   -> m ()
   -> m (Event t URI)
 safelinkCell lnk cnt = do
-  clickEv <- elClass "td" "center"
+  clickEv <- elClass "td" "center link"
     $ ahrefPreventDefault (("/" <>) . toUrlPiece <$> lnk) (constDyn False) cnt
   pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
 
@@ -379,6 +391,9 @@ data Page = Page
   }
   deriving (Eq, Show)
 
+instance Default Page where
+  def = Page 1 (pageSize def)
+
 data PageSize = Page10 | Page20 | Page50 | Page100 deriving (Eq, Show, Enum, Bounded, Ord)
 
 instance Default PageSize where
@@ -443,58 +458,64 @@ selectedCountInfo dynCount = elDynClass "div" (mkCls <$> dynCount)
 paginationInput
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => Dynamic t (Maybe Integer)
+  -> Page
+  -> Event t Page
   -> m (Dynamic t Page)
-paginationInput totalResults = elClass "div" "pagination" $ do
-  el "span" $ text "Results per page"
-  dynLim <- _inputEl_value
-    <$> selectInput (inputConfig' (OpElem printPageSize) (Just Page10))
-  let pageSizeDyn = pageSize' <$> dynLim
-  let maxPageDyn  = maxPage <$> totalResults <*> pageSizeDyn
-  rec
-    el "span" $ dynText
-      (resultSummary <$> pageSizeDyn <*> pageNumWithDef <*> totalResults)
-    let btnPrevStateDyn = btnPrevState <$> pageNumWithDef
-    prevAllEv <- btn
-      def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_state    = btnPrevStateDyn
-          }
-      (icon def { _iconConfig_direction = constDyn DirDown } stepForwardIcon)
-    prevEv <- btn
-      def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_state    = btnPrevStateDyn
-          }
-      (icon def { _iconConfig_direction = constDyn DirLeft } angleIcon)
-    pageNum <- integralInput (inputConfig'
-                               (NumberRange
-                                 { _numberRange_minValue  = constDyn (Just 1)
-                                 , _numberRange_maxValue  = maxPageDyn
-                                 , _numberRange_precision = Just 0
-                                 }
+paginationInput totalResults initPage updatePage =
+  elClass "div" "pagination" $ do
+    el "span" $ text "Results per page"
+    dynLim <- _inputEl_value
+      <$> selectInput (inputConfig' (OpElem printPageSize) (Just Page10))
+    pageSizeDyn <- holdDyn (_page_size initPage)
+      $ leftmost [updated (pageSize' <$> dynLim), _page_size <$> updatePage]
+    let maxPageDyn = maxPage <$> totalResults <*> pageSizeDyn
+    rec
+      el "span" $ dynText
+        (resultSummary <$> pageSizeDyn <*> pageNumWithDef <*> totalResults)
+      let btnPrevStateDyn = btnPrevState <$> pageNumWithDef
+      prevAllEv <- btn
+        def { _buttonConfig_priority = ButtonTertiary
+            , _buttonConfig_state    = btnPrevStateDyn
+            }
+        (icon def { _iconConfig_direction = constDyn DirDown } stepForwardIcon)
+      prevEv <- btn
+        def { _buttonConfig_priority = ButtonTertiary
+            , _buttonConfig_state    = btnPrevStateDyn
+            }
+        (icon def { _iconConfig_direction = constDyn DirLeft } angleIcon)
+      pageNum <- integralInput (inputConfig'
+                                 (NumberRange
+                                   { _numberRange_minValue  = constDyn (Just 1)
+                                   , _numberRange_maxValue  = maxPageDyn
+                                   , _numberRange_precision = Just 0
+                                   }
+                                 )
+                                 (_page_num initPage)
                                )
-                               (1 :: Integer)
-                             )
-      { _inputConfig_setValue = leftmost
-        [ 1 <$ prevAllEv
-        , decrement <$> tagPromptlyDyn pageNumWithDef prevEv
-        , (+ 1) <$> tagPromptlyDyn pageNumWithDef nextEv
-        , fmapMaybe Prelude.id $ tagPromptlyDyn maxPageDyn nextAllEv
-        ]
-      }
-    let pageNumWithDef = fromMaybe 1 <$> _inputEl_value pageNum
-    dynText $ maybe "" (("/ " <>) . pack . show) <$> maxPageDyn
-    let btnNextStateDyn = btnNextState <$> pageNumWithDef <*> maxPageDyn
-    nextEv <- btn
-      def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_state    = btnNextStateDyn
-          }
-      (icon def { _iconConfig_direction = constDyn DirRight } angleIcon)
-    let btnNextAllStateDyn = btnNextAllState <$> pageNumWithDef <*> maxPageDyn
-    nextAllEv <- btn
-      def { _buttonConfig_priority = ButtonTertiary
-          , _buttonConfig_state    = btnNextAllStateDyn
-          }
-      (icon def { _iconConfig_direction = constDyn DirUp } stepForwardIcon)
-  pure $ Page <$> pageNumWithDef <*> pageSizeDyn
+        { _inputConfig_setValue = leftmost
+          [ 1 <$ prevAllEv
+          , decrement <$> tag (current pageNumWithDef) prevEv
+          , (+ 1) <$> tag (current pageNumWithDef) nextEv
+          , fmapMaybe Prelude.id $ tag (current maxPageDyn) nextAllEv
+          , _page_num <$> updatePage
+          ]
+        }
+      let pageNumWithDef = fromMaybe 1 <$> _inputEl_value pageNum
+      dynText $ maybe "" (("/ " <>) . pack . show) <$> maxPageDyn
+      let btnNextStateDyn = btnNextState <$> pageNumWithDef <*> maxPageDyn
+      nextEv <- btn
+        def { _buttonConfig_priority = ButtonTertiary
+            , _buttonConfig_state    = btnNextStateDyn
+            }
+        (icon def { _iconConfig_direction = constDyn DirRight } angleIcon)
+      let btnNextAllStateDyn =
+            btnNextAllState <$> pageNumWithDef <*> maxPageDyn
+      nextAllEv <- btn
+        def { _buttonConfig_priority = ButtonTertiary
+            , _buttonConfig_state    = btnNextAllStateDyn
+            }
+        (icon def { _iconConfig_direction = constDyn DirUp } stepForwardIcon)
+    pure $ Page <$> pageNumWithDef <*> pageSizeDyn
 
  where
   btnPrevState x | x <= 1    = ActionDisabled
@@ -702,6 +723,16 @@ data DatagridResult t r = DatagridResult
   , _grid_page      :: Dynamic t Page
   }
 
+data DatagridConfig t m k r = DatagridConfig
+  { _gridConfig_columns
+      :: [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
+  , _gridConfig_selectAll   :: Event t Bool
+  , _gridConfig_setValue    :: Event t (MapSubset k r)
+  , _gridConfig_toLink      :: r -> L.Link
+  , _gridConfig_initialPage :: Page
+  , _gridConfig_setPage     :: Event t Page
+  }
+
 datagridDyn
   :: ( Ord k
      , DomBuilder t m
@@ -710,15 +741,13 @@ datagridDyn
      , MonadFix m
      , MonadIO m
      )
-  => (r -> L.Link)
-  -> [(Text, k -> r -> Event t r -> Compose m (Dynamic t) (r -> r))]
-  -> Event t Bool
-  -> Event t (MapSubset k r)
+  => DatagridConfig t m k r
   -> m (DatagridResult t r)
-datagridDyn toLnk cols' xSelectAllEv updateRows' = datagrid 2 $ do
+datagridDyn cfg = datagrid 2 $ do
   rec
     keysSet <- holdDyn Set.empty (Map.keysSet <$> updateRows)
-    let updateRows = attachWith addDeletes (current keysSet) updateRows'
+    let updateRows =
+          attachWith addDeletes (current keysSet) (_gridConfig_setValue cfg)
 
     iSelectAllEv <- el "thead" $ do
       (selectAllEv', _) <- headMultiSelect $ do
@@ -739,16 +768,17 @@ datagridDyn toLnk cols' xSelectAllEv updateRows' = datagrid 2 $ do
               (inputConfig "")
           )
         pure selectAllEv'
-    let selectAllEv = leftmost [iSelectAllEv, xSelectAllEv]
+    let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
 
     dynR <-
       elAttr "tbody" ("style" =: "height:calc(100vh - 17.5rem)")
       $ listWithKeyShallowDiff Map.empty updateRows
       $ \k initR updateR -> do
           rowMultiSelect False selectAllEv $ do
-            dynLnk <- holdDyn (toLnk initR) (toLnk <$> updateR)
-            lnkEv  <- safelinkCell dynLnk angleDoubleRightIcon
-            rcols  <- Reflex.Dom.list
+            dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
+                              (_gridConfig_toLink cfg <$> updateR)
+            lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
+            rcols <- Reflex.Dom.list
               dynCols
               (\dynF -> el "td" $ do
                 dynEv <- dyn
@@ -764,8 +794,11 @@ datagridDyn toLnk cols' xSelectAllEv updateRows' = datagrid 2 $ do
       selectedCountInfo selcountDyn
       colKeysDyn'   <- showHideColumns $ fmap fst colsIndexed
 
-      totalCountDyn <- holdDyn Nothing (_ms_totalCount <$> updateRows')
-      pageDyn'      <- paginationInput totalCountDyn
+      totalCountDyn <- holdDyn Nothing
+                               (_ms_totalCount <$> _gridConfig_setValue cfg)
+      pageDyn' <- paginationInput totalCountDyn
+                                  (_gridConfig_initialPage cfg)
+                                  (_gridConfig_setPage cfg)
       pure (colKeysDyn', pageDyn')
 
     let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
@@ -781,7 +814,7 @@ datagridDyn toLnk cols' xSelectAllEv updateRows' = datagrid 2 $ do
     }
 
  where
-  colsIndexed = Map.fromList $ zip [0 ..] cols'
+  colsIndexed = Map.fromList $ zip [0 ..] $ _gridConfig_columns cfg
 
   foldResult
     :: Reflex t

@@ -711,10 +711,49 @@ labeledDyn lbl editor cfg = do
   editor cfg { _inputConfig_id = Just idStr }
 
 textInput
-  :: (PostBuild t m, DomBuilder t m, MonadFix m)
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
   => InputConfig t m Text
   -> m (DomInputEl t m Text)
-textInput = textInputWithIco (pure (never, never))
+textInput cfg = elClass "div" "input" $ do
+  n <- elClass "div" "flex-row" $ do
+    n' <- textInputEl cfg
+
+    statusMessageIcon (_inputConfig_status cfg)
+    pure n'
+  statusMessageElement (_inputConfig_status cfg)
+
+  pure n
+
+textInputEl
+  :: forall t m
+   . (PostBuild t m, DomBuilder t m)
+  => InputConfig t m Text
+  -> m (DomInputEl t m Text)
+textInputEl cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+  n         <-
+    inputElement
+    $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
+    &  inputElementConfig_initialValue
+    .~ _inputConfig_initialValue cfg
+    &  inputElementConfig_setValue
+    .~ _inputConfig_setValue cfg
+    &  inputElementConfig_elementConfig
+    .  elementConfig_initialAttributes
+    .~ _inputConfig_attributes cfg
+    <> idAttr (_inputConfig_id cfg)
+    &  inputElementConfig_elementConfig
+    .  elementConfig_modifyAttributes
+    .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
+    &  inputElementConfig_elementConfig
+    .  elementConfig_eventSpec
+    %~ _inputConfig_eventSpec cfg
+  pure $ InputEl { _inputEl_value    = _inputElement_value n
+                 , _inputEl_hasFocus = _inputElement_hasFocus n
+                 , _inputEl_elements = constDyn [_inputElement_element n]
+                 }
+
 
 textInputWithIco
   :: (PostBuild t m, DomBuilder t m, MonadFix m)
@@ -741,7 +780,6 @@ textInputWithIco''
   -> InputConfig t m Text
   -> m (DomInputEl t m Text, b, a)
 textInputWithIco'' cls before' after' cfg = do
-  modAttrEv <- statusModAttrEv' cfg
 
   let dynStatusCls = mkCls <$> _inputConfig_status cfg
 
@@ -751,25 +789,13 @@ textInputWithIco'' cls before' after' cfg = do
         elDynClass "div" (joinCls ["flex-row", cls] <$> dynStatusCls) $ do
           bf'' <- before'
           rec
-            n'' <-
-              inputElement
-              $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
-              &  inputElementConfig_initialValue
-              .~ _inputConfig_initialValue cfg
-              &  inputElementConfig_setValue
-              .~ leftmost [setValEv, _inputConfig_setValue cfg]
-              &  inputElementConfig_elementConfig
-              .  elementConfig_initialAttributes
-              .~ _inputConfig_attributes cfg
-              <> idAttr (_inputConfig_id cfg)
-              &  inputElementConfig_elementConfig
-              .  elementConfig_modifyAttributes
-              .~ mergeWith
-                   (<>)
-                   [modAttrEv, _inputConfig_modifyAttributes cfg, attrEv]
-              &  inputElementConfig_elementConfig
-              .  elementConfig_eventSpec
-              %~ _inputConfig_eventSpec cfg
+            n'' <- textInputEl cfg
+              { _inputConfig_setValue         = leftmost
+                                                  [setValEv, _inputConfig_setValue cfg]
+              , _inputConfig_modifyAttributes = mergeWith
+                (<>)
+                [_inputConfig_modifyAttributes cfg, attrEv]
+              }
 
             (af'', (attrEv, setValEv)) <- after'
           pure (n'', bf'', af'')
@@ -779,14 +805,7 @@ textInputWithIco'' cls before' after' cfg = do
 
     statusMessageElement (_inputConfig_status cfg)
 
-    pure
-      ( InputEl { _inputEl_value    = _inputElement_value n
-                , _inputEl_hasFocus = _inputElement_hasFocus n
-                , _inputEl_elements = constDyn [_inputElement_element n]
-                }
-      , bf
-      , af
-      )
+    pure (n, bf, af)
 
  where
   joinCls xs x = Text.unwords $ Prelude.filter (not . Text.null) (x : xs)
@@ -834,33 +853,7 @@ numberRangeInput
   -> NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
 numberRangeInput isReg cfg = do
-  let
-    initAttrs = Map.fromList $ mapMaybe
-      (\(x, y) -> (x, ) <$> y)
-      [ ("type" , if isReg then Just "number" else Just "range")
-      , ("style", Just "text-align:right")
-      , ( "onClick"
-        , if _inputConfig_initialValue cfg == 0 && isReg
-          then Just "this.select()"
-          else Nothing
-        )
-      , ("step", mkStep <$> _numberRange_precision nc)
-      ]
-
-    styleChange (b_min, b_max) (Just x) _ _
-      | maybe False (x >) b_max
-      = InputError $ "Exceeds the maximum " <> prnt (fromJust b_max)
-      | maybe False (x <) b_min
-      = InputError $ "Is less than the minimum " <> prnt (fromJust b_min)
-      | otherwise
-      = def
-    styleChange _ Nothing hasFocus t
-      | Text.null t || hasFocus = def
-      | -- Don't update the value when still typing
-        otherwise               = InputError "Not a valid number"
-
   (minMaxEv, minMaxDyn) <- getMinMaxEv prnt nc
-
   rec
     n <- textInput cfg
       { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
@@ -876,23 +869,47 @@ numberRangeInput isReg cfg = do
                                           ]
       , _inputConfig_extra            = Const ()
       }
-    let result0       = fmap (readMaybe . unpack) n
-        result        = _inputEl_value result0
-        selectAttrEv  = if isReg then mkOnClick <$> updated result else never
-        zeroIfEmptyEv = attachPromptlyDynWithMaybe
-          emptyNoFocus
-          ((,) <$> _inputEl_value n <*> result)
-          (updated (_inputEl_hasFocus n))
-        modAttrEv = updated
-          (   styleChange
-          <$> minMaxDyn
-          <*> result
-          <*> _inputEl_hasFocus n
-          <*> _inputEl_value n
-          )
+    let
+      result0       = fmap (readMaybe . unpack) n
+      result        = _inputEl_value result0
+      selectAttrEv  = if isReg then mkOnClick <$> updated result else never
+      lostFocusEv   = ffilter Prelude.not (updated (_inputEl_hasFocus n))
+      zeroIfEmptyEv = attachWithMaybe emptyNoFocus (current result) lostFocusEv
+      modAttrEv     = updated
+        (   styleChange
+        <$> minMaxDyn
+        <*> result
+        <*> _inputEl_hasFocus n
+        <*> _inputEl_value n
+        )
     statusDyn <- holdDyn def modAttrEv
+
   return result0
  where
+  initAttrs = Map.fromList $ mapMaybe
+    (\(x, y) -> (x, ) <$> y)
+    [ ("type" , if isReg then Just "number" else Just "range")
+    , ("style", Just "text-align:right")
+    , ( "onClick"
+      , if _inputConfig_initialValue cfg == 0 && isReg
+        then Just "this.select()"
+        else Nothing
+      )
+    , ("step", mkStep <$> _numberRange_precision nc)
+    ]
+
+  styleChange (b_min, b_max) (Just x) _ _
+    | maybe False (x >) b_max
+    = InputError $ "Exceeds the maximum " <> prnt (fromJust b_max)
+    | maybe False (x <) b_min
+    = InputError $ "Is less than the minimum " <> prnt (fromJust b_min)
+    | otherwise
+    = def
+  styleChange _ Nothing hasFocus t
+    | Text.null t || hasFocus = def
+    | -- Don't update the value when still typing
+      otherwise               = InputError "Not a valid number"
+
   nc = _inputConfig_extra cfg
 
   mkOnClick x = "onClick"
@@ -901,18 +918,21 @@ numberRangeInput isReg cfg = do
   mkStep :: Int -> Text
   mkStep x = prnt (10 ^^ (-x))
   prnt = showFloat (_numberRange_precision nc)
-  emptyNoFocus (x, r) f | Text.null x && not f = Just (prnt 0)
-                        | not f                = prnt <$> r
-                        | otherwise            = Nothing
+  emptyNoFocus Nothing _ = Just (prnt 0)
+  emptyNoFocus _       _ = Nothing
 
 showFloat :: RealFloat a => Maybe Int -> a -> Text
 showFloat Nothing x = pack (show (fromRational $ toRational x :: Double))
 showFloat (Just precision) x
   | precision > 0
-  = let r = pack (show (Prelude.round (x * (10 ^^ precision)) :: Integer))
-        (r0, r1) = Text.splitAt (Text.length r - 3) r
-        r0' = if Text.null r0 || r0 == "-" then r0 <> "0" else r0
-    in  r0' <> "." <> r1
+  = let magn  = 10 ^ precision
+        r     = Prelude.round (abs x * 10 ^^ precision) :: Int
+        r0    = r `Prelude.div` magn
+        r1    = r `mod` magn
+        r0Txt = pack (show r0)
+        r1Txt = Text.justifyRight precision '0' $ pack (show r1)
+        sgn   = if x >= 0 then "" else "-"
+    in  sgn <> r0Txt <> "." <> r1Txt
   | otherwise
   = pack (show (Prelude.round x :: Integer))
 

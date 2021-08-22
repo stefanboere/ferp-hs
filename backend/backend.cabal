@@ -72,6 +72,7 @@ library
     , servant
     , servant-ac-server
     , servant-auth-server
+    , servant-crud-server
     , servant-rawm
     , servant-server
     , text

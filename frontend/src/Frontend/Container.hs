@@ -351,7 +351,7 @@ containerTable = do
           , (3       , "Creation date")
           , (4       , "Tickets")
           ]
-        paginationInput (constDyn (Just 51))
+        paginationInput (constDyn (Just 51)) def never
       pure ()
 
 

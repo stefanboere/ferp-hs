@@ -27,27 +27,33 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , textInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
+import           Servant.Crud.API               ( View'(..) )
+import           Servant.Crud.QueryObject       ( QObj )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
 import           URI.ByteString                 ( URI )
 
+import qualified Common.Api                    as Api
 import           Common.Auth
 import           Common.Schema
 import           Components
 import           Frontend.Api
+import           Frontend.Crud.Datagrid
+import           Frontend.Crud.Utils
 import           Reflex.Dom.Ace                 ( AceConfig )
 
 
 -- brittany-disable-next-binding
-type CrudApi = Auth Everyone :> "blogs" :> "all" :> View
+type CrudApi = Auth Everyone :> "blogs" :> "all" :> QObj (Api.View Api.Be BlogT) :> View
  :<|> Auth Everyone :> "blogs" :> "new" :> View
  :<|> Auth Everyone :> "blogs" :> Capture "key" BlogId :> View
 
 crudApi :: Proxy CrudApi
 crudApi = Proxy
 
-blogsLink, newBlogLink :: Link
+blogsLink :: Api.View Api.Be BlogT -> Link
+newBlogLink :: Link
 blogLink :: BlogId -> Link
 blogsLink :<|> newBlogLink :<|> blogLink = allLinks crudApi
 
@@ -55,8 +61,9 @@ crudLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
-crudLinks dynUri =
-  safelinkGroup (text "Crud") [safelink dynUri blogsLink $ text "Blogs"]
+crudLinks dynUri = safelinkGroup
+  (text "Crud")
+  [safelink dynUri (blogsLink mempty) $ text "Blogs"]
 
 crudHandler
   :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
@@ -74,38 +81,45 @@ blogsHandler
      , TriggerEvent t m
      , PerformEvent t m
      )
-  => ApiWidget t m (Event t URI)
-blogsHandler = do
+  => Api.View Api.Be BlogT
+  -> ApiWidget t m (Event t URI)
+blogsHandler vw = do
   el "h1" $ text "Blogs"
 
   postBuildEv <- getPostBuild
 
   insertEv    <- insertBtn
   rec
+    let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
+    getBlogEv <- requestBtn refreshBtn
+                            (pure . getBlogReq)
+                            (constDyn False)
+                            (leftmost [postBuildEv, () <$ updated dynView])
+
     let deleteBlogReq ev = do
-          ev' <- deleteConfirmation
-            (tagPromptlyDyn (_grid_selection gridResult) ev)
+          ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
           pure $ fmap (deleteBlogs usingCookie . fmap primaryKey) ev'
 
-    getBlogEv <- requestBtn refreshBtn
-                            (pure . (getBlogs mempty <$))
-                            (constDyn False)
-                            postBuildEv
-
     deleteEvResult <-
-      requestBtn deleteBtn
-                 deleteBlogReq
-                 (null <$> _grid_selection gridResult)
-                 never
-        >>= orAlert
+      requestBtn deleteBtn deleteBlogReq (null <$> selection) never >>= orAlert
 
     recEv      <- orAlert getBlogEv
 
-    gridResult <- datagridDyn
-      (blogLink . primaryKey)
-      [gridProp blogTitleProp, gridProp blogDescriptionPropTextbox]
-      (False <$ deleteEvResult)
-      (getListToMapsubset <$> recEv)
+    gridResult <- datagridDyn DatagridConfig
+      { _gridConfig_columns     = [ gridProp blogTitleProp
+                                  , gridProp blogDescriptionPropTextbox
+                                  ]
+      , _gridConfig_selectAll   = False <$ deleteEvResult
+      , _gridConfig_setValue    = getListToMapsubset <$> recEv
+      , _gridConfig_toLink      = blogLink . primaryKey
+      , _gridConfig_initialPage = fromApiPage $ page vw
+      , _gridConfig_setPage     = never
+      }
+
+    let selection = _grid_selection gridResult
+    let dynPage   = toApiPage <$> _grid_page gridResult
+    let dynView   = View <$> dynPage <*> constDyn mempty <*> constDyn mempty
+    replaceLocation (blogsLink <$> updated dynView)
 
   pure
     (leftmost
@@ -130,12 +144,14 @@ newBlogHandler = do
 
   rec let postBlogReq ev =
             attachPromptlyDynWith (\x () -> postBlog usingCookie x) dynBlog ev
-      saveEv <-
-        requestBtn saveBtn (pure . postBlogReq) (constDyn False) never
-          >>= orAlert
+      saveResult <- requestBtn saveBtn
+                               (pure . postBlogReq)
+                               (constDyn False)
+                               never
 
       uniqDynBlog <- holdUniqDyn dynBlog
       modBlogEv   <- undoRedo initBlog (updated uniqDynBlog)
+      saveEv      <- orAlert saveResult
 
       dynBlog     <-
         el "form"
@@ -225,13 +241,12 @@ blogEdit bid@(BlogId blogIdNum) = do
       let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
       patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
 
-    pure $ coerceUri (linkURI blogsLink) <$ leftmost
+    pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
       [() <$ deleteEvSuccess, backEv]
   pure (switchDyn lnks)
 
 blogTitleProp
-  :: (DomBuilder t m, PostBuild t m, MonadFix m)
-  => Property Blog (Const ()) t m Text
+  :: (DomBuilder t m, PostBuild t m) => Property Blog (Const ()) t m Text
 blogTitleProp = Property { _prop_editor      = textInput
                          , _prop_extraConfig = def
                          , _prop_label       = "Title"
@@ -274,87 +289,10 @@ blogDescriptionProp = Property { _prop_editor      = markdownInput
                                }
 
 blogDescriptionPropTextbox
-  :: (DomBuilder t m, PostBuild t m, MonadFix m)
-  => Property Blog (Const ()) t m Text
+  :: (DomBuilder t m, PostBuild t m) => Property Blog (Const ()) t m Text
 blogDescriptionPropTextbox = Property { _prop_editor      = textInput
                                       , _prop_extraConfig = def
                                       , _prop_label       = "Description"
                                       , _prop_lens        = blogDescription
                                       }
 
-triStateBtn
-  :: (PostBuild t m, DomBuilder t m)
-  => m ()
-  -> (Text, Text, Text)
-  -> Dynamic t ActionState
-  -> m (Event t ())
-triStateBtn ico (x, xing, xed) stateDyn =
-  btn def { _buttonConfig_state    = stateDyn
-          , _buttonConfig_priority = ButtonSecondary
-          }
-    $  icon def ico
-    >> el "span" (dynText (stateText <$> stateDyn))
- where
-  stateText ActionAvailable = x
-  stateText ActionError     = x
-  stateText ActionLoading   = xing
-  stateText ActionSuccess   = xed
-  stateText ActionDisabled  = xed
-
-backBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
-backBtn =
-  btn def { _buttonConfig_priority = ButtonSecondary }
-    $  icon def timesIcon
-    >> el "span" (text "Close")
-
-saveBtn
-  :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
-saveBtn = triStateBtn floppyIcon ("Save", "Saving", "Saved")
-
-refreshBtn
-  :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
-refreshBtn = triStateBtn refreshIcon ("Reload", "Reloading", "Reloaded")
-
-insertBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
-insertBtn =
-  btn def { _buttonConfig_priority = ButtonSecondary } $ icon def plusIcon >> el
-    "span"
-    (text "Insert")
-
-deleteBtn
-  :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
-deleteBtn = triStateBtn trashIcon ("Delete", "Deleting", "Delete")
-
-deleteConfirmation
-  :: (DomBuilder t m, MonadHold t m, MonadFix m, PostBuild t m)
-  => Event t [a]
-  -> m (Event t [a])
-deleteConfirmation = messageBox
-  "Confirm deletion"
-  (getMsg . length)
-  (btn def { _buttonConfig_priority = ButtonPrimary Danger } (text "Delete"))
-
- where
-  getMsg 1 = "Are you sure you want to delete this item?"
-  getMsg l =
-    "Are you sure you want to delete these " <> pack (show l) <> " items?"
-
-messageBox
-  :: (DomBuilder t m, MonadHold t m, MonadFix m, PostBuild t m)
-  => Text
-  -> (a -> Text)
-  -> m (Event t ())
-  -> Event t a
-  -> m (Event t a)
-messageBox titl msg okBtn openEv = fmapMaybe id
-  <$> modal ModalMedium (modalContent <$> openEv)
- where
-  modalContent y = card $ do
-    x <- cardHeader (text titl >> modalCloseBtn)
-
-    cardContent $ el "p" $ text (msg y)
-
-    cardFooter $ do
-      cancelEv <- cardAction "Cancel"
-      okEv     <- okBtn
-      pure $ leftmost [Nothing <$ x, Nothing <$ cancelEv, Just y <$ okEv]

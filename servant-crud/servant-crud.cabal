@@ -45,7 +45,9 @@ library
     , http-types
     , servant
     , servant-client-core
+    , template-haskell
     , text
+    , true-name
 
 test-suite spec
   import:             common, test

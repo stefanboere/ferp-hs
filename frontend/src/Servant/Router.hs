@@ -27,9 +27,15 @@ import           Data.Text                      ( Text )
 import qualified Data.Text                     as T
 import           Data.Text.Encoding
 import           GHC.TypeLits
-import           Network.HTTP.Types             ( decodePathSegments )
-import           Servant.AccessControl
+import           Network.HTTP.Types             ( decodePathSegments
+                                                , queryToQueryText
+                                                )
 import           Servant.API             hiding ( URI(..) )
+import           Servant.AccessControl
+import           Servant.Crud.QueryObject       ( FromQueryText(..)
+                                                , ParseResult(..)
+                                                , QueryObject
+                                                )
 import           URI.ByteString
 import           Web.HttpApiData
 
@@ -61,6 +67,8 @@ data Router m a where
                    => Proxy sym -> ([x] -> Router m a) -> Router m a
   RQueryFlag    ::KnownSymbol sym
                    => Proxy sym -> (Bool -> Router m a) -> Router m a
+  RQueryObject  ::(FromQueryText x, KnownSymbol sym)
+                   => Proxy sym -> (x -> Router m a) -> Router m a
   RPath         ::KnownSymbol sym => Proxy sym -> Router m a -> Router m a
   RPage         ::m a -> Router m a
 
@@ -129,6 +137,14 @@ instance (HasRouter sublayout, KnownSymbol sym)
   hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
   route _ m a f =
     RQueryFlag (Proxy :: Proxy sym) (route (Proxy :: Proxy sublayout) m a . f)
+
+instance (HasRouter sublayout, FromQueryText x, KnownSymbol sym)
+         => HasRouter (QueryObject sym x :> sublayout) where
+  type RouteT (QueryObject sym x :> sublayout) m a = x -> RouteT sublayout m a
+  constHandler _ m a _ = constHandler (Proxy :: Proxy sublayout) m a
+  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt . s
+  route _ m a f =
+    RQueryObject (Proxy :: Proxy sym) (route (Proxy :: Proxy sublayout) m a . f)
 
 instance (HasRouter sublayout)
          => HasRouter (Auth' auths v r :> sublayout) where
@@ -207,6 +223,12 @@ routeQueryAndPath queries pathSegs r = case r of
     Nothing       -> routeQueryAndPath queries pathSegs $ f False
     Just Nothing  -> routeQueryAndPath queries pathSegs $ f True
     Just (Just _) -> return $ Left FailFatal
+  RQueryObject sym f ->
+    let paramname = T.pack $ symbolVal sym
+    in  case fromQueryText paramname (queryToQueryText queries) of
+          ParseError _ -> return $ Left FailFatal
+          Found      p -> routeQueryAndPath queries pathSegs $ f p
+          Absent     p -> routeQueryAndPath queries pathSegs $ f p
   RPath sym a -> case pathSegs of
     []        -> return $ Left Fail
     p : paths -> if p == T.pack (symbolVal sym)

@@ -14,8 +14,7 @@ module Api
   ( Api
   , api
   , server
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( div )
 
@@ -28,6 +27,8 @@ import           Lucid
 import           Lucid.Base                     ( makeAttribute )
 import           Reflex.Dom
 import           Servant                 hiding ( URI(..) )
+import           Servant.Crud.Server.QueryObject
+                                                ( )
 import           Servant.RawM                  as RawM
 import           Servant.Router
 import           URI.ByteString

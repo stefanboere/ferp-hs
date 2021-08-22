@@ -31,6 +31,8 @@ import qualified Data.ByteString.Lazy          as BL
 import qualified Data.CaseInsensitive          as CI
 import           Data.Dependent.Sum             ( DSum(..) )
 import           Data.Foldable                  ( toList )
+import qualified Data.IntMap.Strict            as IntMap
+import           Data.IntSet                    ( IntSet )
 import qualified Data.Map                      as Map
 import           Data.Map                       ( Map )
 import           Data.Maybe                     ( fromJust )
@@ -66,6 +68,7 @@ import qualified Servant.Subscriber.Compat.Response
                                          hiding ( httpHeaders )
 import           Servant.Subscriber.Compat.Response
                                                 ( HttpResponse(..) )
+import           Unsafe.Coerce                  ( unsafeCoerce )
 
 toSubRequest :: C.Request -> HttpRequest
 toSubRequest C.Request {..} = HttpRequest
@@ -159,38 +162,52 @@ performWebSocketRequests url req =
   fmap switchPromptlyDyn $ prerender (pure never) $ do
     xsrfToken <- findCookie "XSRF-TOKEN"
 
-    rec w <- jsonWebSocket url $ def
-          { _webSocketConfig_send = mergeWith
-                                      (<>)
-                                      [ fmap (toSubReq . addXsrf xsrfToken)
-                                      .   Map.elems
-                                      <$> reqs
-                                      , pure
-                                      .   toSubReq
-                                      .   addRetry
-                                      .   addXsrf xsrfToken
-                                      .   fst
-                                      <$> retryRsp
-                                      ]
-          }
-        let rsp       = fmapMaybe (>>= parseResp) $ _webSocket_recv w
-        let retryRsp' = patchReq' <$> ffilter isRetry rsp
-        retryRsp <- delay 1 retryRsp'
-        let goodRsp = patchReq' <$> ffilter (not . isRetry) rsp
+    rec
+      w <- jsonWebSocket url $ def
+        { _webSocketConfig_send = mergeWith
+          (<>)
+          [ fmap (toSubReq . addXsrf xsrfToken) . Map.elems <$> reqs
+          , pure . toSubReq . addRetry . addXsrf xsrfToken . fst <$> retryRsp
+          , pure . S.Unsubscribe . addXsrf xsrfToken <$> modReqs
+          ]
+        }
+      let rsp       = fmapMaybe (>>= parseResp) $ _webSocket_recv w
+      let retryRsp' = patchReq' <$> ffilter isRetry rsp
+      retryRsp <- delay 1 retryRsp'
+      let goodRsp = patchReq' <$> ffilter (not . isRetry) rsp
 
-        (reqs, _inKeys, rsps) <- matchResponsesWithRequests' websocketEncoder
-                                                             req
-                                                             goodRsp
-                                                             modReqs
+      (reqs, inKeys, rsps) <- matchResponsesWithRequests' websocketEncoder
+                                                          req
+                                                          goodRsp
 
-        let modReqs = never -- TODO unsubscribe
+      reqKeys <- foldDyn patchReqKeys Map.empty modReqs'
+      let modReqs' = attachWithMaybe toUnsub (current reqKeys) inKeys
+      let modReqs  = fmapMaybe (\(_, _, x) -> x) modReqs'
 
     pure rsps
 
  where
+  -- If a request from the same orig is done again, the old one is unsubscribed
+  -- This allows for e.g. dynamic filtering,
+  -- i.e. automatic unsubscribing for the original filter if the filter changes
+  toUnsub
+    :: Map IntSet HttpRequest
+    -> (IntSet, HttpRequest)
+    -> Maybe (IntSet, HttpRequest, Maybe HttpRequest)
+  toUnsub prev (k, r)
+    | httpMethod r == "GET"
+    = let r'  = prev Map.!? k
+          r'' = if Just r == r' then Nothing else r'
+      in  Just (k, r, r'')
+    | otherwise
+    = Nothing
+
+  patchReqKeys (k, r, _) m = Map.insert k r m
+
   statusCode = S.statusCode . httpStatus . snd
-  isRetry r =
-    statusCode r == 401 && "X-RETRY" `notElem` fmap fst (S.httpHeaders (fst r))
+  isRetry r = statusCode r == 401 && "X-RETRY" `notElem` fmap
+    fst
+    (S.httpHeaders (fst r))
 
   toSubReq r | httpMethod r == "GET" = S.Subscribe r
              | otherwise             = S.SimpleRequest r
@@ -243,25 +260,21 @@ matchResponsesWithRequests'
   -- ^ The outgoing requests
   -> Event t (key, rawResponse)
   -- ^ The incoming responses, tagged by an identifying key
-  -> Event t key
-  -- ^ Unsubscribe events
   -> m
        ( Event t (Map key rawRequest)
-       , Event t key
+       , Event t (IntSet, key)
        , Event t (RequesterData response)
        )
   -- ^ A map of outgoing wire-format requests and an event of responses keyed
   -- by the 'RequesterData' key of the associated outgoing request
-matchResponsesWithRequests' f send recv unsub = do
+matchResponsesWithRequests' f send recv = do
   rec
     waitingFor :: Incremental t (PatchMap key (Decoder rawResponse response)) <-
-      holdIncremental mempty $ leftmost
-        [ fmap fst outgoing
-        , (\n -> PatchMap $ Map.singleton n Nothing) <$> unsub
-        ]
+      holdIncremental mempty $ fmap fst outgoing
+
     let outgoing = processOutgoing send
         incoming = processIncoming waitingFor recv
-  return (fmap snd outgoing, fst <$> incoming, snd <$> incoming)
+  return (fmap snd outgoing, keyWithOrig <$> incoming, snd <$> incoming)
  where
   processOutgoing
     :: Event t (RequesterData request) -- The outgoing request
@@ -291,6 +304,10 @@ matchResponsesWithRequests' f send recv unsub = do
       Just (Decoder k rspF) -> do
         let rsp = rspF rawRsp
         return $ Just (n, singletonRequesterData k rsp)
+
+
+  keyWithOrig :: (key, RequesterData response) -> (IntSet, key)
+  keyWithOrig (x, y) = (IntMap.keysSet . unsafeCoerce $ y, x)
 
 
 type ApiWidget t m = (RequesterT t FreeClient (Either ClientError) m)
