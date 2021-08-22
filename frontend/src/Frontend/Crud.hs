@@ -142,6 +142,7 @@ newBlogHandler
 newBlogHandler = do
   el "h1" $ text "New blog"
 
+  backBtn "Cancel"
   rec let postBlogReq ev =
             attachPromptlyDynWith (\x () -> postBlog usingCookie x) dynBlog ev
       saveResult <- requestBtn saveBtn
@@ -187,7 +188,7 @@ blogEdit bid@(BlogId blogIdNum) = do
   (initEv, getNextEv) <- orAlertF (requestingJs getRespEv) >>= headTailE
 
   lnks                <- widgetHold (pure never) $ ffor initEv $ \initBlog -> do
-    backEv  <- backBtn
+    backBtn "Close"
 
     getResp <- requestBtn refreshBtn
                           (pure . (getBlog bid <$))
@@ -242,7 +243,7 @@ blogEdit bid@(BlogId blogIdNum) = do
       patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
 
     pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
-      [() <$ deleteEvSuccess, backEv]
+      [() <$ deleteEvSuccess]
   pure (switchDyn lnks)
 
 blogTitleProp

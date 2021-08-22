@@ -18,6 +18,7 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
                                                 )
+import           Reflex.Dom.Contrib.Router      ( goBack )
 
 import           Components
 
@@ -41,11 +42,14 @@ triStateBtn ico (x, xing, xed) stateDyn =
   stateText ActionSuccess   = xed
   stateText ActionDisabled  = xed
 
-backBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
-backBtn =
-  btn def { _buttonConfig_priority = ButtonSecondary }
+backBtn :: (PostBuild t m, DomBuilder t m, Prerender js t m) => Text -> m ()
+backBtn lbl = do
+  ev <-
+    btn def { _buttonConfig_priority = ButtonSecondary }
     $  icon def timesIcon
-    >> el "span" (text "Close")
+    >> el "span" (text lbl)
+  prerender_ (pure ()) $ performEvent_ (goBack <$ ev)
+
 
 saveBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
