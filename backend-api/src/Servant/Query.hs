@@ -133,7 +133,7 @@ defaultCrud runDB db coerce coll = CrudRoutes
                     hTotalLink' path view
                       <$> runDB (runCountInView view coll)
                       <*> runDB (runSetView view coll)
-  , _deleteList = noc . runDB . runDeleteKeys db
+  , _deleteList = \keys -> runDB (runDeleteKeys db keys) >> pure keys
   , _postList   = runDB . runInsertMany db
   }
  where

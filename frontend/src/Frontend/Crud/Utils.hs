@@ -11,6 +11,8 @@ module Frontend.Crud.Utils
   ) where
 
 import           Control.Monad.Fix              ( MonadFix )
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -71,11 +73,11 @@ deleteBtn = triStateBtn trashIcon ("Delete", "Deleting", "Delete")
 
 deleteConfirmation
   :: (DomBuilder t m, MonadHold t m, MonadFix m, PostBuild t m)
-  => Event t [a]
+  => Event t (Set a)
   -> m (Event t [a])
-deleteConfirmation = messageBox
+deleteConfirmation = fmap (fmap Set.toList) . messageBox
   "Confirm deletion"
-  (getMsg . length)
+  (getMsg . Set.size)
   (btn def { _buttonConfig_priority = ButtonPrimary Danger } (text "Delete"))
 
  where

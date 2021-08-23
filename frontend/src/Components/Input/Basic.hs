@@ -10,6 +10,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Components.Input.Basic
   ( hiddenInput
+  , noInput
   , numberInput
   , integralInput
   , toggleInput
@@ -205,6 +206,12 @@ hiddenInput x = InputEl { _inputEl_value    = x
                         , _inputEl_hasFocus = constDyn False
                         , _inputEl_elements = constDyn []
                         }
+
+-- | Same as @hiddenInput@, but with an InputConfig object
+noInput
+  :: (Reflex t, MonadHold t m) => InputConfig' c t m a -> m (DomInputEl t m a)
+noInput cfg = hiddenInput
+  <$> holdDyn (_inputConfig_initialValue cfg) (_inputConfig_setValue cfg)
 
 inputConfig'
   :: (Reflex t, DomSpace (DomBuilderSpace m))

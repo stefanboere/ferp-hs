@@ -30,6 +30,7 @@ module Components.Table
   , pageSize
   , PageSize
   , SortOrder(..)
+  , addDeletes
   ) where
 
 import           Clay                    hiding ( icon )
@@ -46,7 +47,6 @@ import qualified Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes
                                                 , fromMaybe
                                                 )
-import           Data.Monoid                    ( Sum(..) )
 import qualified Data.Set                      as Set
 import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
@@ -708,16 +708,16 @@ propInputConfig prp initVal update =
     }
 
 gridProp
-  :: (DomBuilder t m, MonadFix m) => Property a c o t m b -> Column t m o k a
+  :: (DomBuilder t m, MonadFix m) => Property a c o t m b -> Column t m o a
 gridProp prp = Column
   { _column_label   = _prop_label prp
-  , _column_editor  = \_ initVal update ->
+  , _column_editor  = \initVal update ->
                         Compose
                           $   fmap (set (_prop_lens prp))
                           .   _inputEl_value
                           <$> respectFocus (_prop_editor prp)
                                            (propInputConfig prp initVal update)
-  , _column_viewer  = \_ d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
+  , _column_viewer  = \d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
   , _column_orderBy = _prop_orderBy prp
   }
 
@@ -732,25 +732,27 @@ instance Default (MapSubset k a) where
 instance Functor (MapSubset k) where
   fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
-data DatagridResult t a r = DatagridResult
-  { _grid_selection :: Dynamic t [r]
+data DatagridResult t a k r = DatagridResult
+  { _grid_selection :: Dynamic t (Set k)
   , _grid_navigate  :: Event t URI
   , _grid_page      :: Dynamic t Page
   , _grid_columns   :: Dynamic t [a]
+  , _grid_value     :: Dynamic t (MapSubset Int r)
   }
 
-data Column t m a k r = Column
+data Column t m a r = Column
   { _column_label   :: Text
-  , _column_editor  :: k -> r -> Event t r -> Compose m (Dynamic t) (r -> r)
-  , _column_viewer  :: k -> Dynamic t r -> m ()
+  , _column_editor  :: r -> Event t r -> Compose m (Dynamic t) (r -> r)
+  , _column_viewer  :: Dynamic t r -> m ()
   , _column_orderBy :: SortOrder -> a
   }
 
 data DatagridConfig t m a k r = DatagridConfig
-  { _gridConfig_columns     :: [Column t m a k r]
+  { _gridConfig_columns     :: [Column t m a r]
   , _gridConfig_selectAll   :: Event t Bool
-  , _gridConfig_setValue    :: Event t (MapSubset k r)
+  , _gridConfig_setValue    :: Event t (MapSubset Int (Maybe r))
   , _gridConfig_toLink      :: r -> L.Link
+  , _gridConfig_toPrimary   :: r -> k
   , _gridConfig_initialPage :: Page
   , _gridConfig_setPage     :: Event t Page
   }
@@ -764,13 +766,9 @@ datagridDyn
      , MonadIO m
      )
   => DatagridConfig t m a k r
-  -> m (DatagridResult t a r)
+  -> m (DatagridResult t a k r)
 datagridDyn cfg = datagrid 2 $ do
   rec
-    keysSet <- holdDyn Set.empty (Map.keysSet <$> updateRows)
-    let updateRows =
-          attachWith addDeletes (current keysSet) (_gridConfig_setValue cfg)
-
     (iSelectAllEv, colheads) <- el "thead" $ do
       (selectAllEv', colheads') <- headMultiSelect $ do
         el "th" blank
@@ -794,54 +792,64 @@ datagridDyn cfg = datagrid 2 $ do
 
     dynR <-
       elAttr "tbody" ("style" =: "height:calc(100vh - 17.5rem)")
-      $ listWithKeyShallowDiff Map.empty updateRows
-      $ \k initR updateR -> do
-          rowMultiSelect False selectAllEv $ do
-            dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
-                              (_gridConfig_toLink cfg <$> updateR)
-            lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
-            rcols <- Reflex.Dom.list
-              dynCols
-              (\dynF -> el "td" $ do
-                {-
+      $ listWithKeyShallowDiff Map.empty (_ms_data <$> _gridConfig_setValue cfg)
+      $ \_ initR updateR -> do
+          rowMultiSelect
+              False
+              (leftmost
+                [ selectAllEv
+                , attachWith isSelected (current selectionDyn) updateR
+                ]
+              )
+            $ do
+                dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
+                                  (_gridConfig_toLink cfg <$> updateR)
+                lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
+                rDyn  <- holdDyn initR updateR
+                rcols <- Reflex.Dom.list
+                  dynCols
+                  (\dynF -> el "td" $ do
+                    {-
                 dynEv <-
                   dyn
-                    (   (\f -> getCompose (_column_editor f k initR updateR))
+                    (   (\f -> getCompose (_column_editor f initR updateR))
                     <$> dynF
                     )
                 -}
-                rDyn <- holdDyn initR updateR
-                dyn_ ((\f -> _column_viewer f k rDyn) <$> dynF)
-                let dynEv = never
-                join <$> holdDyn (constDyn Prelude.id) dynEv
-              )
-            let r = foldResult initR rcols
-            pure (lnkEv, r)
+                    dyn_ ((`_column_viewer` rDyn) <$> dynF)
+                    let dynEv = never
+                    join <$> holdDyn (constDyn Prelude.id) dynEv
+                  )
+                let r = foldResult rDyn rcols
+                pure (lnkEv, r)
 
-    let selcountDyn = (countSelected . Map.elems) =<< dynR
+    let selectionDyn = mkSelectionDyn dynR
+    let selcountDyn  = Set.size <$> selectionDyn
+
+    totalCountDyn <- holdDyn Nothing
+                             (_ms_totalCount <$> _gridConfig_setValue cfg)
 
     (colKeysDyn, pageDyn) <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
-      colKeysDyn'   <- showHideColumns $ fmap _column_label colsIndexed
+      colKeysDyn' <- showHideColumns $ fmap _column_label colsIndexed
 
-      totalCountDyn <- holdDyn Nothing
-                               (_ms_totalCount <$> _gridConfig_setValue cfg)
-      pageDyn' <- paginationInput totalCountDyn
-                                  (_gridConfig_initialPage cfg)
-                                  (_gridConfig_setPage cfg)
+      pageDyn'    <- paginationInput totalCountDyn
+                                     (_gridConfig_initialPage cfg)
+                                     (_gridConfig_setPage cfg)
       pure (colKeysDyn', pageDyn')
 
     let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
 
+    let dynRSelected = joinDynThroughMap
+          (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
 
   pure $ DatagridResult
     { _grid_navigate  = switchDyn
                           (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
     , _grid_page      = pageDyn
-    , _grid_selection =
-      fmap snd . Map.elems . Map.filter fst <$> joinDynThroughMap
-        (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
+    , _grid_selection = selectionDyn
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap colheads
+    , _grid_value = MapSubset <$> (fmap snd <$> dynRSelected) <*> totalCountDyn
     }
 
  where
@@ -849,19 +857,22 @@ datagridDyn cfg = datagrid 2 $ do
 
   foldResult
     :: Reflex t
-    => a
+    => Dynamic t a
     -> Dynamic t (Map Integer (Dynamic t (a -> a)))
     -> Dynamic t a
-  foldResult x xs = foldr ($) x <$> joinDynThroughMap xs
+  foldResult x xs = foldr ($) <$> x <*> joinDynThroughMap xs
 
-  countSelected :: Reflex t => [(Dynamic t Bool, b)] -> Dynamic t Int
-  countSelected = fmap getSum . mconcat . fmap (fmap (Sum . boolToNum) . fst)
+  mkSelectionDyn =
+    fmap (Set.fromList . fmap fst . Map.elems . Map.filter snd)
+      . joinDynThroughMap
+      . fmap (fmap (\(selDyn, (_, x)) -> primaryKeyWithSel <$> x <*> selDyn))
 
-  boolToNum True  = 1
-  boolToNum False = 0
+  primaryKeyWithSel r s' = (_gridConfig_toPrimary cfg r, s')
 
-  addDeletes :: Ord k => Set k -> MapSubset k a -> Map k (Maybe a)
-  addDeletes oldSet m = diffMapSet oldSet (_ms_data m)
+  isSelected selset r = _gridConfig_toPrimary cfg r `Set.member` selset
+
+addDeletes :: Ord k => Set k -> MapSubset k a -> MapSubset k (Maybe a)
+addDeletes oldSet m = m { _ms_data = diffMapSet oldSet (_ms_data m) }
 
 diffMapSet :: (Ord k) => Set k -> Map k v -> Map k (Maybe v)
 diffMapSet olds news = fmap Just news

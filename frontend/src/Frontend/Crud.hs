@@ -18,12 +18,15 @@ import           Control.Lens
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
+import qualified Data.Map                      as Map
 import           Data.Proxy
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import           Data.Time                      ( fromGregorian )
 import           Data.Typeable                  ( Typeable )
+import           GHC.Int                        ( Int64 )
 import           GHC.Records                    ( HasField(..) )
 import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom              hiding ( Link(..)
@@ -105,22 +108,40 @@ blogsHandler vw = do
 
     let deleteBlogReq ev = do
           ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
-          pure $ fmap (deleteBlogs usingCookie . fmap primaryKey) ev'
+          pure $ fmap (deleteBlogs usingCookie) ev'
 
     deleteEvResult <-
-      requestBtn deleteBtn deleteBlogReq (null <$> selection) never >>= orAlert
+      requestBtn deleteBtn deleteBlogReq (Set.null <$> selection) never
+        >>= orAlert
 
-    recEv      <- orAlert getBlogEv
+    recEv   <- orAlert getBlogEv
+
+    keysSet <- foldDyn ($) def $ leftmost
+      [ const . fmapMaybe (fmap primaryKey) . _ms_data <$> updateRows
+      , (\d m -> m `Map.withoutKeys` Map.keysSet d) . _ms_data <$> deleteRows
+      ]
+    let updateRows = attachWith addDeletes
+                                (Map.keysSet <$> current keysSet)
+                                (getListToMapsubset <$> recEv)
+
+    let deleteRows = attachWith
+          doDeletes
+          ((,) <$> current keysSet <*> current
+            (_ms_totalCount <$> _grid_value gridResult)
+          )
+          deleteEvResult
 
     gridResult <- datagridDyn DatagridConfig
-      { _gridConfig_columns     = [ gridProp blogTitleProp
+      { _gridConfig_columns     = [ gridProp blogIdProp
+                                  , gridProp blogTitleProp
                                   , gridProp blogDescriptionPropTextbox
                                   ]
       , _gridConfig_selectAll   = False <$ deleteEvResult
-      , _gridConfig_setValue    = getListToMapsubset <$> recEv
+      , _gridConfig_setValue    = leftmost [updateRows, deleteRows]
       , _gridConfig_toLink      = blogLink . primaryKey
       , _gridConfig_initialPage = fromApiPage $ page vw
       , _gridConfig_setPage     = never
+      , _gridConfig_toPrimary   = primaryKey
       }
 
     let selection = _grid_selection gridResult
@@ -133,6 +154,15 @@ blogsHandler vw = do
     (leftmost
       [_grid_navigate gridResult, coerceUri (linkURI newBlogLink) <$ insertEv]
     )
+
+ where
+  doDeletes (m, c) xs =
+    let xsSet = Set.fromList xs
+    in  MapSubset
+          { _ms_data       = Nothing <$ Map.filter (`Set.member` xsSet) m
+          , _ms_totalCount = fmap (\x -> x - fromIntegral (Set.size xsSet)) c
+          }
+
 
 newBlogHandler
   :: forall js t m
@@ -215,7 +245,7 @@ blogEdit bid@(BlogId blogIdNum) = do
                                   patchEv
 
       rec let deleteBlogReq ev = do
-                ev' <- deleteConfirmation ([()] <$ ev)
+                ev' <- deleteConfirmation (Set.singleton () <$ ev)
                 pure $ deleteBlog usingCookie bid <$ ev'
 
       deleteEvResult <- requestBtn deleteBtn
@@ -262,6 +292,17 @@ propOrderBy
   -> SortOrder
   -> OrderBy c r
 propOrderBy p = fromHasField p . toApiDirection
+
+blogIdProp
+  :: (DomBuilder t m, PostBuild t m, MonadHold t m)
+  => Prop BlogT (Const ()) t m Int64
+blogIdProp = Property { _prop_editor      = noInput
+                      , _prop_viewer      = Reflex.Dom.display
+                      , _prop_extraConfig = def
+                      , _prop_label       = "Id"
+                      , _prop_lens        = blogId
+                      , _prop_orderBy = propOrderBy (Proxy :: Proxy "_blogId")
+                      }
 
 blogTitleProp
   :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text

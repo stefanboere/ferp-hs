@@ -124,7 +124,8 @@ type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'
 type Delete_ t = CaptureId t :> Delete_'
 
 -- | Delete list requests
-type DeleteList_ t = Req' [PrimaryKey t Identity] :> Delete_'
+type DeleteList_ t
+  = Req' [PrimaryKey t Identity] :> Delete '[JSON] [PrimaryKey t Identity]
 
 -- | Regular post requests
 type Post_ t = PathInfo :> "0" :> Req' (t Identity) :> Post_'

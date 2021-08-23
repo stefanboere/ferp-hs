@@ -73,7 +73,7 @@ import           Components.Button
 import           Components.Class
 import           Components.Table               ( MapSubset(..) )
 
-getListToMapsubset :: GetListHeaders a -> MapSubset Integer a
+getListToMapsubset :: GetListHeaders a -> MapSubset Int a
 getListToMapsubset resp = MapSubset
   (Map.fromList $ zip [0 ..] (getResponse resp))
   (getCount resp)
@@ -256,7 +256,7 @@ getBlog :: BlogId -> FreeClient Blog
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent
-deleteBlogs :: Token -> [BlogId] -> FreeClient NoContent
+deleteBlogs :: Token -> [BlogId] -> FreeClient [BlogId]
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] NoContent)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)

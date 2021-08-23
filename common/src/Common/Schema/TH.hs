@@ -19,8 +19,7 @@ module Common.Schema.TH
   , instancesT
   , instancesTFull
   , instancesBody
-  )
-where
+  ) where
 
 import           Control.Lens                   ( makeLenses )
 import qualified Data.Char                     as C
@@ -117,6 +116,7 @@ instancesId n n0 = [d|
     -- Basic instances
     deriving instance Eq (Columnar f $(t0)) => Eq (PrimaryKey $(t) f)
     deriving instance Show (Columnar f $(t0)) => Show (PrimaryKey $(t) f)
+    deriving instance Ord (Columnar f $(t0)) => Ord (PrimaryKey $(t) f)
     instance ToJSON (Columnar f $(t0)) => ToJSON (PrimaryKey $(t) f)
     instance FromJSON (Columnar f $(t0)) => FromJSON (PrimaryKey $(t) f)
     instance FromQueryText (Columnar f $(t0)) => FromQueryText (PrimaryKey $(t) f)
