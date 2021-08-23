@@ -398,6 +398,11 @@ checkboxStyle = do
           border solid 1 grey0'
           backgroundColor white0'
           ".has-error" Clay.& borderColor nord11'
+          focus Clay.& do
+            borderColor nord10'
+            boxShadow . pure $ bsColor nord10' $ shadowWithBlur nil
+                                                                nil
+                                                                (rem (1 / 4))
 
         checked Clay.& do
           before Clay.& do

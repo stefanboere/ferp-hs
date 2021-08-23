@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-  {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-|
 Module: Servant.Crud.API
 Description: Common verbs
@@ -31,8 +32,7 @@ module Servant.Crud.API
   , Link
   , TotalCount
   , PathInfo
-  )
-where
+  ) where
 
 import           Prelude
 
@@ -58,10 +58,10 @@ type LinkHdr = Header "Link" Link
 
 type LocationHdr = Header "Location" PathInfo
 
-type GetListHeaders a = Headers '[TotalHdr, LinkHdr, LinkHdr] [a]
+type GetListHeaders a = Headers '[TotalHdr , LinkHdr , LinkHdr] [a]
 
 -- | 'GET' which returns a JSON array of type @a@ with some extra headers
-type GetList' a = Get '[JSON, CSV] (GetListHeaders a)
+type GetList' a = Get '[JSON , CSV] (GetListHeaders a)
 
 -- | Get with return type JSON
 type Get' = Get '[JSON]
@@ -70,7 +70,7 @@ type Get' = Get '[JSON]
 type Req' = ReqBody '[JSON]
 
 -- | Request body of type JSON and CSV
-type ReqCSV' = ReqBody '[JSON, CSV]
+type ReqCSV' = ReqBody '[JSON , CSV]
 
 -- | Empty response with status 201 with the link of the just created resource in the Location header
 type Post_' = PostCreated '[JSON] (Headers '[LocationHdr] NoContent)
@@ -105,8 +105,13 @@ instance (Monoid filterType) => Monoid (View' c r filterType) where
 
 instance (Selectors c r, FromQueryText filterType) => FromQueryText (View' c r filterType) where
   fromQueryText t qs =
-    View <$> fromQueryText t qs <*> fromQueryText t qs <*> fromQueryText t qs
+    View
+      <$> fromQueryText t             qs
+      <*> fromQueryText (t <> "sort") qs
+      <*> fromQueryText t             qs
 
 instance ToQueryText filterType => ToQueryText (View' c r filterType) where
   toQueryTextPrio t (View p o f) =
-    toQueryTextPrio t p ++ toQueryTextPrio t o ++ toQueryTextPrio t f
+    toQueryTextPrio t p
+      ++ toQueryTextPrio (t <> "sort") o
+      ++ toQueryTextPrio t             f
