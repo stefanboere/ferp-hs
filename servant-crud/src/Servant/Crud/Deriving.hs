@@ -22,8 +22,8 @@ module Servant.Crud.Deriving
   , aesonOptions
   , typeName
   , queryOptions
-  )
-where
+  , dropTypeModifier
+  ) where
 
 import           Prelude
 
@@ -56,12 +56,14 @@ import           Servant.Crud.QueryObject      as QueryObject
 -- | Opiniated options for the ToJSON and FromJSON instances. Strips the prefix and
 -- makes the first letter lower case
 aesonOptions :: Typeable a => Proxy a -> Aeson.Options
-aesonOptions p = Aeson.defaultOptions { Aeson.fieldLabelModifier = dropApp
-                                      , Aeson.omitNothingFields  = True
-                                      }
- where
-  dropApp :: String -> String
-  dropApp s = fromMaybe s (L.stripPrefix (Text.unpack ("_" <> typeName p)) s)
+aesonOptions p = Aeson.defaultOptions
+  { Aeson.fieldLabelModifier = dropTypeModifier p
+  , Aeson.omitNothingFields  = True
+  }
+
+dropTypeModifier :: Typeable a => Proxy a -> String -> String
+dropTypeModifier p s =
+  fromMaybe s (L.stripPrefix (Text.unpack ("_" <> typeName p)) s)
 
 -- | Create a QueryObject options from type based on the prefix (typename)
 queryOptions :: Typeable a => Proxy a -> Options

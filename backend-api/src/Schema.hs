@@ -21,8 +21,7 @@ Description: This module defines the database schema
 module Schema
   ( module Common.Schema
   , module Schema
-  )
-where
+  ) where
 
 import           Data.Int                       ( Int64 )
 import           Database.Beam
@@ -34,6 +33,7 @@ import           Servant.Docs
 import           Database.Beam.TH               ( instances
                                                 , instancesId
                                                 )
+import           Servant.Crud.Server.Deriving   ( CsvBody(..) )
 
 import           Common.Schema
 import           Types                          ( )

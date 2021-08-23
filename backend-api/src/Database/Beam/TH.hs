@@ -18,10 +18,8 @@ module Database.Beam.TH
   , instancesT
   , instancesTFull
   , instancesBody
-  )
-where
+  ) where
 
-import           Data.ByteString                ( ByteString )
 import qualified Data.Csv                      as Csv
 import           Data.Swagger                   ( ToParamSchema
                                                 , ToSchema
@@ -35,13 +33,12 @@ import           Database.Beam                  ( Columnar
 import           Database.Beam.Named            ( Full
                                                 , Named
                                                 )
-import           GHC.Generics                   ( Rep )
 import           Language.Haskell.TH
 import           Servant.Crud.Server.Deriving
 import           Servant.Crud.Server.QueryObject
-                                                ( ToParams
-                                                , NoContent
+                                                ( NoContent
                                                 , NoTypes
+                                                , ToParams
                                                 )
 import           Servant.Crud.Server.QueryOperator
                                                 ( Filter
@@ -91,9 +88,9 @@ instancesSchema t =
 instancesBody :: TypeQ -> DecsQ
 instancesBody t =
     [d|
-    deriving instance Csv.GToRecord (Rep ($(t) f)) (ByteString, ByteString) => Csv.ToNamedRecord ($(t) f)
-    deriving instance Csv.GFromNamedRecord (Rep ($(t) f))  => Csv.FromNamedRecord ($(t) f)
-    deriving instance Csv.GToNamedRecordHeader (Rep ($(t) f))  => Csv.DefaultOrdered ($(t) f)
+    deriving via (CsvBody ($(t) f)) instance GToNamedRecord  ($(t) f) => Csv.ToNamedRecord ($(t) f)
+    deriving via (CsvBody ($(t) f)) instance GFromNamedRecord ($(t) f) => Csv.FromNamedRecord ($(t) f)
+    deriving via (CsvBody ($(t) f)) instance GDefaultOrdered ($(t) f) => Csv.DefaultOrdered ($(t) f)
 
     -- NameT Filter instances
     deriving via (QueryType ($(t) Filter)) instance ToParams NoTypes NoContent ($(t) Filter)

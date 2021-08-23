@@ -100,63 +100,64 @@ blogsHandler vw = do
 
   postBuildEv <- getPostBuild
 
-  insertEv    <- insertBtn
-  rec
-    let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
-    getBlogEv <- requestBtn refreshBtn
-                            (pure . getBlogReq)
-                            (constDyn False)
-                            (leftmost [postBuildEv, () <$ updated dynView])
+  insertEv    <- insertBtn (constDyn newBlogLink)
+  rec let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
+      getBlogEv <- requestBtn refreshBtn
+                              (pure . getBlogReq)
+                              (constDyn False)
+                              (leftmost [postBuildEv, () <$ updated dynView])
 
-    let deleteBlogReq ev = do
-          ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
-          pure $ fmap (deleteBlogs usingCookie) ev'
+      let deleteBlogReq ev = do
+            ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
+            pure $ fmap (deleteBlogs usingCookie) ev'
 
-    deleteEvResult <-
-      requestBtn deleteBtn deleteBlogReq (Set.null <$> selection) never
-        >>= orAlert
+      mDeleteEvResult <- requestBtn deleteBtn
+                                    deleteBlogReq
+                                    (Set.null <$> selection)
+                                    never
 
-    recEv   <- orAlert getBlogEv
+      downloadButton (getBlogsApiLink <$> dynView)
 
-    keysSet <- foldDyn ($) def $ leftmost
-      [ const . fmapMaybe (fmap primaryKey) . _ms_data <$> updateRows
-      , (\d m -> m `Map.withoutKeys` Map.keysSet d) . _ms_data <$> deleteRows
-      ]
-    let updateRows = attachWith addDeletes
-                                (Map.keysSet <$> current keysSet)
-                                (getListToMapsubset <$> recEv)
+      deleteEvResult <- orAlert mDeleteEvResult
 
-    let deleteRows = attachWith
-          doDeletes
-          ((,) <$> current keysSet <*> current
-            (_ms_totalCount <$> _grid_value gridResult)
-          )
-          deleteEvResult
+      recEv          <- orAlert getBlogEv
 
-    gridResult <- datagridDyn DatagridConfig
-      { _gridConfig_columns     = [ gridProp blogIdProp
-                                  , gridProp blogTitleProp
-                                  , gridProp blogDescriptionPropTextbox
-                                  ]
-      , _gridConfig_selectAll   = False <$ deleteEvResult
-      , _gridConfig_setValue    = leftmost [updateRows, deleteRows]
-      , _gridConfig_toLink      = blogLink . primaryKey
-      , _gridConfig_initialPage = fromApiPage $ page vw
-      , _gridConfig_setPage     = never
-      , _gridConfig_toPrimary   = primaryKey
-      , _gridConfig_initialSort = fromApiOrdering $ ordering vw
-      }
+      keysSet        <- foldDyn ($) def $ leftmost
+        [ const . fmapMaybe (fmap primaryKey) . _ms_data <$> updateRows
+        , (\d m -> m `Map.withoutKeys` Map.keysSet d) . _ms_data <$> deleteRows
+        ]
+      let updateRows = attachWith addDeletes
+                                  (Map.keysSet <$> current keysSet)
+                                  (getListToMapsubset <$> recEv)
 
-    let selection = _grid_selection gridResult
-    dynPage <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
-    dynSort <- holdUniqDyn $ _grid_columns gridResult
-    let dynView = View <$> dynPage <*> dynSort <*> constDyn mempty
-    replaceLocation (blogsLink <$> updated dynView)
+      let deleteRows = attachWith
+            doDeletes
+            ((,) <$> current keysSet <*> current
+              (_ms_totalCount <$> _grid_value gridResult)
+            )
+            deleteEvResult
 
-  pure
-    (leftmost
-      [_grid_navigate gridResult, coerceUri (linkURI newBlogLink) <$ insertEv]
-    )
+      gridResult <- datagridDyn DatagridConfig
+        { _gridConfig_columns     = [ gridProp blogIdProp
+                                    , gridProp blogTitleProp
+                                    , gridProp blogDescriptionPropTextbox
+                                    ]
+        , _gridConfig_selectAll   = False <$ deleteEvResult
+        , _gridConfig_setValue    = leftmost [updateRows, deleteRows]
+        , _gridConfig_toLink      = blogLink . primaryKey
+        , _gridConfig_initialPage = fromApiPage $ page vw
+        , _gridConfig_setPage     = never
+        , _gridConfig_toPrimary   = primaryKey
+        , _gridConfig_initialSort = fromApiOrdering $ ordering vw
+        }
+
+      let selection = _grid_selection gridResult
+      dynPage <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
+      dynSort <- holdUniqDyn $ _grid_columns gridResult
+      let dynView = View <$> dynPage <*> dynSort <*> constDyn mempty
+      replaceLocation (blogsLink <$> updated dynView)
+
+  pure (leftmost [_grid_navigate gridResult, insertEv])
 
  where
   doDeletes (m, c) xs =

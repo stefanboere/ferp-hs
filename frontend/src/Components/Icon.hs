@@ -36,6 +36,7 @@ module Components.Icon
   , circleIcon
   , dotCircleIcon
   , fileIcon
+  , downloadIcon
   , arrowIcon
   , filterGridIcon
   , filterGridCircleIcon
@@ -371,6 +372,12 @@ fileIcon =
   svg
     $ path
         "M21.89,4H7.83A1.88,1.88,0,0,0,6,5.91V30.09A1.88,1.88,0,0,0,7.83,32H28.17A1.88,1.88,0,0,0,30,30.09V11.92Zm-.3,2.49,6,5.9h-6ZM8,30V6H20v8h8V30Z"
+
+downloadIcon :: (PostBuild t m, DomBuilder t m) => m ()
+downloadIcon = svg $ do
+  path "M31,31H5a1,1,0,0,0,0,2H31a1,1,0,0,0,0-2Z"
+  path
+    "M18,29.48,28.61,18.87a1,1,0,0,0-1.41-1.41L19,25.65V5a1,1,0,0,0-2,0V25.65L8.81,17.46a1,1,0,1,0-1.41,1.41Z"
 
 arrowIcon :: (PostBuild t m, DomBuilder t m) => m ()
 arrowIcon =

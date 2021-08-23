@@ -6,11 +6,13 @@ module Frontend.Crud.Utils
   , refreshBtn
   , deleteBtn
   , insertBtn
+  , downloadButton
   , deleteConfirmation
   , messageBox
   ) where
 
 import           Control.Monad.Fix              ( MonadFix )
+import qualified Data.Map                      as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
@@ -21,6 +23,15 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , textInput
                                                 )
 import           Reflex.Dom.Contrib.Router      ( goBack )
+import           Servant.API                    ( toUrlPiece
+                                                , uriPath
+                                                , uriQuery
+                                                )
+import qualified Servant.Links                 as L
+                                                ( Link
+                                                , linkURI
+                                                )
+import           URI.ByteString                 ( URI )
 
 import           Components
 
@@ -61,11 +72,34 @@ refreshBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())
 refreshBtn = triStateBtn refreshIcon ("Reload", "Loading", "Loaded")
 
-insertBtn :: (PostBuild t m, DomBuilder t m) => m (Event t ())
-insertBtn =
-  btn def { _buttonConfig_priority = ButtonSecondary } $ icon def plusIcon >> el
-    "span"
-    (text "Insert")
+insertBtn
+  :: (DomBuilder t m, PostBuild t m) => Dynamic t L.Link -> m (Event t URI)
+insertBtn lnk = do
+  clickEv <- ahrefPreventDefault
+    (("/" <>) . toUrlPiece <$> lnk)
+    (constDyn False)
+    (Map.singleton "class" "button secondary")
+    (icon def plusIcon >> el "span" (text "Insert"))
+  pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
+
+downloadButton :: (DomBuilder t m, PostBuild t m) => Dynamic t L.Link -> m ()
+downloadButton lnk = elDynAttr
+  "a"
+  (attrs <$> dynHref)
+  (icon def downloadIcon >> el "span" (text "Download"))
+ where
+  dynHref = pack . show . modUri . L.linkURI <$> lnk
+  attrs h =
+    Map.singleton "download" ""
+      <> Map.singleton "class" "button secondary"
+      <> Map.singleton "href" h
+  modUri u = u
+    { uriPath  = "/api/" <> uriPath u
+    , uriQuery = if null (uriQuery u) || uriQuery u == "?"
+                   then "?_accept=text/csv"
+                   else uriQuery u <> "&_accept=text%2Fcsv"
+    }
+
 
 deleteBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())

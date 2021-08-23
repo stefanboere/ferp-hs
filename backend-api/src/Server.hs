@@ -21,8 +21,7 @@ module Server
   , update
   , testApplication
   , withTestApplication
-  )
-where
+  ) where
 
 import qualified Backend.DevelMain             as DevelMain
                                                 ( update )
@@ -52,6 +51,8 @@ import           Network.Wai.Handler.Warp
 import           Network.Wai.Metrics            ( metrics
                                                 , registerWaiMetrics
                                                 )
+import           Network.Wai.Middleware.AcceptOverride
+                                                ( acceptOverride )
 import           Network.Wai.Middleware.Autohead
                                                 ( autohead )
 import           Network.Wai.Middleware.Cors    ( CorsResourcePolicy(..)
@@ -118,6 +119,7 @@ initialize cfg application = do
     $ allowHeaderMiddleware api
     $ cors (const $ Just policy)
     $ provideOptions api
+    $ acceptOverride
     $ endpointMetrics
     $ metrics waiMetrics application
 
@@ -159,7 +161,7 @@ verifyDatabase cfg = do
       runDBinIO cfg $ autoMigrate migrationBackend checkedAppDatabase
 
 
-type AuthContext = '[SAS.JWTSettings, SAS.CookieSettings]
+type AuthContext = '[SAS.JWTSettings , SAS.CookieSettings]
 
 -- | Combined api
 type TotalApi = Api :<|> DocsApi

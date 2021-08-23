@@ -8,6 +8,7 @@
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Frontend.Api
   ( getBlog
@@ -18,6 +19,7 @@ module Frontend.Api
   , postBlog
   , postBlogs
   , getBlogs
+  , getBlogsApiLink
   -- * Utils
   , getListToMapsubset
   , readLocationHeader
@@ -38,6 +40,7 @@ import           Data.ByteString                ( ByteString )
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes )
+import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
@@ -262,3 +265,7 @@ postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)
 getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
   = Sub.client clientApi
+
+getBlogsApiLink :: View Be BlogT -> Servant.API.Link
+getBlogsApiLink =
+  safeLink clientApi (Proxy :: Proxy ("blogs" :> GetList Be BlogT))

@@ -137,13 +137,19 @@ typographyStyle = do
     <> ".treeview"
     ?  fontSize (rem (13 / 16))
 
-  ".p4" <> (form ** label) <> Clay.button <> th <> ".dropdown-header" ? do
-    fontWeight (weight 600)
-    fontSize (rem (13 / 16))
+  ".p4"
+    <> (form ** label)
+    <> ".button"
+    <> Clay.button
+    <> th
+    <> ".dropdown-header"
+    ?  do
+         fontWeight (weight 600)
+         fontSize (rem (13 / 16))
 
   ".p5" <> tfoot <> ".chart" ? fontSize (rem (12 / 16))
 
-  ".p6" <> Clay.button # ".compactsize" ? do
+  ".p6" <> (".button" <> Clay.button) # ".compactsize" ? do
     fontWeight (weight 600)
     fontSize (rem (11 / 16))
 

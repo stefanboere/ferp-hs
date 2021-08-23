@@ -98,81 +98,89 @@ buttonStyle =
 
 buttonStyle' :: Css
 buttonStyle' =
-  (Clay.button <> ".file-upload-label" <> input # ("type" @= "submit")) ? do
-    Clay.display inlineFlex
-    alignItems center
-    height (rem (3 / 2))
-    backgroundColor inherit
-    borderWidth nil
-    borderRadiusAll (px 3)
-    paddingRight (rem (3 / 4))
-    paddingLeft (rem (3 / 4))
-    marginRight (rem (3 / 4))
-    marginTop (px 6)
-    marginBottom (px 6)
-    cursor pointer
-    textOverflow overflowEllipsis
-    overflow hidden
-    textTransform uppercase
-    verticalAlign middle
-    color nord1'
-    "fill" -: showColor nord1'
+  (  Clay.button
+    <> ".file-upload-label"
+    <> input
+    #  ("type" @= "submit")
+    <> ".button"
+    )
+    ? do
+        Clay.display inlineFlex
+        textDecoration none
+        boxSizing borderBox
+        alignItems center
+        height (rem (3 / 2))
+        backgroundColor inherit
+        borderWidth nil
+        borderRadiusAll (px 3)
+        paddingRight (rem (3 / 4))
+        paddingLeft (rem (3 / 4))
+        marginRight (rem (3 / 4))
+        marginTop (px 6)
+        marginBottom (px 6)
+        cursor pointer
+        textOverflow overflowEllipsis
+        overflow hidden
+        textTransform uppercase
+        verticalAlign middle
+        color nord1'
+        "fill" -: showColor nord1'
 
-    star # firstChild <? marginLeft nil
-    star # lastChild <? marginRight nil
+        star # firstChild <? marginLeft nil
+        star # lastChild <? marginRight nil
 
-    star <? do
-      marginLeft (rem (1 / 8))
-      marginRight (rem (1 / 8))
+        star <? do
+          marginLeft (rem (1 / 8))
+          marginRight (rem (1 / 8))
 
-    ".primary" Clay.& ".badge" Clay.? do
-      backgroundColor inherit
-      color nord1'
-      border solid (px 1) nord1'
+        ".primary" Clay.& ".badge" Clay.? do
+          backgroundColor inherit
+          color nord1'
+          border solid (px 1) nord1'
 
-    ".info" Clay.& do
-      background nord7'
-      hover Clay.& enabled Clay.& background (rgb 121 184 202)
+        ".info" Clay.& do
+          background nord7'
+          hover Clay.& enabled Clay.& background (rgb 121 184 202)
 
-    ".success" Clay.& do
-      background nord14'
-      borderColor nord14'
-      hover Clay.& enabled Clay.& background (rgb 148 190 112)
+        ".success" Clay.& do
+          background nord14'
+          borderColor nord14'
+          hover Clay.& enabled Clay.& background (rgb 148 190 112)
 
-    ".danger" Clay.& do
-      background nord12'
-      borderColor nord12'
-      hover Clay.& enabled Clay.& background (rgb 207 120 93)
+        ".danger" Clay.& do
+          background nord12'
+          borderColor nord12'
+          hover Clay.& enabled Clay.& background (rgb 207 120 93)
 
-    ".warning" Clay.& do
-      background nord13'
-      borderColor nord13'
-      hover Clay.& enabled Clay.& background (rgb 235 187 92)
+        ".warning" Clay.& do
+          background nord13'
+          borderColor nord13'
+          hover Clay.& enabled Clay.& background (rgb 235 187 92)
 
-    ".secondary" Clay.& do
-      border solid 1 nord3'
-      hoverSecondary
+        ".secondary" Clay.& do
+          border solid 1 nord3'
+          hoverSecondary
 
-    ".tertiary" Clay.& do
-      borderWidth nil
-      hoverSecondary
+        ".tertiary" Clay.& do
+          borderWidth nil
+          hoverSecondary
 
-    ".spinner" ? width (rem 1)
+        ".spinner" ? width (rem 1)
 
-    ".spinner" # before ? do
-      width (rem (3 / 4))
-      height (rem (3 / 4))
-      marginTop (rem (-3 / 4))
+        ".spinner" # before ? do
+          width (rem (3 / 4))
+          height (rem (3 / 4))
+          marginTop (rem (-3 / 4))
 
 
-    disabled Clay.& do
-      cursor notAllowed
-      borderColor disabledBg
-      fontColor nord0'
-      (".spinner" <> ".action-icon") |+ ".icon" ? do
-        important $ Clay.display none
-      ".primary" Clay.& do
-        backgroundColor disabledBg
+        disabled Clay.& do
+          cursor notAllowed
+          borderColor disabledBg
+          fontColor nord0'
+          (".spinner" <> ".action-icon") |+ ".icon" ? do
+            important $ Clay.display none
+          ".primary" Clay.& do
+            backgroundColor disabledBg
 
  where
   disabledBg     = lighten 0.5 grey0'
