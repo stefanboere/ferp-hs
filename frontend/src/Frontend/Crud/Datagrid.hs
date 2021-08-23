@@ -6,8 +6,11 @@ module Frontend.Crud.Datagrid
   , replaceLocation
   , toApiDirection
   , fromApiDirection
+  , fromApiOrdering
   ) where
 
+import           Data.Map                       ( Map )
+import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
 import           GHCJS.DOM.Types                ( SerializedScriptValue(..) )
 import           Language.Javascript.JSaddle    ( pToJSVal )
@@ -65,3 +68,7 @@ fromApiDirection API.Descending = Descending
 toApiDirection :: SortOrder -> API.Direction
 toApiDirection Ascending  = API.Ascending
 toApiDirection Descending = API.Descending
+
+fromApiOrdering :: [API.OrderBy c a] -> Map API.Path SortOrder
+fromApiOrdering = Map.fromList . fmap
+  (\x -> (API.orderByPath x, fromApiDirection (API.orderByDirection x)))

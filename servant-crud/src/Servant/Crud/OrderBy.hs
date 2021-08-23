@@ -27,6 +27,7 @@ module Servant.Crud.OrderBy
   ( OrderBy
   , orderByDirection
   , orderBySelector
+  , orderByPath
   , fromSelector
   , fromHasField
   , prependHasField
@@ -74,7 +75,7 @@ import           Servant.Crud.QueryObject       ( Options(..)
 
 -- | Result of parsing a query parameter
 data OrderBy (c :: * -> Constraint) r = OrderBy
-  { _orderByPath :: Path -- ^ The list of path segments specified in the query parameter, used for the ToHttpApiData instance.
+  { orderByPath :: Path -- ^ The list of path segments specified in the query parameter, used for the ToHttpApiData instance.
   , orderByDirection :: Direction -- ^ If the user wants lowest or highest first
   , orderBySelector :: HSelector c r -- ^ Accesser of a field in the record @r@
   }
@@ -85,7 +86,7 @@ instance Eq (OrderBy c r) where
 
 instance Show (OrderBy c r) where
   show (OrderBy p d _) =
-    "OrderBy { _orderByPath = "
+    "OrderBy { orderByPath = "
       <> show p
       <> ", orderByDirection = "
       <> show d
@@ -120,7 +121,7 @@ prependHasField
   -> OrderBy c a
   -> OrderBy c r
 prependHasField p x@(OrderBy _ _ (HSelector f)) =
-  x { _orderByPath = addSPrefix' (queryOptions (Proxy :: Proxy r)) (symbolVal p) (_orderByPath x)
+  x { orderByPath = addSPrefix' (queryOptions (Proxy :: Proxy r)) (symbolVal p) (orderByPath x)
     , orderBySelector = HSelector (f . getField @s)
     }
 

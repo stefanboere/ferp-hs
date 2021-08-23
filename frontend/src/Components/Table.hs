@@ -315,8 +315,10 @@ data SortOrder = Descending | Ascending deriving (Eq, Show)
 sortlabel
   :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => Dynamic t Text
+  -> Maybe SortOrder
+  -> Event t (Maybe SortOrder)
   -> m (Dynamic t (Maybe SortOrder))
-sortlabel dynLbl = do
+sortlabel dynLbl initVal updateEv = do
   rec (e, _) <- elClass' "span" "sortlabel" $ do
         el "span" $ dynText dynLbl
         icon
@@ -328,7 +330,8 @@ sortlabel dynLbl = do
           arrowIcon
 
       let clickEv = domEvent Click e
-      dynSortOrd <- fmap readSort <$> count clickEv
+      dynSortOrd <- foldDyn ($) initVal
+        $ leftmost [const <$> updateEv, cycle' <$ clickEv]
 
   pure dynSortOrd
 
@@ -339,10 +342,9 @@ sortlabel dynLbl = do
   mkCls Nothing = Just "hidden"
   mkCls _       = Nothing
 
-  readSort i' = case i' `mod` (3 :: Int) of
-    1 -> Just Ascending
-    2 -> Just Descending
-    _ -> Nothing
+  cycle' Nothing           = Just Ascending
+  cycle' (Just Ascending ) = Just Descending
+  cycle' (Just Descending) = Nothing
 
 filterEl
   :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
@@ -391,6 +393,13 @@ showHideColumns columns = do
 
 columnHead :: (DomBuilder t m) => m a -> m a
 columnHead = el "th" . elClass "div" "flex-row"
+
+columnHead' :: (DomBuilder t m, PostBuild t m) => Dynamic t Bool -> m a -> m a
+columnHead' visibl = elDynClass "th" (mkCls <$> visibl)
+  . elClass "div" "flex-row"
+ where
+  mkCls True  = ""
+  mkCls False = "hidden"
 
 data Page = Page
   { _page_num  :: Integer
@@ -655,13 +664,13 @@ headMultiSelect theadTr = el "tr" $ do
 
 
 
-data Property a c o t m b = Property
+data Property a c o k t m b = Property
   { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
   , _prop_viewer      :: Dynamic t b -> m ()
   , _prop_extraConfig :: c b
   , _prop_label       :: Text
   , _prop_lens        :: Lens' a b
-  , _prop_orderBy     :: SortOrder -> o
+  , _prop_orderBy     :: (k, SortOrder -> o)
   }
 
 -- | Converts an editor into an editor which accounts for focus
@@ -686,7 +695,7 @@ respectFocus editor cfg = do
 
 formProp
   :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
-  => Property a c o t m b
+  => Property a c o k t m b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
@@ -698,7 +707,7 @@ formProp prp initVal update =
 
 propInputConfig
   :: (DomBuilder t m)
-  => Property a c o t m b
+  => Property a c o k t m b
   -> a
   -> Event t a
   -> InputConfig' c t m b
@@ -708,7 +717,9 @@ propInputConfig prp initVal update =
     }
 
 gridProp
-  :: (DomBuilder t m, MonadFix m) => Property a c o t m b -> Column t m o a
+  :: (DomBuilder t m, MonadFix m)
+  => Property a c o k0 t m b
+  -> Column t m o k0 a
 gridProp prp = Column
   { _column_label   = _prop_label prp
   , _column_editor  = \initVal update ->
@@ -740,44 +751,50 @@ data DatagridResult t a k r = DatagridResult
   , _grid_value     :: Dynamic t (MapSubset Int r)
   }
 
-data Column t m a r = Column
+data Column t m a k r = Column
   { _column_label   :: Text
   , _column_editor  :: r -> Event t r -> Compose m (Dynamic t) (r -> r)
   , _column_viewer  :: Dynamic t r -> m ()
-  , _column_orderBy :: SortOrder -> a
+  , _column_orderBy :: (k, SortOrder -> a)
   }
 
-data DatagridConfig t m a k r = DatagridConfig
-  { _gridConfig_columns     :: [Column t m a r]
+data DatagridConfig t m a k0 k r = DatagridConfig
+  { _gridConfig_columns     :: [Column t m a k0 r]
   , _gridConfig_selectAll   :: Event t Bool
   , _gridConfig_setValue    :: Event t (MapSubset Int (Maybe r))
   , _gridConfig_toLink      :: r -> L.Link
   , _gridConfig_toPrimary   :: r -> k
   , _gridConfig_initialPage :: Page
   , _gridConfig_setPage     :: Event t Page
+  , _gridConfig_initialSort :: Map k0 SortOrder
   }
 
 datagridDyn
   :: ( Ord k
+     , Ord k0
      , DomBuilder t m
      , MonadHold t m
      , PostBuild t m
      , MonadFix m
      , MonadIO m
      )
-  => DatagridConfig t m a k r
+  => DatagridConfig t m a k0 k r
   -> m (DatagridResult t a k r)
 datagridDyn cfg = datagrid 2 $ do
   rec
     (iSelectAllEv, colheads) <- el "thead" $ do
       (selectAllEv', colheads') <- headMultiSelect $ do
         el "th" blank
-        Reflex.Dom.list
-          dynCols
-          (\c -> columnHead $ do
-            dynSort <- sortlabel (_column_label <$> c)
-            pure (fmap . _column_orderBy <$> c <*> dynSort)
+        Map.traverseWithKey
+          (\k c -> columnHead' ((k `Set.member`) <$> colKeysDyn) $ do
+            dynSort <- sortlabel
+              (constDyn (_column_label c))
+              (_gridConfig_initialSort cfg Map.!? fst (_column_orderBy c))
+              never
+
+            pure (fmap (snd (_column_orderBy c)) <$> dynSort)
           )
+          colsIndexed
       el "tr" $ do
         el "td" blank
         el "td" blank
@@ -848,7 +865,8 @@ datagridDyn cfg = datagrid 2 $ do
                           (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
     , _grid_page      = pageDyn
     , _grid_selection = selectionDyn
-    , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap colheads
+    , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
+                          (constDyn colheads)
     , _grid_value = MapSubset <$> (fmap snd <$> dynRSelected) <*> totalCountDyn
     }
 

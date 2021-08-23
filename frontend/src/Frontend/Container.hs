@@ -299,7 +299,7 @@ containerTable = do
       (selectAllEv, _) <- headMultiSelect $ do
         el "th" $ text ""
         columnHead $ do
-          _ <- sortlabel "User ID"
+          _ <- sortlabel "User ID" def never
           filterEl BottomRight (constDyn True) blank
         el "th" $ text "Name"
         el "th" $ text "Creation date"

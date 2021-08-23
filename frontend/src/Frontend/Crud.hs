@@ -36,7 +36,9 @@ import           Reflex.Dom              hiding ( Link(..)
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( View'(..) )
 import           Servant.Crud.OrderBy           ( OrderBy
+                                                , Path
                                                 , fromHasField
+                                                , orderByPath
                                                 )
 import           Servant.Crud.QueryObject       ( QObj )
 import           Servant.Links           hiding ( URI(..) )
@@ -142,12 +144,13 @@ blogsHandler vw = do
       , _gridConfig_initialPage = fromApiPage $ page vw
       , _gridConfig_setPage     = never
       , _gridConfig_toPrimary   = primaryKey
+      , _gridConfig_initialSort = fromApiOrdering $ ordering vw
       }
 
     let selection = _grid_selection gridResult
-    let dynPage   = toApiPage <$> _grid_page gridResult
-    let dynView =
-          View <$> dynPage <*> _grid_columns gridResult <*> constDyn mempty
+    dynPage <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
+    dynSort <- holdUniqDyn $ _grid_columns gridResult
+    let dynView = View <$> dynPage <*> dynSort <*> constDyn mempty
     replaceLocation (blogsLink <$> updated dynView)
 
   pure
@@ -284,14 +287,15 @@ blogEdit bid@(BlogId blogIdNum) = do
       [() <$ deleteEvSuccess]
   pure (switchDyn lnks)
 
-type Prop a c t m b = Property (a Identity) c (Api.ViewOrderBy Api.Be a) t m b
+type Prop a c t m b
+  = Property (a Identity) c (Api.ViewOrderBy Api.Be a) Path t m b
 
 propOrderBy
   :: (KnownSymbol s, HasField s r a, c a, Typeable r)
   => Proxy s
-  -> SortOrder
-  -> OrderBy c r
-propOrderBy p = fromHasField p . toApiDirection
+  -> (Path, SortOrder -> OrderBy c r)
+propOrderBy p =
+  let fn = fromHasField p . toApiDirection in (orderByPath (fn Ascending), fn)
 
 blogIdProp
   :: (DomBuilder t m, PostBuild t m, MonadHold t m)
