@@ -24,7 +24,7 @@ import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
-import           Data.Time                      ( fromGregorian )
+import           Data.Time                      ( Day )
 import           Data.Typeable                  ( Typeable )
 import           GHC.Int                        ( Int64 )
 import           GHC.Records                    ( HasField(..) )
@@ -35,13 +35,11 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( View'(..) )
-import           Servant.Crud.OrderBy           ( OrderBy
-                                                , Path
-                                                , fromHasField
+import           Servant.Crud.OrderBy           ( fromHasField
                                                 , orderByPath
                                                 )
 import           Servant.Crud.QueryObject       ( QObj )
-import           Servant.Crud.QueryOperator     ( Filter )
+import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
@@ -54,7 +52,6 @@ import           Components
 import           Frontend.Api
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Utils
-import           Reflex.Dom.Ace                 ( AceConfig )
 
 
 -- brittany-disable-next-binding
@@ -106,6 +103,7 @@ blogsHandler vw = do
       getBlogEv <- requestBtn refreshBtn
                               (pure . getBlogReq)
                               (constDyn False)
+                              (constDyn False)
                               (leftmost [postBuildEv, () <$ updated dynView])
 
       let deleteBlogReq ev = do
@@ -115,6 +113,7 @@ blogsHandler vw = do
       mDeleteEvResult <- requestBtn deleteBtn
                                     deleteBlogReq
                                     (Set.null <$> selection)
+                                    (constDyn False)
                                     never
 
       downloadButton (getBlogsApiLink <$> dynView)
@@ -139,10 +138,11 @@ blogsHandler vw = do
             deleteEvResult
 
       gridResult <- datagridDyn DatagridConfig
-        { _gridConfig_columns       = [ gridProp blogIdProp
-                                      , gridProp blogTitleProp
-                                      , gridProp blogDescriptionPropTextbox
-                                      ]
+        { _gridConfig_columns       =
+          [ gridProp noEditor   eqFilter  blogIdProp
+          , gridProp textEditor strFilter blogTitleProp
+          , gridProp textEditor strFilter blogDescriptionProp
+          ]
         , _gridConfig_selectAll     = False <$ deleteEvResult
         , _gridConfig_setValue      = leftmost [updateRows, deleteRows]
         , _gridConfig_toLink        = blogLink . primaryKey
@@ -187,32 +187,34 @@ newBlogHandler = do
   el "h1" $ text "New blog"
 
   backBtn "Cancel"
-  rec let postBlogReq ev =
-            attachPromptlyDynWith (\x () -> postBlog usingCookie x) dynBlog ev
+  rec let postBlogReq ev = attachPromptlyDynWithMaybe
+            (\x () -> fmap (postBlog usingCookie) x)
+            dynBlog
+            ev
       saveResult <- requestBtn saveBtn
                                (pure . postBlogReq)
                                (constDyn False)
+                               ((== Nothing) <$> dynBlog)
                                never
 
-      uniqDynBlog <- holdUniqDyn dynBlog
-      modBlogEv   <- undoRedo initBlog (updated uniqDynBlog)
+      uniqDynBlog <- holdUniqDyn mDynBlog
+      modBlogEv   <- undoRedo mempty (updated uniqDynBlog)
       saveEv      <- orAlert saveResult
 
-      dynBlog     <-
+      mDynBlog    <-
         el "form"
         $    getCompose
-        $    pure initBlog
-        <**> formProp blogTitleProp       initBlog modBlogEv
-        <**> formProp blogIsExtraProp     initBlog modBlogEv
-        <**> formProp blogIsPublishedProp initBlog modBlogEv
-        <**> formProp blogDescriptionProp initBlog modBlogEv
+        $    pure (mempty { _blogId = pure 0 })
+        <**> editWith textEditor       blogTitleProp       mempty modBlogEv
+        <**> editWith checkboxEditor   blogIsExtraProp     mempty modBlogEv
+        <**> editWith toggleEditor     blogIsPublishedProp mempty modBlogEv
+        <**> editWith (req dateEditor) blogDateProp        mempty modBlogEv
+        <**> editWith markdownEditor   blogDescriptionProp mempty modBlogEv
+
+      let dynBlog = joinPatch <$> mDynBlog
 
   pure (fmapMaybe readLocationHeader saveEv)
-  where initBlog = Blog 0 mempty mempty False False (fromGregorian 2021 08 19)
-        -- TODO write the functions
-        -- pure :: Blog -> BlogPatch
-        -- join :: BlogPatch -> Maybe Blog
-        -- Then blog can be inserted / saved if the result of join isJust
+  where req = requiredEditor
 
 blogEdit
   :: forall js t m
@@ -235,23 +237,26 @@ blogEdit bid@(BlogId blogIdNum) = do
   let getRespEv = getBlog bid <$ postBuildEv
   (initEv, getNextEv) <- orAlertF (requestingJs getRespEv) >>= headTailE
 
-  lnks                <- widgetHold (pure never) $ ffor initEv $ \initBlog -> do
+  lnks <- widgetHold (pure never) $ ffor initEv $ \initBlog' -> do
+    let initBlog = purePatch initBlog'
     backBtn "Close"
 
     getResp <- requestBtn refreshBtn
                           (pure . (getBlog bid <$))
                           (constDyn False)
+                          (constDyn False)
                           never
 
     rec
-      let patchBlogReq ev = attachPromptlyDynWith
-            (\x () -> patchBlog usingCookie bid x)
+      let patchBlogReq ev = attachPromptlyDynWithMaybe
+            (\x () -> fmap (patchBlog usingCookie bid) x)
             dynPatch
             ev
 
       patchEvResult <- requestBtn saveBtn
                                   (pure . patchBlogReq)
-                                  ((== mempty) <$> dynPatch)
+                                  ((Just mempty ==) <$> dynPatch)
+                                  ((Nothing ==) <$> dynPatch)
                                   patchEv
 
       rec let deleteBlogReq ev = do
@@ -261,9 +266,10 @@ blogEdit bid@(BlogId blogIdNum) = do
       deleteEvResult <- requestBtn deleteBtn
                                    deleteBlogReq
                                    (constDyn False)
+                                   (constDyn False)
                                    never
 
-      uniqDynBlog       <- holdUniqDyn dynBlog
+      uniqDynBlog       <- holdUniqDyn mDynBlog
       debounceDynBlogEv <- debounce
         1
         (difference (updated uniqDynBlog) getBlogEv)
@@ -271,127 +277,85 @@ blogEdit bid@(BlogId blogIdNum) = do
 
       getBlogEvManual <- orAlert getResp
       let getBlogEv = leftmost [getNextEv, getBlogEvManual]
-      let modBlogEv = leftmost [getBlogEv, undoEv]
+      let modBlogEv = leftmost [purePatch <$> getBlogEv, undoEv]
 
       _               <- orAlert patchEvResult
       deleteEvSuccess <- orAlert deleteEvResult
 
-      dynBlogRemote   <- holdDyn initBlog getBlogEv
+      dynBlogRemote   <- holdDyn initBlog' getBlogEv
 
-      dynBlog         <-
+      mDynBlog        <-
         el "form"
         $    getCompose
         $    pure initBlog
-        <**> formProp blogTitleProp       initBlog modBlogEv
-        <**> formProp blogIsExtraProp     initBlog modBlogEv
-        <**> formProp blogIsPublishedProp initBlog modBlogEv
-        <**> formProp blogDescriptionProp initBlog modBlogEv
+        <**> editWith textEditor       blogTitleProp       initBlog modBlogEv
+        <**> editWith checkboxEditor   blogIsExtraProp     initBlog modBlogEv
+        <**> editWith toggleEditor     blogIsPublishedProp initBlog modBlogEv
+        <**> editWith (req dateEditor) blogDateProp        initBlog modBlogEv
+        <**> editWith markdownEditor   blogDescriptionProp initBlog modBlogEv
 
-      let dynPatch = makePatch <$> dynBlogRemote <*> dynBlog
-      patchEv <- throttle 10 (() <$ ffilter (/= mempty) (updated dynPatch))
+      let dynBlog  = joinPatch <$> mDynBlog
+
+      let dynPatch = makePatch' <$> dynBlogRemote <*> dynBlog
+      patchEv <- debounce
+        3
+        (() <$ fmapMaybe validAndNonempty (updated dynPatch))
 
     pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
       [() <$ deleteEvSuccess]
   pure (switchDyn lnks)
+ where
+  makePatch' x my = fmap (makePatch x) my
+  validAndNonempty (Just x) | x == mempty = Nothing
+                            | otherwise   = Just x
+  validAndNonempty Nothing = Nothing
 
-type Prop a c t m b
-  = Property (a Identity) c (Api.ViewOrderBy Api.Be a) (a Filter) Path t m b
+  req = requiredEditor
 
-propOrderBy
-  :: (KnownSymbol s, HasField s r a, c a, Typeable r)
-  => Proxy s
-  -> (Path, SortOrder -> OrderBy c r)
-propOrderBy p =
-  let fn = fromHasField p . toApiDirection in (orderByPath (fn Ascending), fn)
 
-filterWith
-  :: Lens' r (Filter b)
-  -> IndexLens FilterCondition (Filter b) b
-  -> IndexLens FilterCondition r b
-filterWith l il = il { _ilens_get = _ilens_get il . view l
-                     , _ilens_set = \c b -> over l (_ilens_set il c b)
-                     }
-
-blogIdProp
-  :: (DomBuilder t m, PostBuild t m, MonadHold t m)
-  => Prop BlogT (Const ()) t m Int64
-blogIdProp = Property { _prop_editor      = noInput
-                      , _prop_viewer      = Reflex.Dom.display
-                      , _prop_extraConfig = def
-                      , _prop_label       = "Id"
-                      , _prop_lens        = blogId
-                      , _prop_orderBy = propOrderBy (Proxy :: Proxy "_blogId")
-                      , _prop_filterBy    = blogId `filterWith` eqFilter
-                      }
-
-blogTitleProp
-  :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
-blogTitleProp = Property
-  { _prop_editor      = textInput
-  , _prop_viewer      = dynText
-  , _prop_extraConfig = def
-  , _prop_label       = "Title"
-  , _prop_lens        = blogName
-  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogName")
-  , _prop_filterBy    = blogName `filterWith` strFilter
-  }
-
-blogIsExtraProp
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => Prop BlogT (Const ()) t m Bool
-blogIsExtraProp = Property
-  { _prop_editor      = checkboxInput ""
-  , _prop_viewer      = Reflex.Dom.display
-  , _prop_extraConfig = def
-  , _prop_label       = "Extra"
-  , _prop_lens        = blogIsExtra
-  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsExtra")
-  , _prop_filterBy    = blogIsExtra `filterWith` eqFilter
-  }
-
-blogIsPublishedProp
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
-  => Prop BlogT (Const ()) t m Bool
-blogIsPublishedProp = Property
-  { _prop_editor      = toggleInput ""
-  , _prop_viewer      = Reflex.Dom.display
-  , _prop_extraConfig = def
-  , _prop_label       = "Published"
-  , _prop_lens        = blogIsPublished
-  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsPublished")
-  , _prop_filterBy    = blogIsPublished `filterWith` eqFilter
-  }
-
-blogDescriptionProp
-  :: ( DomBuilder t m
-     , PostBuild t m
-     , TriggerEvent t m
-     , MonadHold t m
-     , PerformEvent t m
-     , MonadIO (Performable m)
-     , MonadFix m
-     , Prerender js t m
+prop
+  :: ( KnownSymbol s
+     , HasField s (a (Api.OrderByScope Api.Be)) (C (Api.OrderByScope Api.Be) b)
+     , Typeable (a (Api.OrderByScope Api.Be))
      )
-  => Prop BlogT (Const AceConfig) t m Text
-blogDescriptionProp = Property
-  { _prop_editor      = markdownInput
-  , _prop_viewer      = dynText
-  , _prop_extraConfig = cdnAceConfig
-  , _prop_label       = "Description"
-  , _prop_lens        = blogDescription
-  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
-  , _prop_filterBy    = blogDescription `filterWith` strFilter
-  }
+  => Text
+  -> (forall f . Lens' (a f) (C f b))
+  -> Proxy s
+  -> Property a b
+prop lbl l p =
+  let fn = fromHasField p . toApiDirection
+  in  Property { _prop_label   = lbl
+               , _prop_lens    = l
+               , _prop_key     = orderByPath (fn Ascending)
+               , _prop_orderBy = fn
+               }
 
-blogDescriptionPropTextbox
-  :: (DomBuilder t m, PostBuild t m) => Prop BlogT (Const ()) t m Text
-blogDescriptionPropTextbox = Property
-  { _prop_editor      = textInput
-  , _prop_viewer      = dynText
-  , _prop_extraConfig = def
-  , _prop_label       = "Description"
-  , _prop_lens        = blogDescription
-  , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
-  , _prop_filterBy    = blogDescription `filterWith` strFilter
-  }
+editWith
+  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m, Functor c)
+  => Editor c t m (Maybe b)
+  -> Property a b
+  -> a MaybeLast
+  -> Event t (a MaybeLast)
+  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
+editWith e' prp = formProp e (_prop_label prp) (_prop_lens prp)
+  where e = coerceEditor MaybeLast unMaybeLast e'
 
+blogIdProp :: Property BlogT Int64
+blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
+
+blogTitleProp :: Property BlogT Text
+blogTitleProp = prop "Title" blogName (Proxy :: Proxy "_blogName")
+
+blogIsExtraProp :: Property BlogT Bool
+blogIsExtraProp = prop "Extra" blogIsExtra (Proxy :: Proxy "_blogIsExtra")
+
+blogIsPublishedProp :: Property BlogT Bool
+blogIsPublishedProp =
+  prop "Published" blogIsPublished (Proxy :: Proxy "_blogIsPublished")
+
+blogDescriptionProp :: Property BlogT Text
+blogDescriptionProp =
+  prop "Description" blogDescription (Proxy :: Proxy "_blogDescription")
+
+blogDateProp :: Property BlogT Day
+blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")

@@ -8,6 +8,7 @@ module Common.Api
   , Be
   , View
   , ViewOrderBy
+  , OrderByScope
   , GetList
   ) where
 

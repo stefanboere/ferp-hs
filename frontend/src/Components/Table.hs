@@ -20,9 +20,7 @@ module Components.Table
   , angleDoubleRightIcon
   , withFilterCondition
   , headMultiSelect
-  , formProp
-  , gridProp
-  , Property(..)
+  , Column(..)
   , MapSubset(..)
   , DatagridConfig(..)
   , DatagridResult(..)
@@ -32,22 +30,16 @@ module Components.Table
   , SortOrder(..)
   , addDeletes
   , FilterCondition(..)
-  , IndexLens(..)
   ) where
 
 import           Clay                    hiding ( icon )
-import           Control.Lens            hiding ( (#)
-                                                , none
-                                                )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
-import           Data.Functor.Compose
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes
-                                                , fromJust
                                                 , fromMaybe
                                                 )
 import qualified Data.Set                      as Set
@@ -665,103 +657,6 @@ headMultiSelect theadTr = el "tr" $ do
   x <- theadTr
   pure (updated selectAllDyn, x)
 
--- | Lens to get and set a (key, Value) pair in f
--- Furthermore a list of available filter conditions, that is,
--- the domain of the getter function
-data IndexLens i f b = IndexLens
-  { _ilens_get    :: f -> i -> Maybe b
-  , _ilens_set    :: i -> b -> f -> f
-  , _ilens_domain :: [i]
-  }
-
-
-data Property a c o f k t m b = Property
-  { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
-  , _prop_viewer      :: Dynamic t b -> m ()
-  , _prop_extraConfig :: c b
-  , _prop_label       :: Text
-  , _prop_lens        :: Lens' a b
-  , _prop_orderBy     :: (k, SortOrder -> o)
-  , _prop_filterBy    :: IndexLens FilterCondition f b
-  }
-
--- | Converts an editor into an editor which accounts for focus
---
--- 1. If the user is focussed, no external set value events are applied
--- 2. The output dynamic is only updated on lose focus
-respectFocus
-  :: (DomBuilder t m, MonadFix m)
-  => (InputConfig' c t m b -> m (DomInputEl t m b))
-  -> InputConfig' c t m b
-  -> m (DomInputEl t m b)
-respectFocus editor cfg = do
-  rec r <- editor cfg
-        { _inputConfig_setValue = gate
-                                    (current
-                                      (Prelude.not <$> _inputEl_hasFocus r)
-                                    )
-                                    (_inputConfig_setValue cfg)
-        }
-
-  pure r
-
-formProp
-  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
-  => Property a c o f k t m b
-  -> a
-  -> Event t a
-  -> Compose m (Dynamic t) (a -> a)
-formProp prp initVal update =
-  Compose $ fmap (set (_prop_lens prp)) . _inputEl_value <$> labeled
-    (_prop_label prp)
-    (respectFocus (_prop_editor prp))
-    (propInputConfig prp initVal update)
-
-propInputConfig
-  :: (DomBuilder t m)
-  => Property a c o f k t m b
-  -> a
-  -> Event t a
-  -> InputConfig' c t m b
-propInputConfig prp initVal update =
-  (inputConfig' (_prop_extraConfig prp) (view (_prop_lens prp) initVal))
-    { _inputConfig_setValue = view (_prop_lens prp) <$> update
-    }
-
-gridProp
-  :: (DomBuilder t m, MonadFix m, MonadHold t m)
-  => Property a c o f k0 t m b
-  -> Column t m o f k0 a
-gridProp prp = Column
-  { _column_label    = _prop_label prp
-  , _column_editor   = \initVal update ->
-                         Compose
-                           $   fmap (set (_prop_lens prp))
-                           .   _inputEl_value
-                           <$> respectFocus (_prop_editor prp)
-                                            (propInputConfig prp initVal update)
-  , _column_viewer   = \d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
-  , _column_orderBy  = _prop_orderBy prp
-  , _column_filterBy = (_ilens_domain (_prop_filterBy prp), filterEditor prp)
-  }
-
-filterEditor
-  :: (DomBuilder t m, MonadFix m, MonadHold t m)
-  => Property a c o f k0 t m b
-  -> f
-  -> FilterCondition
-  -> Event t FilterCondition
-  -> m (Dynamic t (f -> f))
-filterEditor prp initF initVal updateC = do
-  edtr <- respectFocus
-    (_prop_editor prp)
-    (inputConfig' (_prop_extraConfig prp)
-                  (fromJust $ _ilens_get l initF initVal)
-    ) -- TODO fix the fromJust
-  dynC <- holdDyn initVal updateC
-  pure $ _ilens_set l <$> dynC <*> _inputEl_value edtr
-  where l = _prop_filterBy prp
-
 data MapSubset k a = MapSubset
   { _ms_data       :: Map k a
   , _ms_totalCount :: Maybe Integer
@@ -784,7 +679,6 @@ data DatagridResult t a f k r = DatagridResult
 
 data Column t m a f k r = Column
   { _column_label   :: Text
-  , _column_editor  :: r -> Event t r -> Compose m (Dynamic t) (r -> r)
   , _column_viewer  :: Dynamic t r -> m ()
   , _column_orderBy :: (k, SortOrder -> a)
   , _column_filterBy

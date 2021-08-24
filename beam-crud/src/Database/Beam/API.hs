@@ -45,6 +45,7 @@ module Database.Beam.API
   , Orderable
   , OrderBy'
   , ViewOrderBy
+  , OrderByScope
   ) where
 
 import           Prelude
@@ -89,10 +90,9 @@ import           Servant.Crud.QueryOperator     ( Filter
 type OrderBy' be s t = OrderBy (Orderable be) (t (QExpr be s))
 
 -- | @OrderBy'@ with specialized scope
-type ViewOrderBy be t
-  = OrderBy
-      (Orderable be)
-      (t (QExpr be (QNested (QNested (QNested QBaseScope)))))
+type ViewOrderBy be t = OrderBy (Orderable be) (t (OrderByScope be))
+
+type OrderByScope be = QExpr be (QNested (QNested (QNested QBaseScope)))
 
 -- | Contains ordering, filtering and pageination info. This particular type works
 -- nice with 'setView'. You can use this type with 'QueryObject' to allow the client

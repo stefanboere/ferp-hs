@@ -3,10 +3,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Frontend.Crud.Datagrid
-  ( toApiPage
+  ( -- * Type conversion
+    toApiPage
   , fromApiPage
   , replaceLocation
   , toApiDirection
@@ -15,11 +17,25 @@ module Frontend.Crud.Datagrid
   , strFilter
   , ordFilter
   , eqFilter
+  -- * Column definition
+  , gridProp
+  , Property(..)
+  , IndexLens(..)
+  , filterWith
   ) where
 
+import           Control.Lens                   ( Lens'
+                                                , over
+                                                , view
+                                                )
+import           Control.Monad.Fix              ( MonadFix )
+import           Data.Functor.Identity          ( Identity(..) )
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( fromMaybe )
+import           Data.Maybe                     ( fromMaybe
+                                                , maybeToList
+                                                )
+import           Data.Text                      ( Text )
 import           GHCJS.DOM.Types                ( SerializedScriptValue(..) )
 import           Language.Javascript.JSaddle    ( pToJSVal )
 import           Reflex.Dom              hiding ( Link(..)
@@ -35,7 +51,13 @@ import           Servant.Links                  ( Link
                                                 , linkURI
                                                 )
 
+import           Common.Api                     ( Be
+                                                , ViewOrderBy
+                                                )
+import           Common.Schema                  ( C )
+import           Components.Input.Basic
 import           Components.Table
+import           Frontend.Crud.Utils
 
 
 
@@ -106,40 +128,39 @@ type SetStrFilter a
 toApiFilterStr
   :: (SetEqFilter a, SetOrdFilter a, SetStrFilter a)
   => FilterCondition
-  -> a
+  -> MaybeLast a
   -> Filter a
   -> Filter a
-toApiFilterStr f t =
-  let ml = MaybeLast (Just t)
-  in  case f of
-        StartsWith       -> setf @"start" ml
-        EndsWith         -> setf @"end" ml
-        Contains         -> setf @"contains" ml
-        DoesNotStartWith -> setf @"!start" ml
-        DoesNotEndWith   -> setf @"!end" ml
-        DoesNotContain   -> setf @"!contains" ml
-        _                -> toApiFilterOrd f t
+toApiFilterStr f ml = case f of
+  StartsWith       -> setf @"start" ml
+  EndsWith         -> setf @"end" ml
+  Contains         -> setf @"contains" ml
+  DoesNotStartWith -> setf @"!start" ml
+  DoesNotEndWith   -> setf @"!end" ml
+  DoesNotContain   -> setf @"!contains" ml
+  _                -> toApiFilterOrd f ml
 
 toApiFilterOrd
   :: (SetEqFilter a, SetOrdFilter a)
   => FilterCondition
-  -> a
+  -> MaybeLast a
   -> Filter a
   -> Filter a
-toApiFilterOrd f t =
-  let ml = MaybeLast (Just t)
-  in  case f of
-        GreaterThan        -> setf @"gt" ml
-        LessThan           -> setf @"lt" ml
-        GreaterThanOrEqual -> setf @"ge" ml
-        LessThanOrEqual    -> setf @"le" ml
-        _                  -> toApiFilterEq f t
+toApiFilterOrd f ml = case f of
+  GreaterThan        -> setf @"gt" ml
+  LessThan           -> setf @"lt" ml
+  GreaterThanOrEqual -> setf @"ge" ml
+  LessThanOrEqual    -> setf @"le" ml
+  _                  -> toApiFilterEq f ml
 
-toApiFilterEq :: SetEqFilter a => FilterCondition -> a -> Filter a -> Filter a
-toApiFilterEq f t = case f of
-  Equal        -> setf @"" [t]
-  DoesNotEqual -> setf @"!" [t]
-  _            -> id
+toApiFilterEq
+  :: SetEqFilter a => FilterCondition -> MaybeLast a -> Filter a -> Filter a
+toApiFilterEq f t =
+  let ls = maybeToList (unMaybeLast t)
+  in  case f of
+        Equal        -> setf @"" ls
+        DoesNotEqual -> setf @"!" ls
+        _            -> id
 
 type GetFilter s k a
   = (GetOp (Find s (DefaultFilters a) :: IsInDict s k (DefaultFilters a)))
@@ -197,6 +218,15 @@ fromApiFilterEq f c = case c of
   DoesNotEqual -> takeLast $ getf @"!" f
   _            -> mempty
 
+-- | Lens to get and set a (key, Value) pair in f
+-- Furthermore a list of available filter conditions, that is,
+-- the domain of the getter function
+data IndexLens i f b = IndexLens
+  { _ilens_get    :: f -> i -> b
+  , _ilens_set    :: i -> b -> f -> f
+  , _ilens_domain :: [i]
+  }
+
 strFilter
   :: ( SetEqFilter a
      , GetEqFilter a
@@ -205,18 +235,18 @@ strFilter
      , SetStrFilter a
      , GetStrFilter a
      )
-  => IndexLens FilterCondition (Filter a) a
+  => IndexLens FilterCondition (Filter a) (MaybeLast a)
 strFilter = IndexLens { _ilens_set    = toApiFilterStr
-                      , _ilens_get    = \x -> unMaybeLast . fromApiFilterStr x
+                      , _ilens_get    = fromApiFilterStr
                       , _ilens_domain = [minBound .. maxBound]
                       }
 
 ordFilter
   :: (SetEqFilter a, GetEqFilter a, SetOrdFilter a, GetOrdFilter a)
-  => IndexLens FilterCondition (Filter a) a
+  => IndexLens FilterCondition (Filter a) (MaybeLast a)
 ordFilter = IndexLens
   { _ilens_set    = toApiFilterOrd
-  , _ilens_get    = \x -> unMaybeLast . fromApiFilterOrd x
+  , _ilens_get    = fromApiFilterOrd
   , _ilens_domain = [ Equal
                     , DoesNotEqual
                     , GreaterThan
@@ -227,8 +257,57 @@ ordFilter = IndexLens
   }
 
 eqFilter
-  :: (SetEqFilter a, GetEqFilter a) => IndexLens FilterCondition (Filter a) a
+  :: (SetEqFilter a, GetEqFilter a)
+  => IndexLens FilterCondition (Filter a) (MaybeLast a)
 eqFilter = IndexLens { _ilens_set    = toApiFilterEq
-                     , _ilens_get    = \x -> unMaybeLast . fromApiFilterEq x
+                     , _ilens_get    = fromApiFilterEq
                      , _ilens_domain = [Equal, DoesNotEqual]
+                     }
+
+data Property a b = Property
+  { _prop_label   :: Text
+  , _prop_lens    :: forall f . Lens' (a f) (C f b)
+  , _prop_key     :: API.Path
+  , _prop_orderBy :: SortOrder -> ViewOrderBy Be a
+  }
+
+gridProp
+  :: (DomBuilder t m, MonadFix m, MonadHold t m, Functor c)
+  => Editor c t m (Maybe b)
+  -> IndexLens FilterCondition (Filter b) (MaybeLast b)
+  -> Property a b
+  -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
+gridProp e' il prp = Column
+  { _column_label    = _prop_label prp
+  , _column_viewer   = \d ->
+    _edit_viewer e (MaybeLast . Just . view (_prop_lens prp) <$> d)
+  , _column_orderBy  = (_prop_key prp, _prop_orderBy prp)
+  , _column_filterBy = (_ilens_domain il', filterEditor e il')
+  }
+ where
+  il' = filterWith (_prop_lens prp) il
+  e   = coerceEditor MaybeLast unMaybeLast e'
+
+
+filterEditor
+  :: (DomBuilder t m, MonadFix m, MonadHold t m)
+  => Editor c t m (MaybeLast b)
+  -> IndexLens FilterCondition f (MaybeLast b)
+  -> f
+  -> FilterCondition
+  -> Event t FilterCondition
+  -> m (Dynamic t (f -> f))
+filterEditor e l initF initVal updateC = do
+  edtr <- respectFocus
+    (_edit_editor e)
+    (inputConfig' (_edit_extraConfig e) (_ilens_get l initF initVal))
+  dynC <- holdDyn initVal updateC
+  pure $ _ilens_set l <$> dynC <*> _inputEl_value edtr
+
+filterWith
+  :: Lens' r (Filter b)
+  -> IndexLens FilterCondition (Filter b) (MaybeLast b)
+  -> IndexLens FilterCondition r (MaybeLast b)
+filterWith l il = il { _ilens_get = _ilens_get il . view l
+                     , _ilens_set = \c b -> over l (_ilens_set il c b)
                      }

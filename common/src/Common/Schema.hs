@@ -13,7 +13,10 @@ module Common.Schema
   ( module Common.Schema
    -- * Re-exports
   , makePatch
+  , purePatch
+  , joinPatch
   , primaryKey
+  , C
   ) where
 
 import           Data.Int                       ( Int64 )
@@ -24,7 +27,10 @@ import           Data.Time                      ( Day
 import           Database.Beam
 import           Database.Beam.Deriving
 import           Database.Beam.Expand
-import           Database.Beam.Extra            ( makePatch )
+import           Database.Beam.Extra            ( joinPatch
+                                                , makePatch
+                                                , purePatch
+                                                )
 import           GHC.Generics                   ( Generic )
 import           Generic.Data
 import           Servant.Crud.Deriving

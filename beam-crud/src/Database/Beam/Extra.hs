@@ -35,8 +35,9 @@ module Database.Beam.Extra
   , runCountIn
   , runIsInView
   , makePatch
-  )
-where
+  , purePatch
+  , joinPatch
+  ) where
 
 import           Prelude
 
@@ -156,6 +157,21 @@ makePatch old new = runIdentity $ zipBeamFieldsM
   )
   old
   (withConstrainedFields @Eq new)
+
+-- | Create a patch that sets all columns to a  new value
+purePatch :: forall t . Beamable t => t Identity -> t MaybeLast
+purePatch x = runIdentity $ zipBeamFieldsM
+  (\_ (Columnar' colNew) -> pure . Columnar' . MaybeLast $ Just colNew)
+  (tblSkeleton :: TableSkeleton t)
+  x
+
+-- | Move the maybe thought the table structure.
+-- Returns Just if all fields are Just.
+joinPatch :: forall t . Beamable t => t MaybeLast -> Maybe (t Identity)
+joinPatch = zipBeamFieldsM
+  (\_ (Columnar' (MaybeLast colNew)) -> fmap Columnar' colNew)
+  (tblSkeleton :: TableSkeleton t)
+
 
 -- | Delete a row using the primary key
 runDeleteKey

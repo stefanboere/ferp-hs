@@ -186,12 +186,16 @@ requestBtn
           (Event t (Request (Prerender.Client (ApiWidget t m)) a))
      )
   -> Dynamic t Bool
+  -> Dynamic t Bool
   -> Event t ()
   -> ApiWidget
        t
        m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) a))
-requestBtn mkBtn req dynDisabled reqEvAuto = do
+       ( Event
+           t
+           (Response (Prerender.Client (ApiWidget t m)) a)
+       )
+requestBtn mkBtn req dynDisabled dynError reqEvAuto = do
 
   rec dynState <- holdDyn def $ leftmost
         [ ActionLoading <$ reqEv
@@ -199,7 +203,8 @@ requestBtn mkBtn req dynDisabled reqEvAuto = do
         , def <$ resultEvDelay
         ]
 
-      reqEvMan <- mkBtn ((disabledState <$> dynDisabled) <> dynState)
+      reqEvMan <- mkBtn
+        ((disabledState <$> dynDisabled <*> dynError) <> dynState)
       let reqEv' = leftmost [reqEvAuto, reqEvMan]
 
       reqEv         <- req reqEv'
@@ -210,8 +215,9 @@ requestBtn mkBtn req dynDisabled reqEvAuto = do
 
   pure resultEv
  where
-  disabledState True  = ActionDisabled
-  disabledState False = ActionAvailable
+  disabledState _    True = ActionError
+  disabledState True _    = ActionDisabled
+  disabledState _    _    = ActionAvailable
 
   responseState (Right _) = ActionSuccess
   responseState _         = ActionError
