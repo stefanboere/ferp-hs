@@ -307,10 +307,10 @@ containerTable = do
       el "tr" $ do
         el "td" blank
         el "td" blank
-        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
-        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
-        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
-        _ <- el "td" $ withFilterCondition $ textInput (inputConfig "")
+        _ <- el "td" quickFilter
+        _ <- el "td" quickFilter
+        _ <- el "td" quickFilter
+        _ <- el "td" quickFilter
         pure selectAllEv
     selcountDyn <- elAttr "tbody" ("style" =: "height:20rem") $ do
       (s1, _) <- rowMultiSelect False selectAllEv $ do
@@ -354,8 +354,10 @@ containerTable = do
         paginationInput (constDyn (Just 51)) def never
       pure ()
 
-
   pure never
+ where
+  quickFilter = withFilterCondition [minBound .. maxBound] def
+    $ \_ _ -> textInput (inputConfig "")
 
 containerTimeline :: WidgetConstraint js t m => m (Event t URI)
 containerTimeline = do

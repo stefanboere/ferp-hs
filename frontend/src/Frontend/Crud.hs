@@ -154,9 +154,12 @@ blogsHandler vw = do
         }
 
       let selection = _grid_selection gridResult
-      dynPage <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
-      dynSort <- holdUniqDyn $ _grid_columns gridResult
-      let dynView = View <$> dynPage <*> dynSort <*> constDyn mempty
+      dynPage           <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
+      dynSort           <- holdUniqDyn $ _grid_columns gridResult
+      dynFilterDebounce <- debounce 1 $ updated (_grid_filter gridResult)
+      dynFilter         <- holdDyn (filters vw) dynFilterDebounce
+      dynFilterUniq     <- holdUniqDyn dynFilter
+      let dynView = View <$> dynPage <*> dynSort <*> dynFilterUniq
       replaceLocation (blogsLink <$> updated dynView)
 
   pure (leftmost [_grid_navigate gridResult, insertEv])

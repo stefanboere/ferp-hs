@@ -390,11 +390,12 @@ columnHead :: (DomBuilder t m) => m a -> m a
 columnHead = el "th" . elClass "div" "flex-row"
 
 columnHead' :: (DomBuilder t m, PostBuild t m) => Dynamic t Bool -> m a -> m a
-columnHead' visibl = elDynClass "th" (mkCls <$> visibl)
-  . elClass "div" "flex-row"
- where
-  mkCls True  = ""
-  mkCls False = "hidden"
+columnHead' visibl =
+  elDynClass "th" (visibleDynClass <$> visibl) . elClass "div" "flex-row"
+
+visibleDynClass :: Bool -> Text
+visibleDynClass True  = ""
+visibleDynClass False = "hidden"
 
 data Page = Page
   { _page_num  :: Integer
@@ -627,9 +628,11 @@ printFilterCond x =
 
 withFilterCondition
   :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
-  => m a
-  -> m (Dynamic t FilterCondition, a)
-withFilterCondition editor = inputGroup def $ do
+  => [FilterCondition]
+  -> FilterCondition
+  -> (FilterCondition -> Event t FilterCondition -> m a)
+  -> m a
+withFilterCondition avail initCond editor = inputGroup def $ do
   rec selectEv <-
         btnDropdown
           def { _buttonConfig_class    = "dropdown-select select"
@@ -642,13 +645,11 @@ withFilterCondition editor = inputGroup def $ do
                 ev <- btn def (elClass "div" "flex-center" (printFilterCond c))
                 pure (c <$ ev)
               )
-              [minBound .. maxBound]
+              avail
 
-      dynVal <- holdDyn def selectEv
+      dynVal <- holdDyn initCond selectEv
 
-  x <- editor
-
-  pure (dynVal, x)
+  editor initCond selectEv
 
 headMultiSelect :: (DomBuilder t m) => m a -> m (Event t Bool, a)
 headMultiSelect theadTr = el "tr" $ do
@@ -683,6 +684,7 @@ data Column t m a f k r = Column
   , _column_orderBy :: (k, SortOrder -> a)
   , _column_filterBy
       :: (  [FilterCondition]
+      ,  f -> FilterCondition
       ,  f
       -> FilterCondition
       -> Event t FilterCondition
@@ -715,7 +717,7 @@ datagridDyn
   -> m (DatagridResult t a f k r)
 datagridDyn cfg = datagrid 2 $ do
   rec
-    (iSelectAllEv, colheads) <- el "thead" $ do
+    (iSelectAllEv, colheads, qfs) <- el "thead" $ do
       (selectAllEv', colheads') <- headMultiSelect $ do
         el "th" blank
         Map.traverseWithKey
@@ -731,13 +733,16 @@ datagridDyn cfg = datagrid 2 $ do
       el "tr" $ do
         el "td" blank
         el "td" blank
-        _ <- Reflex.Dom.list
-          dynCols
-          (\_ ->
-            el "td" $ withFilterCondition $ Components.Input.Basic.textInput
-              (inputConfig "")
+        qfs' <- Map.traverseWithKey
+          (\k c ->
+            let (avail, initC, editor) = _column_filterBy c
+                initF                  = _gridConfig_initialFilter cfg
+            in  elDynClass "td"
+                           (visibleDynClass . (k `Set.member`) <$> colKeysDyn)
+                  $ withFilterCondition avail (initC initF) (editor initF)
           )
-        pure (selectAllEv', colheads')
+          colsIndexed
+        pure (selectAllEv', colheads', qfs')
     let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
 
     dynR <-
@@ -801,7 +806,8 @@ datagridDyn cfg = datagrid 2 $ do
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
                           (constDyn colheads)
     , _grid_value = MapSubset <$> (fmap snd <$> dynRSelected) <*> totalCountDyn
-    , _grid_filter    = constDyn (_gridConfig_initialFilter cfg) -- TODO be able to edit this
+    , _grid_filter    = foldResult (constDyn $ _gridConfig_initialFilter cfg)
+                                   (constDyn qfs)
     }
 
  where

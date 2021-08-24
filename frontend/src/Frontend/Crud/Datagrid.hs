@@ -25,7 +25,7 @@ module Frontend.Crud.Datagrid
   ) where
 
 import           Control.Lens                   ( Lens'
-                                                , over
+                                                , set
                                                 , view
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
@@ -272,7 +272,12 @@ data Property a b = Property
   }
 
 gridProp
-  :: (DomBuilder t m, MonadFix m, MonadHold t m, Functor c)
+  :: ( DomBuilder t m
+     , MonadFix m
+     , MonadHold t m
+     , Functor c
+     , Monoid (OpDict (DefaultFilters b) b)
+     )
   => Editor c t m (Maybe b)
   -> IndexLens FilterCondition (Filter b) (MaybeLast b)
   -> Property a b
@@ -282,11 +287,24 @@ gridProp e' il prp = Column
   , _column_viewer   = \d ->
     _edit_viewer e (MaybeLast . Just . view (_prop_lens prp) <$> d)
   , _column_orderBy  = (_prop_key prp, _prop_orderBy prp)
-  , _column_filterBy = (_ilens_domain il', filterEditor e il')
+  , _column_filterBy = ( _ilens_domain il'
+                       , initFilterCondition il'
+                       , filterEditor e il'
+                       )
   }
  where
   il' = filterWith (_prop_lens prp) il
   e   = coerceEditor MaybeLast unMaybeLast e'
+
+-- | Returns the first filter which is nonzero
+initFilterCondition
+  :: IndexLens FilterCondition f (MaybeLast b) -> f -> FilterCondition
+initFilterCondition il f
+  | null (_ilens_domain il) = def
+  | otherwise = case mapMaybe tryGet (_ilens_domain il) of
+    x : _ -> x
+    [] -> if def `elem` _ilens_domain il then def else head (_ilens_domain il)
+  where tryGet c = fmap (const c) . unMaybeLast $ _ilens_get il f c
 
 
 filterEditor
@@ -305,9 +323,10 @@ filterEditor e l initF initVal updateC = do
   pure $ _ilens_set l <$> dynC <*> _inputEl_value edtr
 
 filterWith
-  :: Lens' r (Filter b)
+  :: Monoid (OpDict (DefaultFilters b) b)
+  => Lens' r (Filter b)
   -> IndexLens FilterCondition (Filter b) (MaybeLast b)
   -> IndexLens FilterCondition r (MaybeLast b)
 filterWith l il = il { _ilens_get = _ilens_get il . view l
-                     , _ilens_set = \c b -> over l (_ilens_set il c b)
+                     , _ilens_set = \c b -> set l (_ilens_set il c b mempty)
                      }
