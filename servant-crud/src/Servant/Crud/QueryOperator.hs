@@ -108,13 +108,16 @@ module Servant.Crud.QueryOperator
   , OpEntry(..)
   , FilterT
   , KnownParamKind
-  )
-where
+  , SetOp
+  , GetOp
+  , Find
+  , IsInDict
+  ) where
 
 import           Prelude
 
-import           Control.Applicative            ( empty
-                                                , Alternative(..)
+import           Control.Applicative            ( Alternative(..)
+                                                , empty
                                                 )
 import           Data.Aeson                     ( FromJSON
                                                 , ToJSON
@@ -127,14 +130,14 @@ import           Data.Kind                      ( Constraint
                                                 )
 import           Data.Maybe                     ( catMaybes )
 import           Data.Proxy                     ( Proxy(..) )
+import           Data.Semigroup
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
-import           Data.Semigroup
 import           GHC.Records
-import           GHC.TypeLits                   ( Symbol
-                                                , TypeError
-                                                , ErrorMessage(..)
+import           GHC.TypeLits                   ( ErrorMessage(..)
                                                 , KnownSymbol
+                                                , Symbol
+                                                , TypeError
                                                 , symbolVal
                                                 )
 import           Network.HTTP.Types             ( QueryText )
@@ -645,10 +648,11 @@ tagMaybe = fmap Just
 
 -- | Like QueryParam but then with operators
 data FilterParam = FilterParam
-  { filterColumn :: Text -- ^ The column name with dots
+  { filterColumn   :: Text -- ^ The column name with dots
   , filterOperator :: Text -- ^ Text between brackets
-  , filterValue :: Maybe Text -- ^ thing after the equal sign
-  } deriving (Eq, Show)
+  , filterValue    :: Maybe Text -- ^ thing after the equal sign
+  }
+  deriving (Eq, Show)
 
 type FilterParams = [FilterParam]
 

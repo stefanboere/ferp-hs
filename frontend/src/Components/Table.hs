@@ -31,6 +31,8 @@ module Components.Table
   , PageSize
   , SortOrder(..)
   , addDeletes
+  , FilterCondition(..)
+  , IndexLens(..)
   ) where
 
 import           Clay                    hiding ( icon )
@@ -45,6 +47,7 @@ import           Data.Functor.Compose
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes
+                                                , fromJust
                                                 , fromMaybe
                                                 )
 import qualified Data.Set                      as Set
@@ -662,15 +665,24 @@ headMultiSelect theadTr = el "tr" $ do
   x <- theadTr
   pure (updated selectAllDyn, x)
 
+-- | Lens to get and set a (key, Value) pair in f
+-- Furthermore a list of available filter conditions, that is,
+-- the domain of the getter function
+data IndexLens i f b = IndexLens
+  { _ilens_get    :: f -> i -> Maybe b
+  , _ilens_set    :: i -> b -> f -> f
+  , _ilens_domain :: [i]
+  }
 
 
-data Property a c o k t m b = Property
+data Property a c o f k t m b = Property
   { _prop_editor      :: InputConfig' c t m b -> m (DomInputEl t m b)
   , _prop_viewer      :: Dynamic t b -> m ()
   , _prop_extraConfig :: c b
   , _prop_label       :: Text
   , _prop_lens        :: Lens' a b
   , _prop_orderBy     :: (k, SortOrder -> o)
+  , _prop_filterBy    :: IndexLens FilterCondition f b
   }
 
 -- | Converts an editor into an editor which accounts for focus
@@ -695,7 +707,7 @@ respectFocus editor cfg = do
 
 formProp
   :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
-  => Property a c o k t m b
+  => Property a c o f k t m b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
@@ -707,7 +719,7 @@ formProp prp initVal update =
 
 propInputConfig
   :: (DomBuilder t m)
-  => Property a c o k t m b
+  => Property a c o f k t m b
   -> a
   -> Event t a
   -> InputConfig' c t m b
@@ -717,20 +729,38 @@ propInputConfig prp initVal update =
     }
 
 gridProp
-  :: (DomBuilder t m, MonadFix m)
-  => Property a c o k0 t m b
-  -> Column t m o k0 a
+  :: (DomBuilder t m, MonadFix m, MonadHold t m)
+  => Property a c o f k0 t m b
+  -> Column t m o f k0 a
 gridProp prp = Column
-  { _column_label   = _prop_label prp
-  , _column_editor  = \initVal update ->
-                        Compose
-                          $   fmap (set (_prop_lens prp))
-                          .   _inputEl_value
-                          <$> respectFocus (_prop_editor prp)
-                                           (propInputConfig prp initVal update)
-  , _column_viewer  = \d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
-  , _column_orderBy = _prop_orderBy prp
+  { _column_label    = _prop_label prp
+  , _column_editor   = \initVal update ->
+                         Compose
+                           $   fmap (set (_prop_lens prp))
+                           .   _inputEl_value
+                           <$> respectFocus (_prop_editor prp)
+                                            (propInputConfig prp initVal update)
+  , _column_viewer   = \d -> _prop_viewer prp (view (_prop_lens prp) <$> d)
+  , _column_orderBy  = _prop_orderBy prp
+  , _column_filterBy = (_ilens_domain (_prop_filterBy prp), filterEditor prp)
   }
+
+filterEditor
+  :: (DomBuilder t m, MonadFix m, MonadHold t m)
+  => Property a c o f k0 t m b
+  -> f
+  -> FilterCondition
+  -> Event t FilterCondition
+  -> m (Dynamic t (f -> f))
+filterEditor prp initF initVal updateC = do
+  edtr <- respectFocus
+    (_prop_editor prp)
+    (inputConfig' (_prop_extraConfig prp)
+                  (fromJust $ _ilens_get l initF initVal)
+    ) -- TODO fix the fromJust
+  dynC <- holdDyn initVal updateC
+  pure $ _ilens_set l <$> dynC <*> _inputEl_value edtr
+  where l = _prop_filterBy prp
 
 data MapSubset k a = MapSubset
   { _ms_data       :: Map k a
@@ -743,30 +773,39 @@ instance Default (MapSubset k a) where
 instance Functor (MapSubset k) where
   fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
-data DatagridResult t a k r = DatagridResult
+data DatagridResult t a f k r = DatagridResult
   { _grid_selection :: Dynamic t (Set k)
   , _grid_navigate  :: Event t URI
   , _grid_page      :: Dynamic t Page
   , _grid_columns   :: Dynamic t [a]
   , _grid_value     :: Dynamic t (MapSubset Int r)
+  , _grid_filter    :: Dynamic t f
   }
 
-data Column t m a k r = Column
+data Column t m a f k r = Column
   { _column_label   :: Text
   , _column_editor  :: r -> Event t r -> Compose m (Dynamic t) (r -> r)
   , _column_viewer  :: Dynamic t r -> m ()
   , _column_orderBy :: (k, SortOrder -> a)
+  , _column_filterBy
+      :: (  [FilterCondition]
+      ,  f
+      -> FilterCondition
+      -> Event t FilterCondition
+      -> m (Dynamic t (f -> f))
+      )
   }
 
-data DatagridConfig t m a k0 k r = DatagridConfig
-  { _gridConfig_columns     :: [Column t m a k0 r]
-  , _gridConfig_selectAll   :: Event t Bool
-  , _gridConfig_setValue    :: Event t (MapSubset Int (Maybe r))
-  , _gridConfig_toLink      :: r -> L.Link
-  , _gridConfig_toPrimary   :: r -> k
-  , _gridConfig_initialPage :: Page
-  , _gridConfig_setPage     :: Event t Page
-  , _gridConfig_initialSort :: Map k0 SortOrder
+data DatagridConfig t m a f k0 k r = DatagridConfig
+  { _gridConfig_columns       :: [Column t m a f k0 r]
+  , _gridConfig_selectAll     :: Event t Bool
+  , _gridConfig_setValue      :: Event t (MapSubset Int (Maybe r))
+  , _gridConfig_toLink        :: r -> L.Link
+  , _gridConfig_toPrimary     :: r -> k
+  , _gridConfig_initialPage   :: Page
+  , _gridConfig_setPage       :: Event t Page
+  , _gridConfig_initialSort   :: Map k0 SortOrder
+  , _gridConfig_initialFilter :: f
   }
 
 datagridDyn
@@ -778,8 +817,8 @@ datagridDyn
      , MonadFix m
      , MonadIO m
      )
-  => DatagridConfig t m a k0 k r
-  -> m (DatagridResult t a k r)
+  => DatagridConfig t m a f k0 k r
+  -> m (DatagridResult t a f k r)
 datagridDyn cfg = datagrid 2 $ do
   rec
     (iSelectAllEv, colheads) <- el "thead" $ do
@@ -868,6 +907,7 @@ datagridDyn cfg = datagrid 2 $ do
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
                           (constDyn colheads)
     , _grid_value = MapSubset <$> (fmap snd <$> dynRSelected) <*> totalCountDyn
+    , _grid_filter    = constDyn (_gridConfig_initialFilter cfg) -- TODO be able to edit this
     }
 
  where

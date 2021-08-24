@@ -41,6 +41,7 @@ import           Servant.Crud.OrderBy           ( OrderBy
                                                 , orderByPath
                                                 )
 import           Servant.Crud.QueryObject       ( QObj )
+import           Servant.Crud.QueryOperator     ( Filter )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
@@ -138,17 +139,18 @@ blogsHandler vw = do
             deleteEvResult
 
       gridResult <- datagridDyn DatagridConfig
-        { _gridConfig_columns     = [ gridProp blogIdProp
-                                    , gridProp blogTitleProp
-                                    , gridProp blogDescriptionPropTextbox
-                                    ]
-        , _gridConfig_selectAll   = False <$ deleteEvResult
-        , _gridConfig_setValue    = leftmost [updateRows, deleteRows]
-        , _gridConfig_toLink      = blogLink . primaryKey
-        , _gridConfig_initialPage = fromApiPage $ page vw
-        , _gridConfig_setPage     = never
-        , _gridConfig_toPrimary   = primaryKey
-        , _gridConfig_initialSort = fromApiOrdering $ ordering vw
+        { _gridConfig_columns       = [ gridProp blogIdProp
+                                      , gridProp blogTitleProp
+                                      , gridProp blogDescriptionPropTextbox
+                                      ]
+        , _gridConfig_selectAll     = False <$ deleteEvResult
+        , _gridConfig_setValue      = leftmost [updateRows, deleteRows]
+        , _gridConfig_toLink        = blogLink . primaryKey
+        , _gridConfig_initialPage   = fromApiPage $ page vw
+        , _gridConfig_setPage       = never
+        , _gridConfig_toPrimary     = primaryKey
+        , _gridConfig_initialSort   = fromApiOrdering $ ordering vw
+        , _gridConfig_initialFilter = filters vw
         }
 
       let selection = _grid_selection gridResult
@@ -207,6 +209,10 @@ newBlogHandler = do
 
   pure (fmapMaybe readLocationHeader saveEv)
   where initBlog = Blog 0 mempty mempty False False (fromGregorian 2021 08 19)
+        -- TODO write the functions
+        -- pure :: Blog -> BlogPatch
+        -- join :: BlogPatch -> Maybe Blog
+        -- Then blog can be inserted / saved if the result of join isJust
 
 blogEdit
   :: forall js t m
@@ -289,7 +295,7 @@ blogEdit bid@(BlogId blogIdNum) = do
   pure (switchDyn lnks)
 
 type Prop a c t m b
-  = Property (a Identity) c (Api.ViewOrderBy Api.Be a) Path t m b
+  = Property (a Identity) c (Api.ViewOrderBy Api.Be a) (a Filter) Path t m b
 
 propOrderBy
   :: (KnownSymbol s, HasField s r a, c a, Typeable r)
@@ -297,6 +303,14 @@ propOrderBy
   -> (Path, SortOrder -> OrderBy c r)
 propOrderBy p =
   let fn = fromHasField p . toApiDirection in (orderByPath (fn Ascending), fn)
+
+filterWith
+  :: Lens' r (Filter b)
+  -> IndexLens FilterCondition (Filter b) b
+  -> IndexLens FilterCondition r b
+filterWith l il = il { _ilens_get = _ilens_get il . view l
+                     , _ilens_set = \c b -> over l (_ilens_set il c b)
+                     }
 
 blogIdProp
   :: (DomBuilder t m, PostBuild t m, MonadHold t m)
@@ -307,6 +321,7 @@ blogIdProp = Property { _prop_editor      = noInput
                       , _prop_label       = "Id"
                       , _prop_lens        = blogId
                       , _prop_orderBy = propOrderBy (Proxy :: Proxy "_blogId")
+                      , _prop_filterBy    = blogId `filterWith` eqFilter
                       }
 
 blogTitleProp
@@ -318,6 +333,7 @@ blogTitleProp = Property
   , _prop_label       = "Title"
   , _prop_lens        = blogName
   , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogName")
+  , _prop_filterBy    = blogName `filterWith` strFilter
   }
 
 blogIsExtraProp
@@ -330,6 +346,7 @@ blogIsExtraProp = Property
   , _prop_label       = "Extra"
   , _prop_lens        = blogIsExtra
   , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsExtra")
+  , _prop_filterBy    = blogIsExtra `filterWith` eqFilter
   }
 
 blogIsPublishedProp
@@ -342,6 +359,7 @@ blogIsPublishedProp = Property
   , _prop_label       = "Published"
   , _prop_lens        = blogIsPublished
   , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogIsPublished")
+  , _prop_filterBy    = blogIsPublished `filterWith` eqFilter
   }
 
 blogDescriptionProp
@@ -362,6 +380,7 @@ blogDescriptionProp = Property
   , _prop_label       = "Description"
   , _prop_lens        = blogDescription
   , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
+  , _prop_filterBy    = blogDescription `filterWith` strFilter
   }
 
 blogDescriptionPropTextbox
@@ -373,5 +392,6 @@ blogDescriptionPropTextbox = Property
   , _prop_label       = "Description"
   , _prop_lens        = blogDescription
   , _prop_orderBy     = propOrderBy (Proxy :: Proxy "_blogDescription")
+  , _prop_filterBy    = blogDescription `filterWith` strFilter
   }
 
