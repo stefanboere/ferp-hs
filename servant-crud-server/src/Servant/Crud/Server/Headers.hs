@@ -149,11 +149,11 @@ hLocation base i = addHeader (PathInfo (runPathInfo base ++ [toUrlPiece i]))
 -- > postBookServer :: PathInfo -> Book -> Server PostCreated_
 -- > postBookServer url book = hLocation url <$> saveBookAndReturnId book
 hLocation'
-  :: (AddHeader "Location" PathInfo NoContent new, ToHttpApiData id)
+  :: (AddHeader "Location" PathInfo id new, ToHttpApiData id)
   => PathInfo
   -> id
   -> new
-hLocation' base i = hLocation base i NoContent
+hLocation' base i = hLocation base i i
 
 instance HasForeignType lang ftype Integer => ToParams lang ftype Page where
   toParams t lang ftype _ =

@@ -13,6 +13,7 @@ module Frontend.Crud.Datagrid
   , winToApiPage
   , winFromApiPage
   , replaceLocation
+  , replaceLocationUri
   , toApiDirection
   , fromApiDirection
   , fromApiOrdering
@@ -95,9 +96,14 @@ replaceLocation
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
   => Event t Link
   -> m ()
-replaceLocation lEv = prerender_ (pure ()) $ do
-  _ <- manageHistory
-    (HistoryCommand_ReplaceState . historyItem . linkURI <$> lEv)
+replaceLocation lEv = replaceLocationUri $ linkURI <$> lEv
+
+replaceLocationUri
+  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  => Event t URI
+  -> m ()
+replaceLocationUri lEv = prerender_ (pure ()) $ do
+  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem <$> lEv)
   pure ()
  where
   historyItem :: URI -> HistoryStateUpdate

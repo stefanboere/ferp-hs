@@ -77,7 +77,7 @@ type Req' = ReqBody '[JSON]
 type ReqCSV' = ReqBody '[JSON , CSV]
 
 -- | Empty response with status 201 with the link of the just created resource in the Location header
-type Post_' = PostCreated '[JSON] (Headers '[LocationHdr] NoContent)
+type Post_' a = PostCreated '[JSON] (Headers '[LocationHdr] a)
 
 -- | 'DELETE' status 204
 type Delete_' = DeleteNoContent '[JSON] NoContent

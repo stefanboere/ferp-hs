@@ -128,7 +128,8 @@ type DeleteList_ t
   = Req' [PrimaryKey t Identity] :> Delete '[JSON] [PrimaryKey t Identity]
 
 -- | Regular post requests
-type Post_ t = PathInfo :> "0" :> Req' (t Identity) :> Post_'
+type Post_ t
+  = PathInfo :> "0" :> Req' (t Identity) :> Post_' (PrimaryKey t Identity)
 
 -- | Posting many records
 type PostList t

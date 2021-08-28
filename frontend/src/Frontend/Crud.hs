@@ -77,7 +77,7 @@ crudLinks dynUri = safelinkGroup
 
 crudHandler
   :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
-crudHandler = blogsHandler :<|> newBlogHandler :<|> blogEdit
+crudHandler = blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just)
 
 blogsHandler
   :: forall js t m
@@ -174,53 +174,6 @@ blogsHandler vw = elClass "div" "flex-column" $ do
           , _ms_totalCount = fmap (\x -> x - fromIntegral (Set.size xsSet)) c
           }
 
-
-newBlogHandler
-  :: forall js t m
-   . ( DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , Prerender js t m
-     , MonadFix m
-     , MonadIO m
-     , TriggerEvent t m
-     , MonadIO (Performable m)
-     , PerformEvent t m
-     )
-  => ApiWidget t m (Event t URI)
-newBlogHandler = do
-  el "h1" $ text "New blog"
-
-  backBtn "Cancel"
-  rec let postBlogReq ev = attachPromptlyDynWithMaybe
-            (\x () -> fmap (postBlog usingCookie) x)
-            dynBlog
-            ev
-      saveResult <- requestBtn saveBtn
-                               (pure . postBlogReq)
-                               (constDyn False)
-                               ((== Nothing) <$> dynBlog)
-                               never
-
-      uniqDynBlog <- holdUniqDyn mDynBlog
-      modBlogEv   <- undoRedo mempty (updated uniqDynBlog)
-      saveEv      <- orAlert saveResult
-
-      mDynBlog    <-
-        el "form"
-        $    getCompose
-        $    pure (mempty { _blogId = pure 0 })
-        <**> editWith textEditor       blogTitleProp       mempty modBlogEv
-        <**> editWith checkboxEditor   blogIsExtraProp     mempty modBlogEv
-        <**> editWith toggleEditor     blogIsPublishedProp mempty modBlogEv
-        <**> editWith (req dateEditor) blogDateProp        mempty modBlogEv
-        <**> editWith markdownEditor   blogDescriptionProp mempty modBlogEv
-
-      let dynBlog = joinPatch <$> mDynBlog
-
-  pure (fmapMaybe readLocationHeader saveEv)
-  where req = requiredEditor
-
 blogEdit
   :: forall js t m
    . ( DomBuilder t m
@@ -233,90 +186,123 @@ blogEdit
      , MonadIO (Performable m)
      , PerformEvent t m
      )
-  => BlogId
+  => Maybe BlogId
   -> ApiWidget t m (Event t URI)
-blogEdit bid@(BlogId blogIdNum) = do
-  el "h1" $ text ("Blog " <> pack (show blogIdNum))
+blogEdit initBlogId = do
 
   postBuildEv <- getPostBuild
-  let getRespEv = getBlog bid <$ postBuildEv
-  (initEv, getNextEv) <- orAlertF (requestingJs getRespEv) >>= headTailE
 
-  lnks <- widgetHold (pure never) $ ffor initEv $ \initBlog' -> do
-    let initBlog = purePatch initBlog'
+  rec
+    let setBlogIdEv = Just . getResponse <$> postEvSuccess
+    dynBlogId <- holdDyn initBlogId setBlogIdEv
+    el "h1" $ dynText (mkHeader <$> dynBlogId)
+
     backBtn "Close"
 
-    getResp <- requestBtn refreshBtn
-                          (pure . (getBlog bid <$))
-                          (constDyn False)
-                          (constDyn False)
-                          never
+    getResp       <- dynButton initBlogId setBlogIdEv (getButton postBuildEv)
 
-    rec
-      let patchBlogReq ev = attachPromptlyDynWithMaybe
-            (\x () -> fmap (patchBlog usingCookie bid) x)
-            dynPatch
-            ev
+    patchEvResult <- dynButton initBlogId
+                               setBlogIdEv
+                               (patchButton dynPatch patchEv)
+    postEvResult      <- dynButton initBlogId setBlogIdEv (postButton dynBlog)
+    deleteEvResult    <- dynButton initBlogId setBlogIdEv deleteButton
 
-      patchEvResult <- requestBtn saveBtn
-                                  (pure . patchBlogReq)
-                                  ((Just mempty ==) <$> dynPatch)
-                                  ((Nothing ==) <$> dynPatch)
-                                  patchEv
+    uniqDynBlog       <- holdUniqDyn mDynBlog
+    debounceDynBlogEv <- debounce 1 (difference (updated uniqDynBlog) getBlogEv)
+    undoEv            <- undoRedo mempty debounceDynBlogEv
 
-      rec let deleteBlogReq ev = do
-                ev' <- deleteConfirmation (Set.singleton () <$ ev)
-                pure $ deleteBlog usingCookie bid <$ ev'
+    getBlogEv         <- orAlert getResp
+    let modBlogEv = leftmost [purePatch <$> getBlogEv, undoEv]
 
-      deleteEvResult <- requestBtn deleteBtn
-                                   deleteBlogReq
-                                   (constDyn False)
-                                   (constDyn False)
-                                   never
+    _               <- orAlert patchEvResult
+    deleteEvSuccess <- orAlert deleteEvResult
+    postEvSuccess   <- orAlert postEvResult
+    replaceLocationUri (fmapMaybe readLocationHeader postEvSuccess)
 
-      uniqDynBlog       <- holdUniqDyn mDynBlog
-      debounceDynBlogEv <- debounce
-        1
-        (difference (updated uniqDynBlog) getBlogEv)
-      undoEv          <- undoRedo initBlog debounceDynBlogEv
+    dynBlogRemote <- holdDyn
+      Nothing
+      (leftmost [Just <$> getBlogEv, tagPromptlyDyn dynBlog setBlogIdEv])
 
-      getBlogEvManual <- orAlert getResp
-      let getBlogEv = leftmost [getNextEv, getBlogEvManual]
-      let modBlogEv = leftmost [purePatch <$> getBlogEv, undoEv]
+    mDynBlog <-
+      el "form"
+      $    getCompose
+      $    pure mempty
+      <**> editPk dynBlogId
+      <**> editWith textEditor       blogTitleProp       mempty modBlogEv
+      <**> editWith checkboxEditor   blogIsExtraProp     mempty modBlogEv
+      <**> editWith toggleEditor     blogIsPublishedProp mempty modBlogEv
+      <**> editWith (req dateEditor) blogDateProp        mempty modBlogEv
+      <**> editWith markdownEditor   blogDescriptionProp mempty modBlogEv
 
-      _               <- orAlert patchEvResult
-      deleteEvSuccess <- orAlert deleteEvResult
+    let dynBlog  = joinPatch <$> mDynBlog
 
-      dynBlogRemote   <- holdDyn initBlog' getBlogEv
+    let dynPatch = makePatch' <$> dynBlogRemote <*> dynBlog
+    patchEv <- debounce 3 (() <$ fmapMaybe validAndNonempty (updated dynPatch))
 
-      mDynBlog        <-
-        el "form"
-        $    getCompose
-        $    pure initBlog
-        <**> editWith textEditor       blogTitleProp       initBlog modBlogEv
-        <**> editWith checkboxEditor   blogIsExtraProp     initBlog modBlogEv
-        <**> editWith toggleEditor     blogIsPublishedProp initBlog modBlogEv
-        <**> editWith (req dateEditor) blogDateProp        initBlog modBlogEv
-        <**> editWith markdownEditor   blogDescriptionProp initBlog modBlogEv
-
-      let dynBlog  = joinPatch <$> mDynBlog
-
-      let dynPatch = makePatch' <$> dynBlogRemote <*> dynBlog
-      patchEv <- debounce
-        3
-        (() <$ fmapMaybe validAndNonempty (updated dynPatch))
-
-    pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
-      [() <$ deleteEvSuccess]
-  pure (switchDyn lnks)
+  pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
+    [() <$ deleteEvSuccess]
  where
-  makePatch' x my = fmap (makePatch x) my
+  makePatch' x my = makePatch <$> x <*> my
   validAndNonempty (Just x) | x == mempty = Nothing
                             | otherwise   = Just x
   validAndNonempty Nothing = Nothing
 
   req = requiredEditor
 
+  dynButton initPk setPk b = switchDyn <$> widgetHold (b initPk) (b <$> setPk)
+
+  getButton _      Nothing   = pure never
+  getButton autoEv (Just pk) = requestBtn refreshBtn
+                                          (pure . (getBlog pk <$))
+                                          (constDyn False)
+                                          (constDyn False)
+                                          autoEv
+
+  editPk dynPatch = Compose $ pure (setPk <$> dynPatch)
+   where
+    setPk (Just (BlogId pk)) x = x { _blogId = pure pk }
+    setPk Nothing            x = x { _blogId = pure 0 }
+
+  mkHeader (Just (BlogId pk)) = "Blog " <> pack (show pk)
+  mkHeader Nothing            = "New blog"
+
+  deleteBlogReq pk ev = do
+    ev' <- deleteConfirmation (Set.singleton () <$ ev)
+    pure $ deleteBlog usingCookie pk <$ ev'
+
+  deleteButton Nothing   = pure never
+  deleteButton (Just pk) = requestBtn deleteBtn
+                                      (deleteBlogReq pk)
+                                      (constDyn False)
+                                      (constDyn False)
+                                      never
+
+
+  patchBlogReq dynPatch pk ev = attachPromptlyDynWithMaybe
+    (\x () -> patchBlog usingCookie pk <$> x)
+    dynPatch
+    ev
+
+  patchButton _        _       Nothing   = pure never
+  patchButton dynPatch patchEv (Just pk) = requestBtn
+    saveBtn
+    (pure . patchBlogReq dynPatch pk)
+    ((Just mempty ==) <$> dynPatch)
+    ((Nothing ==) <$> dynPatch)
+    patchEv
+
+
+  postBlogReq dynBlog ev = attachPromptlyDynWithMaybe
+    (\x () -> fmap (postBlog usingCookie) x)
+    dynBlog
+    ev
+
+  postButton _       (Just _) = pure never
+  postButton dynBlog Nothing  = requestBtn saveBtn
+                                           (pure . postBlogReq dynBlog)
+                                           (constDyn False)
+                                           ((== Nothing) <$> dynBlog)
+                                           never
 
 prop
   :: ( KnownSymbol s

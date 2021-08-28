@@ -62,14 +62,11 @@ import           Servant.Crud.Headers           ( Offset(..)
                                                 , PathInfo(..)
                                                 , TotalCount(..)
                                                 )
+import           Servant.Links                  ( URI(..) )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , ClientError(..)
                                                 , FreeClient
-                                                )
-import           URI.ByteString                 ( Scheme(..)
-                                                , URI
-                                                , URIRef(..)
                                                 )
 
 import           Common.Api
@@ -95,7 +92,7 @@ getListToMapsubset resp = MapSubset
       Servant.API.Header (Offset c) -> Just c
       _                             -> Nothing
 
-readLocationHeader :: Headers '[LocationHdr] NoContent -> Maybe URI
+readLocationHeader :: Headers '[LocationHdr] a -> Maybe URI
 readLocationHeader x =
   case lookupResponseHeader x :: ResponseHeader "Location" PathInfo of
     Servant.API.Header c -> Just (pathInfoUri c)
@@ -104,11 +101,11 @@ readLocationHeader x =
  where
   pathInfoUri :: PathInfo -> URI
   pathInfoUri (PathInfo p) = URI
-    { uriScheme    = Scheme "http"
+    { uriScheme    = ""
     , uriAuthority = Nothing
-    , uriPath      = "/" <> Text.encodeUtf8 (Text.intercalate "/" p)
-    , uriQuery     = mempty
-    , uriFragment  = Nothing
+    , uriPath      = Text.unpack (Text.intercalate "/" p)
+    , uriQuery     = ""
+    , uriFragment  = ""
     }
 
 orAlertF
@@ -275,7 +272,7 @@ putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent
 deleteBlogs :: Token -> [BlogId] -> FreeClient [BlogId]
-postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] NoContent)
+postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)
 getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
