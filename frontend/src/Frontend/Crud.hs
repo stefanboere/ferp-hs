@@ -93,30 +93,33 @@ blogsHandler
      )
   => Api.View Api.Be BlogT
   -> ApiWidget t m (Event t URI)
-blogsHandler vw = do
+blogsHandler vw = elClass "div" "flex-column" $ do
   el "h1" $ text "Blogs"
 
   postBuildEv <- getPostBuild
 
-  insertEv    <- insertBtn (constDyn newBlogLink)
   rec let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
-      getBlogEv <- requestBtn refreshBtn
-                              (pure . getBlogReq)
-                              (constDyn False)
-                              (constDyn False)
-                              (leftmost [postBuildEv, () <$ updated dynView])
+      (insertEv, getBlogEv, mDeleteEvResult) <- el "div" $ do
+        insertEv'  <- insertBtn (constDyn newBlogLink)
+        getBlogEv' <- requestBtn
+          refreshBtn
+          (pure . getBlogReq)
+          (constDyn False)
+          (constDyn False)
+          (leftmost [postBuildEv, () <$ updated dynView])
 
-      let deleteBlogReq ev = do
-            ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
-            pure $ fmap (deleteBlogs usingCookie) ev'
+        let deleteBlogReq ev = do
+              ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
+              pure $ fmap (deleteBlogs usingCookie) ev'
 
-      mDeleteEvResult <- requestBtn deleteBtn
-                                    deleteBlogReq
-                                    (Set.null <$> selection)
-                                    (constDyn False)
-                                    never
+        mDeleteEvResult' <- requestBtn deleteBtn
+                                       deleteBlogReq
+                                       (Set.null <$> selection)
+                                       (constDyn False)
+                                       never
 
-      downloadButton (getBlogsApiLink <$> dynView)
+        downloadButton (getBlogsApiLink <$> dynView)
+        pure (insertEv', getBlogEv', mDeleteEvResult')
 
       deleteEvResult <- orAlert mDeleteEvResult
 

@@ -281,7 +281,13 @@ containerTab = do
   pure never
 
 containerTable
-  :: (MonadIO m, MonadFix m, PostBuild t m, MonadHold t m, DomBuilder t m)
+  :: ( MonadIO m
+     , MonadFix m
+     , PostBuild t m
+     , MonadHold t m
+     , DomBuilder t m
+     , Prerender js t m
+     )
   => m (Event t URI)
 containerTable = do
   el "h1" $ text "Table"
@@ -294,7 +300,7 @@ containerTable = do
     )
 
   el "h2" $ text "Datagrid"
-  datagrid 2 $ do
+  datagrid 2 $ \_ -> do
     selectAllEv <- el "thead" $ do
       (selectAllEv, _) <- headMultiSelect $ do
         el "th" $ text ""

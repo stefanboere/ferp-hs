@@ -56,6 +56,7 @@ import           Nordtheme
 
 appStyle :: Css
 appStyle = do
+  utilsStyle
   typographyStyle
   commonAppHeaderStyle
   commonNavStyle
@@ -87,6 +88,13 @@ appStyle = do
     "grid-template-columns" -: "12rem auto"
     "grid-template-rows" -: "min-content min-content auto"
     boxSizing borderBox
+
+utilsStyle :: Css
+utilsStyle = do
+  ".flex-column" ? do
+    display flex
+    flexDirection column
+    height (pct 100)
 
 typographyStyle :: Css
 typographyStyle = do

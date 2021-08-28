@@ -75,6 +75,12 @@ tableStyle = do
     display flex
     alignItems center
 
+  ".datagrid-wrapper" ? do
+    "zoom" -: "1"
+    overflow auto
+    display flex
+    height (pct 100)
+
   selectedCountStyle
   (  ".datagrid"
     ** th
@@ -280,8 +286,22 @@ tableAttr attrs =
 tableEl :: DomBuilder t m => m a -> m a
 tableEl = tableAttr Map.empty
 
-datagrid :: DomBuilder t m => Int -> m a -> m a
-datagrid i' = tableAttr ("class" =: ("datagrid datagrid-" <> pack (show i')))
+datagrid
+  :: (DomBuilder t m, Prerender js t m)
+  => Int
+  -> (Dynamic t (Maybe Double) -> m a)
+  -> m a
+datagrid i' cnt = elClass "div" "datagrid-wrapper" $ do
+      -- resizeDetector is meant to contain the content you want to know the size of
+      -- However, we'd need to put the entire datagrid in the prerender.
+      -- To avoid this, since we only need the height anyway, we put it on the left
+  dynHeight <- prerender (pure (constDyn Nothing)) $ do
+    (resizeEv, _) <- resizeDetectorWithStyle "margin-right:-1px;"
+      $ elAttr "div" (Map.singleton "style" "width:1px") blank
+    holdDyn Nothing (snd <$> resizeEv)
+
+  elClass "table" ("datagrid datagrid-" <> pack (show i'))
+    $ cnt (join dynHeight)
 
 linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
 linkCell dynHref = elClass "td" "center link" . elDynAttr
@@ -712,10 +732,11 @@ datagridDyn
      , PostBuild t m
      , MonadFix m
      , MonadIO m
+     , Prerender js t m
      )
   => DatagridConfig t m a f k0 k r
   -> m (DatagridResult t a f k r)
-datagridDyn cfg = datagrid 2 $ do
+datagridDyn cfg = datagrid 2 $ \dynHeight -> do
   rec
     (iSelectAllEv, colheads, qfs) <- el "thead" $ do
       (selectAllEv', colheads') <- headMultiSelect $ do
@@ -746,7 +767,7 @@ datagridDyn cfg = datagrid 2 $ do
     let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
 
     dynR <-
-      elAttr "tbody" ("style" =: "height:calc(100vh - 17.5rem)")
+      elDynAttr "tbody" (mkHeightAttr <$> dynHeight)
       $ listWithKeyShallowDiff Map.empty (_ms_data <$> _gridConfig_setValue cfg)
       $ \_ initR updateR -> do
           rowMultiSelect
@@ -811,6 +832,11 @@ datagridDyn cfg = datagrid 2 $ do
     }
 
  where
+  mkHeightAttr Nothing =
+    Map.singleton "style" "height:calc(100vh - 17rem - 1px)"
+  mkHeightAttr (Just x) = Map.singleton
+    "style"
+    ("height:" <> pack (show (Prelude.round x - (107 :: Int))) <> "px")
   colsIndexed = Map.fromList $ zip [0 ..] $ _gridConfig_columns cfg
 
   foldResult
