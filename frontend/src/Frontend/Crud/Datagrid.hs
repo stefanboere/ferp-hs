@@ -10,6 +10,8 @@ module Frontend.Crud.Datagrid
   ( -- * Type conversion
     toApiPage
   , fromApiPage
+  , winToApiPage
+  , winFromApiPage
   , replaceLocation
   , toApiDirection
   , fromApiDirection
@@ -75,6 +77,19 @@ fromApiPage p =
   in  Page { _page_num  = (fromMaybe 0 (API.offset p) `div` pagesize) + 1
            , _page_size = pagesize
            }
+
+winToApiPage :: ViewWindow -> API.Page
+winToApiPage p = API.Page
+  { API.offset = if _win_offset p <= 0 then Nothing else Just (_win_offset p)
+  , API.limit  = Just (_win_limit p)
+  }
+
+winFromApiPage :: API.Page -> ViewWindow
+winFromApiPage p =
+  let pagesize = fromMaybe 30 (API.limit p)
+  in  ViewWindow { _win_offset = fromMaybe 0 (API.offset p)
+                 , _win_limit  = pagesize
+                 }
 
 replaceLocation
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)

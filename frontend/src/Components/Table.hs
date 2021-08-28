@@ -27,16 +27,19 @@ module Components.Table
   , Page(..)
   , pageSize
   , PageSize
+  , ViewWindow(..)
   , SortOrder(..)
   , addDeletes
   , FilterCondition(..)
   ) where
 
 import           Clay                    hiding ( icon )
+import           Control.Lens                   ( (^.) )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
+import           Data.Fixed
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( catMaybes
@@ -46,6 +49,11 @@ import qualified Data.Set                      as Set
 import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
                                                 , pack
+                                                )
+import           Language.Javascript.JSaddle    ( js1
+                                                , jsg
+                                                , jss
+                                                , liftJSM
                                                 )
 import           Prelude                 hiding ( (**)
                                                 , rem
@@ -226,6 +234,13 @@ tableStyle = do
 
     tr # ".active" ? backgroundColor nord4'
 
+    tr ? do
+      overflow hidden
+      whiteSpace nowrap
+      height (px 36)
+      (td <> th) ? do
+        overflow hidden
+        textOverflow overflowEllipsis
 
   (tbody <> thead) ** td ? borderBottom solid (px 1) nord4'
 
@@ -446,12 +461,13 @@ tfooter =
 
 rowMultiSelect
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
-  => Bool
+  => Map Text Text
+  -> Bool
   -> Event t Bool
   -> m a
   -> m (Dynamic t Bool, a)
-rowMultiSelect fullRowSelect setSelectEv cnt = do
-  rec (e, (r, x)) <- elDynClass' "tr" (selectedCls <$> dynSel) $ do
+rowMultiSelect attrs fullRowSelect setSelectEv cnt = do
+  rec (e, (r, x)) <- elDynAttr' "tr" (selectedCls <$> dynSel) $ do
         (r', _) <- elClass' "td" "row-select"
           $ checkboxInputSimple
               False
@@ -465,8 +481,8 @@ rowMultiSelect fullRowSelect setSelectEv cnt = do
 
   pure (dynSel, x)
  where
-  selectedCls True  = "active"
-  selectedCls False = ""
+  selectedCls True  = attrs <> Map.singleton "class" "active"
+  selectedCls False = attrs
 
 selectedCountStyle :: Css
 selectedCountStyle = do
@@ -506,7 +522,7 @@ paginationInput totalResults initPage updatePage =
     let maxPageDyn = maxPage <$> totalResults <*> pageSizeDyn
     rec
       el "span" $ dynText
-        (resultSummary <$> pageSizeDyn <*> pageNumWithDef <*> totalResults)
+        (resultSummary' <$> pageSizeDyn <*> pageNumWithDef <*> totalResults)
       let btnPrevStateDyn = btnPrevState <$> pageNumWithDef
       prevAllEv <- btn
         def { _buttonConfig_priority = ButtonTertiary
@@ -575,17 +591,17 @@ paginationInput totalResults initPage updatePage =
 
   pageRange pageSz pageNum = (pageSz * (pageNum - 1) + 1, pageSz * pageNum)
 
-  resultSummary pageSz pageNum (Just total) =
-    let (r0, r1) = pageRange pageSz pageNum
-    in  pack (show (Prelude.min r0 total))
-          <> "-"
-          <> pack (show (Prelude.min r1 total))
-          <> " of "
-          <> pack (show total)
-          <> " results"
-  resultSummary pageSz pageNum Nothing =
-    let (r0, r1) = pageRange pageSz pageNum
-    in  pack (show r0) <> "-" <> pack (show r1)
+  resultSummary' pageSz pageNum = resultSummary (pageRange pageSz pageNum)
+
+resultSummary :: (Integer, Integer) -> Maybe Integer -> Text
+resultSummary (r0, r1) (Just total) =
+  pack (show (Prelude.min r0 total))
+    <> "-"
+    <> pack (show (Prelude.min r1 total))
+    <> " of "
+    <> pack (show total)
+    <> " results"
+resultSummary (r0, r1) Nothing = pack (show r0) <> "-" <> pack (show r1)
 
 
 data FilterCondition
@@ -692,7 +708,7 @@ instance Functor (MapSubset k) where
 data DatagridResult t a f k r = DatagridResult
   { _grid_selection :: Dynamic t (Set k)
   , _grid_navigate  :: Event t URI
-  , _grid_page      :: Dynamic t Page
+  , _grid_window    :: Dynamic t ViewWindow
   , _grid_columns   :: Dynamic t [a]
   , _grid_value     :: Dynamic t (MapSubset Int r)
   , _grid_filter    :: Dynamic t f
@@ -712,14 +728,18 @@ data Column t m a f k r = Column
       )
   }
 
+data ViewWindow = ViewWindow
+  { _win_offset :: Integer
+  , _win_limit  :: Integer
+  }
+
 data DatagridConfig t m a f k0 k r = DatagridConfig
   { _gridConfig_columns       :: [Column t m a f k0 r]
   , _gridConfig_selectAll     :: Event t Bool
   , _gridConfig_setValue      :: Event t (MapSubset Int (Maybe r))
   , _gridConfig_toLink        :: r -> L.Link
   , _gridConfig_toPrimary     :: r -> k
-  , _gridConfig_initialPage   :: Page
-  , _gridConfig_setPage       :: Event t Page
+  , _gridConfig_initialWindow :: ViewWindow
   , _gridConfig_initialSort   :: Map k0 SortOrder
   , _gridConfig_initialFilter :: f
   }
@@ -766,11 +786,31 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
         pure (selectAllEv', colheads', qfs')
     let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
 
-    dynR <-
+    totalCountWithDef <- holdDyn 0 (mkTotalCount <$> _gridConfig_setValue cfg)
+    let heightDynWithDef =
+          maybe
+              (36
+              * fromIntegral (_win_limit $ _gridConfig_initialWindow cfg)
+              `Prelude.div` bufferSize
+              )
+              (\x -> Prelude.round x - 107)
+            <$> dynHeight
+
+    (dynWindow, dynR) <-
       elDynAttr "tbody" (mkHeightAttr <$> dynHeight)
-      $ listWithKeyShallowDiff Map.empty (_ms_data <$> _gridConfig_setValue cfg)
-      $ \_ initR updateR -> do
+      $ virtualListBuffered'
+          bufferSize
+          heightDynWithDef
+          36
+          totalCountWithDef
+          (fromIntegral $ initOffset $ _gridConfig_initialWindow cfg)
+          never
+          Prelude.id
+          Map.empty
+          (_ms_data <$> _gridConfig_setValue cfg)
+      $ \attrs _ initR updateR -> do
           rowMultiSelect
+              attrs
               False
               (leftmost
                 [ selectAllEv
@@ -805,24 +845,26 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     totalCountDyn <- holdDyn Nothing
                              (_ms_totalCount <$> _gridConfig_setValue cfg)
 
-    (colKeysDyn, pageDyn) <- el "tfoot" $ tfooter $ do
+    colKeysDyn <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
       colKeysDyn' <- showHideColumns $ fmap _column_label colsIndexed
 
-      pageDyn'    <- paginationInput totalCountDyn
-                                     (_gridConfig_initialPage cfg)
-                                     (_gridConfig_setPage cfg)
-      pure (colKeysDyn', pageDyn')
+      elClass "div" "pagination" $ el "span" $ dynText
+        (resultSummary' <$> totalCountDyn)
+
+      pure colKeysDyn'
 
     let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
 
     let dynRSelected = joinDynThroughMap
           (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
 
+    let pageDyn = mkWindow <$> dynWindow
+
   pure $ DatagridResult
     { _grid_navigate  = switchDyn
                           (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
-    , _grid_page      = pageDyn
+    , _grid_window    = pageDyn
     , _grid_selection = selectionDyn
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
                           (constDyn colheads)
@@ -832,11 +874,34 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     }
 
  where
+  initOffset w
+    | _win_offset w == 0
+    = 0
+    | otherwise
+    = _win_offset w
+      +             (fromIntegral bufferSize - 1)
+      *             _win_limit w
+      `Prelude.div` (2 * fromIntegral bufferSize)
+
+  bufferSize = 3
+
+  resultSummary' (Just i') = pack (show i') <> " results"
+  resultSummary' Nothing   = ""
+
+  mkWindow (off, lim) =
+    ViewWindow { _win_offset = fromIntegral off, _win_limit = fromIntegral lim }
+
+  mkTotalCount (MapSubset _  (Just x)) = fromIntegral x
+  mkTotalCount (MapSubset xs _       ) = Map.size xs
+
   mkHeightAttr Nothing =
-    Map.singleton "style" "height:calc(100vh - 17rem - 1px)"
+    Map.singleton "style" "position:relative;height:calc(100vh - 17rem - 1px)"
   mkHeightAttr (Just x) = Map.singleton
     "style"
-    ("height:" <> pack (show (Prelude.round x - (107 :: Int))) <> "px")
+    (  "position:relative;height:"
+    <> pack (show (Prelude.round x - (107 :: Int)))
+    <> "px"
+    )
   colsIndexed = Map.fromList $ zip [0 ..] $ _gridConfig_columns cfg
 
   foldResult
@@ -863,3 +928,139 @@ diffMapSet olds news = fmap Just news
   `Map.union` Map.fromSet
                 (const Nothing)
                 (Set.difference olds (Map.keysSet news))
+
+
+-- | Modified from Reflex.Dom.Widget.Lazy for better fit with datagrid
+virtualList'
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     , Ord k
+     , Prerender js t m
+     )
+  => Dynamic t Int -- ^ A 'Dynamic' of the visible region's height in pixels
+  -> Int -- ^ The fixed height of each row in pixels
+  -> Dynamic t Int -- ^ A 'Dynamic' of the total number of items
+  -> Int -- ^ The index of the row to scroll to on initialization
+  -> Event t Int -- ^ An 'Event' containing a row index. Used to scroll to the given index.
+  -> (k -> Int) -- ^ Key to Index function, used to position items.
+  -> Map k v -- ^ The initial 'Map' of items
+  -> Event t (Map k (Maybe v)) -- ^ The update 'Event'. Nothing values are removed from the list and Just values are added or updated.
+  -> (Map Text Text -> k -> v -> Event t v -> m a) -- ^ The row child element builder.
+  -> m (Dynamic t (Int, Int), Dynamic t (Map k a)) -- ^ A tuple containing: a 'Dynamic' of the index (based on the current scroll position) and number of items currently being rendered, and the 'Dynamic' list result
+virtualList' heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
+  = do
+    let id'           = "datagrid-viewport" -- Should be unique per virtuallist
+        virtualH      = mkVirtualHeight <$> maxIndex
+        viewportStyle = fmap (mkViewport id') heightPx
+    pb <- getPostBuild
+    rec (viewport, result) <-
+          elDynAttr' "div" viewportStyle
+          $ elDynAttr "div" virtualH
+          $ listWithKeyShallowDiff items0 itemsUpdate
+          $ \k v e -> itemBuilder (mkRow k) k v e
+        scrollPosition <- holdDyn 0 $ leftmost
+          [ Prelude.round <$> domEvent Scroll viewport
+          , fmap (const (i0 * rowPx)) pb
+          ]
+        let window = zipDynWith (findWindow rowPx) heightPx scrollPosition
+    prerender_ (pure ()) $ do
+      pb' <- delay 5 pb
+      performEvent_ $ ffor (leftmost [setI, i0 <$ pb']) $ \i' -> liftJSM $ do
+        doc        <- jsg ("document" :: Text)
+        viewportEl <- doc ^. js1 ("getElementById" :: Text) (id' :: Text)
+        viewportEl ^. jss ("scrollTop" :: Text) (i' * rowPx)
+
+    uniqWindow <- holdUniqDyn window
+    return (uniqWindow, result)
+ where
+  toStyleAttr m = Map.singleton "style"
+    $ Map.foldrWithKey (\k v kv -> k <> ":" <> v <> ";" <> kv) "" m
+  mkViewport id' h = Map.singleton "id" id' <> toStyleAttr
+    (Map.fromList
+      [ ("overflow", "auto")
+      , ("position", "absolute")
+      , ("left"    , "0")
+      , ("right"   , "0")
+      , ("height"  , pack (show h) <> "px")
+      ]
+    )
+  mkVirtualHeight h =
+    let h' = h * rowPx
+    in  toStyleAttr $ Map.fromList
+          [ ("height"  , pack (show h') <> "px")
+          , ("overflow", "hidden")
+          , ("position", "relative")
+          ]
+  mkRow k = toStyleAttr $ Map.fromList
+    [ ("height"  , pack (show rowPx) <> "px")
+    , ("top", (<> "px") (pack $ show $ keyToIndex k * rowPx))
+    , ("position", "absolute")
+    ]
+  findWindow sizeIncrement windowSize startingPosition =
+    let (startingIndex, _) = startingPosition `divMod'` sizeIncrement
+        numItems = (windowSize + sizeIncrement - 1) `Prelude.div` sizeIncrement
+    in  (startingIndex, numItems)
+
+-- | Modified from Reflex.Dom.Widget.Lazy for better fit with datagrid
+virtualListBuffered'
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , Prerender js t m
+     , MonadFix m
+     , Ord k
+     )
+  => Int
+  -> Dynamic t Int
+  -> Int
+  -> Dynamic t Int
+  -> Int
+  -> Event t Int
+  -> (k -> Int)
+  -> Map k v
+  -> Event t (Map k (Maybe v))
+  -> (Map Text Text -> k -> v -> Event t v -> m a)
+  -> m
+       ( Dynamic t (Int, Int)
+       , Dynamic t (Map k a)
+       )
+virtualListBuffered' buffer heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
+  = do
+    (win, m) <- virtualList' heightPx
+                             rowPx
+                             maxIndex
+                             i0
+                             setI
+                             keyToIndex
+                             items0
+                             itemsUpdate
+                             itemBuilder
+    pb <- getPostBuild
+    let extendWin o l =
+          (Prelude.max 0 (o - l * (buffer - 1) `Prelude.div` 2), l * buffer)
+    rec
+      let winHitEdge = attachWithMaybe
+            (\(oldOffset, oldLimit) (winOffset, winLimit) ->
+              if winOffset
+                 >  oldOffset
+                 && winOffset
+                 +  winLimit
+                 <  oldOffset
+                 +  oldLimit
+              then
+                Nothing
+              else
+                Just (extendWin winOffset winLimit)
+            )
+            (current winBuffered)
+            (updated win)
+      winBuffered <-
+        holdDyn (0, 0)
+          $ leftmost
+              [ winHitEdge
+              , attachPromptlyDynWith (\(x, y) _ -> extendWin x y) win pb
+              ]
+    return (winBuffered, m)
+

@@ -149,15 +149,14 @@ blogsHandler vw = elClass "div" "flex-column" $ do
         , _gridConfig_selectAll     = False <$ deleteEvResult
         , _gridConfig_setValue      = leftmost [updateRows, deleteRows]
         , _gridConfig_toLink        = blogLink . primaryKey
-        , _gridConfig_initialPage   = fromApiPage $ page vw
-        , _gridConfig_setPage       = never
+        , _gridConfig_initialWindow = winFromApiPage $ page vw
         , _gridConfig_toPrimary     = primaryKey
         , _gridConfig_initialSort   = fromApiOrdering $ ordering vw
         , _gridConfig_initialFilter = filters vw
         }
 
       let selection = _grid_selection gridResult
-      dynPage           <- holdUniqDyn $ toApiPage <$> _grid_page gridResult
+      dynPage <- holdUniqDyn $ winToApiPage <$> _grid_window gridResult
       dynSort           <- holdUniqDyn $ _grid_columns gridResult
       dynFilterDebounce <- debounce 1 $ updated (_grid_filter gridResult)
       dynFilter         <- holdDyn (filters vw) dynFilterDebounce

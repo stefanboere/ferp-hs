@@ -26,8 +26,7 @@ module Servant.Crud.Server.Headers
   , hTotalLink'
   -- * Types
   , module Servant.Crud.Headers
-  )
-where
+  ) where
 
 import           Prelude
 
@@ -218,7 +217,7 @@ hLink path qs (Page moff mlim) = opt $ do
       .  Text.decodeUtf8
       .  renderQuery True
       .  queryTextToQuery
-      $  qs
+      $  filter ((`notElem` ["limit", "offset"]) . fst) qs
       ++ offQuery lim off
 
   offQuery :: Integer -> Integer -> QueryText
@@ -264,26 +263,45 @@ hTotalCount
 hTotalCount (Just i) = addHeader i
 hTotalCount Nothing  = noHeader
 
+-- | Adds a @X-Offset@ header.
+hOffset
+  :: forall orig new
+   . AddHeader "X-Offset" Offset orig new
+  => Maybe Offset
+  -> orig
+  -> new
+hOffset (Just i) = addHeader i
+hOffset _        = noHeader
+
 -- | Link header and total count header
 hTotalLink'
-  :: forall orig new new2 new3 c r t
+  :: forall orig new new2 new3 new4 c r t
    . ( AddHeader "Link" Link orig new
      , AddHeader "Link" Link new new2
      , AddHeader "X-Total-Count" TotalCount new2 new3
+     , AddHeader "X-Offset" Offset new3 new4
      , ToQueryText (View' c r t)
      )
   => PathInfo
   -> View' c r t
   -> Maybe TotalCount
   -> orig
-  -> new3
-hTotalLink' p v c = hTotalCount c . hLink' p v
+  -> new4
+hTotalLink' p v c = hOffset o . hTotalCount c . hLink' p v
+  where o = Offset <$> offset (page v)
 
 instance ToSample TotalCount where
   toSamples _ =
     [("Suppose there are 42 rows in the requested view.", TotalCount 42)]
 
 instance ToParamSchema TotalCount where
+  toParamSchema _ = toParamSchema (Proxy :: Proxy Integer)
+
+instance ToSample Offset where
+  toSamples _ =
+    [("Suppose there are 20 rows skipped the requested view.", Offset 20)]
+
+instance ToParamSchema Offset where
   toParamSchema _ = toParamSchema (Proxy :: Proxy Integer)
 
 instance ToCapture (Capture "id" id) where

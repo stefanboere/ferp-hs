@@ -39,7 +39,9 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.ByteString                ( ByteString )
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( catMaybes )
+import           Data.Maybe                     ( catMaybes
+                                                , fromMaybe
+                                                )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
@@ -56,7 +58,8 @@ import qualified Reflex.Dom.Prerender          as Prerender
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
-import           Servant.Crud.Headers           ( PathInfo(..)
+import           Servant.Crud.Headers           ( Offset(..)
+                                                , PathInfo(..)
                                                 , TotalCount(..)
                                                 )
 import qualified Servant.Subscriber.Reflex     as Sub
@@ -78,13 +81,19 @@ import           Components.Table               ( MapSubset(..) )
 
 getListToMapsubset :: GetListHeaders a -> MapSubset Int a
 getListToMapsubset resp = MapSubset
-  (Map.fromList $ zip [0 ..] (getResponse resp))
+  (Map.fromList $ zip [x0 ..] (getResponse resp))
   (getCount resp)
  where
+  x0 = fromIntegral $ fromMaybe 0 (getOffset resp)
   getCount x =
     case lookupResponseHeader x :: ResponseHeader "X-Total-Count" TotalCount of
       Servant.API.Header (TotalCount c) -> Just c
       _ -> Nothing
+
+  getOffset x =
+    case lookupResponseHeader x :: ResponseHeader "X-Offset" Offset of
+      Servant.API.Header (Offset c) -> Just c
+      _                             -> Nothing
 
 readLocationHeader :: Headers '[LocationHdr] NoContent -> Maybe URI
 readLocationHeader x =

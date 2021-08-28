@@ -32,6 +32,7 @@ module Servant.Crud.API
   , Link
   , TotalCount
   , PathInfo
+  , Offset
   ) where
 
 import           Prelude
@@ -39,7 +40,8 @@ import           Prelude
 import           Data.Default                   ( Default(..) )
 import           Network.HTTP.Link.Types        ( Link )
 import           Servant.API             hiding ( Link )
-import           Servant.Crud.Headers           ( Page(..)
+import           Servant.Crud.Headers           ( Offset
+                                                , Page(..)
                                                 , PathInfo
                                                 , TotalCount
                                                 )
@@ -54,11 +56,13 @@ data CSV
 
 type TotalHdr = Header "X-Total-Count" TotalCount
 
+type OffsetHdr = Header "X-Offset" Offset
+
 type LinkHdr = Header "Link" Link
 
 type LocationHdr = Header "Location" PathInfo
 
-type GetListHeaders a = Headers '[TotalHdr , LinkHdr , LinkHdr] [a]
+type GetListHeaders a = Headers '[OffsetHdr , TotalHdr , LinkHdr , LinkHdr] [a]
 
 -- | 'GET' which returns a JSON array of type @a@ with some extra headers
 type GetList' a = Get '[JSON , CSV] (GetListHeaders a)

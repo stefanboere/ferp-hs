@@ -17,8 +17,8 @@ module Servant.Crud.Headers
   ( PathInfo(..)
   , Page(..)
   , TotalCount(..)
-  )
-where
+  , Offset(..)
+  ) where
 
 import           Prelude
 
@@ -112,6 +112,15 @@ instance FromHttpApiData TotalCount where
 
 instance ToHttpApiData TotalCount where
   toUrlPiece = toUrlPiece . unTotalCount
+
+-- | The number of rows skipped in this view
+newtype Offset = Offset { unOffset :: Integer } deriving (Eq, Show)
+
+instance FromHttpApiData Offset where
+  parseUrlPiece = fmap Offset . parseUrlPiece
+
+instance ToHttpApiData Offset where
+  toUrlPiece = toUrlPiece . unOffset
 
 instance FromHttpApiData [Link] where
   parseUrlPiece = either (Left . Text.pack) Right . parseLinkHeader'
