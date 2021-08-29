@@ -195,10 +195,6 @@ tableStyle = do
       borderBottomColor nord4'
       height (rem 1)
       width (rem 1)
-    Clay.button ? do
-      important
-        $ margin (rem (-1 / 4)) (rem (1 / 4)) (rem (-1 / 4)) (rem (1 / 4))
-      paddingAll (rem (1 / 4))
 
     ".dropdown-menu" ? Clay.button ? do
       important $ marginAll nil
@@ -213,6 +209,14 @@ tableStyle = do
       hover Clay.& do
         important $ fontColor nord3'
         important $ "fill" -: showColor nord3'
+
+  thead ** td ** Clay.button ? do
+    important $ margin (rem (-1 / 4)) (rem (1 / 4)) (rem (-1 / 4)) (rem (1 / 4))
+    paddingAll (rem (1 / 4))
+
+  tfoot ** ".signpost" ? do
+    marginTop (rem (-1 / 4))
+    marginBottom (rem (-1 / 4))
 
   (thead <> tbody <> tfoot) ** tr ? do
     "display" -: "table"
