@@ -124,21 +124,11 @@ blogsHandler vw = elClass "div" "flex-column" $ do
       deleteEvResult <- orAlert mDeleteEvResult
 
       recEv          <- orAlert getBlogEv
-
-      keysSet        <- foldDyn ($) def $ leftmost
-        [ const . fmapMaybe (fmap primaryKey) . _ms_data <$> updateRows
-        , (\d m -> m `Map.withoutKeys` Map.keysSet d) . _ms_data <$> deleteRows
-        ]
-      let updateRows = attachWith addDeletes
-                                  (Map.keysSet <$> current keysSet)
-                                  (getListToMapsubset <$> recEv)
-
-      let deleteRows = attachWith
-            doDeletes
-            ((,) <$> current keysSet <*> current
-              (_ms_totalCount <$> _grid_value gridResult)
-            )
-            deleteEvResult
+      blogsDynRemote <- foldDyn ($) def $ leftmost
+        [const . getListToMapsubset <$> recEv, doDeletes <$> deleteEvResult]
+      keysSet <- holdDyn def (Map.keysSet . _ms_data <$> updateRows)
+      let updateRows =
+            attachWith addDeletes (current keysSet) (updated blogsDynRemote)
 
       gridResult <- datagridDyn DatagridConfig
         { _gridConfig_columns       =
@@ -147,7 +137,7 @@ blogsHandler vw = elClass "div" "flex-column" $ do
           , gridProp textEditor strFilter blogDescriptionProp
           ]
         , _gridConfig_selectAll     = False <$ deleteEvResult
-        , _gridConfig_setValue      = leftmost [updateRows, deleteRows]
+        , _gridConfig_setValue      = updateRows
         , _gridConfig_toLink        = blogLink . primaryKey
         , _gridConfig_initialWindow = winFromApiPage $ page vw
         , _gridConfig_toPrimary     = primaryKey
@@ -167,10 +157,16 @@ blogsHandler vw = elClass "div" "flex-column" $ do
   pure (leftmost [_grid_navigate gridResult, insertEv])
 
  where
-  doDeletes (m, c) xs =
+  doDeletes xs (MapSubset m c) =
     let xsSet = Set.fromList xs
+        (deleted, existing) =
+          Map.partition ((`Set.member` xsSet) . primaryKey) m
+        deletedIndices  = Map.keysSet deleted
+        movedUpExisting = Map.mapKeys
+          (\k -> k - Set.size (Set.takeWhileAntitone (< k) deletedIndices))
+          existing
     in  MapSubset
-          { _ms_data       = Nothing <$ Map.filter (`Set.member` xsSet) m
+          { _ms_data       = movedUpExisting
           , _ms_totalCount = fmap (\x -> x - fromIntegral (Set.size xsSet)) c
           }
 
@@ -190,8 +186,6 @@ blogEdit
   -> ApiWidget t m (Event t URI)
 blogEdit initBlogId = do
 
-  postBuildEv <- getPostBuild
-
   rec
     let setBlogIdEv = Just . getResponse <$> postEvSuccess
     dynBlogId <- holdDyn initBlogId setBlogIdEv
@@ -199,7 +193,7 @@ blogEdit initBlogId = do
 
     backBtn "Close"
 
-    getResp       <- dynButton initBlogId setBlogIdEv (getButton postBuildEv)
+    getResp       <- dynButton initBlogId setBlogIdEv getButton
 
     patchEvResult <- dynButton initBlogId
                                setBlogIdEv
@@ -251,12 +245,14 @@ blogEdit initBlogId = do
 
   dynButton initPk setPk b = switchDyn <$> widgetHold (b initPk) (b <$> setPk)
 
-  getButton _      Nothing   = pure never
-  getButton autoEv (Just pk) = requestBtn refreshBtn
-                                          (pure . (getBlog pk <$))
-                                          (constDyn False)
-                                          (constDyn False)
-                                          autoEv
+  getButton Nothing   = pure never
+  getButton (Just pk) = do
+    autoEv <- getPostBuild
+    requestBtn refreshBtn
+               (pure . (getBlog pk <$))
+               (constDyn False)
+               (constDyn False)
+               autoEv
 
   editPk dynPatch = Compose $ pure (setPk <$> dynPatch)
    where

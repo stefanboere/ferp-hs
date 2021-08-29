@@ -883,7 +883,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
       *             _win_limit w
       `Prelude.div` (2 * fromIntegral bufferSize)
 
-  bufferSize = 3
+  bufferSize = 2
 
   resultSummary' (Just i') = pack (show i') <> " results"
   resultSummary' Nothing   = ""
