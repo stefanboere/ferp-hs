@@ -120,7 +120,7 @@ blogsHandler vw = elClass "div" "flex-column" $ do
                                      (constDyn False)
                                      never
 
-      downloadButton (getBlogsApiLink <$> dynView)
+      downloadButton (linkWithSelection <$> dynView <*> selection)
       pure (insertEv', getBlogEv', mDeleteEvResult')
 
     deleteEvResult <- orAlert mDeleteEvResult
@@ -160,6 +160,14 @@ blogsHandler vw = elClass "div" "flex-column" $ do
   pure (leftmost [_grid_navigate gridResult, insertEv])
 
  where
+  linkWithSelection v (Selection neg pks _) =
+    let setFilterFn = if neg then setNotInFilter else setInFilter
+        pks'        = unBlogId <$> Set.toList pks
+    in  getBlogsApiLink
+          $ v { filters = over blogId (setFilterFn pks') (filters v) }
+
+  unBlogId (BlogId x) = x
+
   doDeletes xs (MapSubset m c) =
     let xsSet = Set.fromList xs
         (deleted, existing) =

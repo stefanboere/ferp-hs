@@ -21,6 +21,8 @@ module Frontend.Crud.Datagrid
   , strFilter
   , ordFilter
   , eqFilter
+  , setInFilter
+  , setNotInFilter
   -- * Column definition
   , gridProp
   , Property(..)
@@ -191,6 +193,12 @@ toApiFilterEq f t =
         Equal        -> setf @"" ls
         DoesNotEqual -> setf @"!" ls
         _            -> id
+
+setInFilter :: SetFilter "" 'List a => [a] -> Filter a -> Filter a
+setInFilter = setf @""
+
+setNotInFilter :: SetFilter "!" 'List a => [a] -> Filter a -> Filter a
+setNotInFilter = setf @"!"
 
 type GetFilter s k a
   = (GetOp (Find s (DefaultFilters a) :: IsInDict s k (DefaultFilters a)))
