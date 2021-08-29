@@ -319,20 +319,21 @@ containerTable = do
         _ <- el "td" quickFilter
         pure selectAllEv
     selcountDyn <- elAttr "tbody" ("style" =: "height:20rem") $ do
-      (s1, _) <- rowMultiSelect Map.empty False selectAllEv $ do
+      let rms = rowMultiSelect Map.empty (constDyn False) False selectAllEv
+      (s1, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"
         _ <- el "td" $ textInput (inputConfig "John Doe")
         _ <- el "td" $ dateInput (inputConfig (Just (fromGregorian 1970 01 01)))
         _ <- el "td" $ numberInput (inputConfig (10 :: Double))
         pure ()
-      (s2, _) <- rowMultiSelect Map.empty False selectAllEv $ do
+      (s2, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "104"
         el "td" $ text "Adam Smith"
         el "td" $ text "Jul 1, 2007"
         elClass "td" "right" $ text "0"
-      (s3, _) <- rowMultiSelect Map.empty False selectAllEv $ do
+      (s3, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "131"
         el "td" $ text "Dimitri Johnson"

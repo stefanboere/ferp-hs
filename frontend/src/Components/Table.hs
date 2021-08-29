@@ -50,6 +50,8 @@ import           Data.Set                       ( Set )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
+import qualified Data.Text                     as Text
+                                                ( unwords )
 import           Language.Javascript.JSaddle    ( js1
                                                 , jsg
                                                 , jss
@@ -88,6 +90,10 @@ tableStyle = do
     overflow auto
     display flex
     height (pct 100)
+
+  ".full-row-select" ? do
+    cursor pointer
+    userSelect none
 
   selectedCountStyle
   (  ".datagrid"
@@ -466,11 +472,12 @@ tfooter =
 rowMultiSelect
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => Map Text Text
+  -> Dynamic t Bool
   -> Bool
   -> Event t Bool
   -> m a
   -> m (Dynamic t Bool, a)
-rowMultiSelect attrs fullRowSelect setSelectEv cnt = do
+rowMultiSelect attrs dynMouseDown fullRowSelect setSelectEv cnt = do
   rec (e, (r, x)) <- elDynAttr' "tr" (selectedCls <$> dynSel) $ do
         (r', _) <- elClass' "td" "row-select"
           $ checkboxInputSimple
@@ -479,14 +486,26 @@ rowMultiSelect attrs fullRowSelect setSelectEv cnt = do
               (Map.singleton "tabindex" "-1")
         x' <- cnt
         pure (r', x')
-      let rowClickEv = domEvent Click $ if fullRowSelect then e else r
+      let e' = if fullRowSelect then e else r
+      let rowClickEv = leftmost
+            [ () <$ domEvent Mousedown e'
+            , gate (current dynMouseDown) (domEvent Mouseenter e')
+            ]
       dynSel <- foldDyn ($) False
         $ leftmost [const <$> setSelectEv, Prelude.not <$ rowClickEv]
 
   pure (dynSel, x)
  where
-  selectedCls True  = attrs <> Map.singleton "class" "active"
-  selectedCls False = attrs
+  selectedCls act =
+    case catMaybes [fullRowSelectCls fullRowSelect, activeCls act] of
+      [] -> attrs
+      xs -> attrs <> Map.singleton "class" (Text.unwords xs)
+
+  fullRowSelectCls True  = Just "full-row-select"
+  fullRowSelectCls False = Nothing
+
+  activeCls True  = Just "active"
+  activeCls False = Nothing
 
 selectedCountStyle :: Css
 selectedCountStyle = do
@@ -812,10 +831,11 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
           Prelude.id
           Map.empty
           (_ms_data <$> _gridConfig_setValue cfg)
-      $ \attrs _ initR updateR -> do
+      $ \attrs mouseDownDyn _ initR updateR -> do
           rowMultiSelect
               attrs
-              False
+              mouseDownDyn
+              True
               (leftmost
                 [ selectAllEv
                 , attachWith isSelected (current selectionDyn) updateR
@@ -829,16 +849,8 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
                 rcols <- Reflex.Dom.list
                   dynCols
                   (\dynF -> el "td" $ do
-                    {-
-                dynEv <-
-                  dyn
-                    (   (\f -> getCompose (_column_editor f initR updateR))
-                    <$> dynF
-                    )
-                -}
                     dyn_ ((`_column_viewer` rDyn) <$> dynF)
-                    let dynEv = never
-                    join <$> holdDyn (constDyn Prelude.id) dynEv
+                    join <$> holdDyn (constDyn Prelude.id) never
                   )
                 let r = foldResult rDyn rcols
                 pure (lnkEv, r)
@@ -951,7 +963,13 @@ virtualList'
   -> (k -> Int) -- ^ Key to Index function, used to position items.
   -> Map k v -- ^ The initial 'Map' of items
   -> Event t (Map k (Maybe v)) -- ^ The update 'Event'. Nothing values are removed from the list and Just values are added or updated.
-  -> (Map Text Text -> k -> v -> Event t v -> m a) -- ^ The row child element builder.
+  -> (  Map Text Text
+     -> Dynamic t Bool
+     -> k
+     -> v
+     -> Event t v
+     -> m a
+     ) -- ^ The row child element builder.
   -> m (Dynamic t (Int, Int), Dynamic t (Map k a)) -- ^ A tuple containing: a 'Dynamic' of the index (based on the current scroll position) and number of items currently being rendered, and the 'Dynamic' list result
 virtualList' heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
   = do
@@ -963,7 +981,12 @@ virtualList' heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemB
           elDynAttr' "div" viewportStyle
           $ elDynAttr "div" virtualH
           $ listWithKeyShallowDiff items0 itemsUpdate
-          $ \k v e -> itemBuilder (mkRow k) k v e
+          $ \k v e -> itemBuilder (mkRow k) dynMouseDown k v e
+        dynMouseDown <- holdDyn False $ leftmost
+          [ True <$ domEvent Mousedown viewport
+          , False <$ domEvent Mouseup viewport
+          , False <$ domEvent Mouseenter viewport
+          ]
         scrollPosition <- holdDyn 0 $ leftmost
           [ Prelude.round <$> domEvent Scroll viewport
           , fmap (const (i0 * rowPx)) pb
@@ -1025,7 +1048,13 @@ virtualListBuffered'
   -> (k -> Int)
   -> Map k v
   -> Event t (Map k (Maybe v))
-  -> (Map Text Text -> k -> v -> Event t v -> m a)
+  -> (  Map Text Text
+     -> Dynamic t Bool
+     -> k
+     -> v
+     -> Event t v
+     -> m a
+     )
   -> m
        ( Dynamic t (Int, Int)
        , Dynamic t (Map k a)
