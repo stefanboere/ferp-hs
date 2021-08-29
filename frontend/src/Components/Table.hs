@@ -24,6 +24,7 @@ module Components.Table
   , MapSubset(..)
   , DatagridConfig(..)
   , DatagridResult(..)
+  , Selection(..)
   , Page(..)
   , pageSize
   , PageSize
@@ -710,12 +711,13 @@ withFilterCondition avail initCond editor = inputGroup def $ do
 
   editor initCond selectEv
 
-headMultiSelect :: (DomBuilder t m) => m a -> m (Event t Bool, a)
-headMultiSelect theadTr = el "tr" $ do
+headMultiSelect
+  :: (DomBuilder t m) => Event t Bool -> m a -> m (Dynamic t Bool, a)
+headMultiSelect setSelEv theadTr = el "tr" $ do
   selectAllDyn <- el "th"
-    $ checkboxInputSimple False never (Map.singleton "tabindex" "-1")
+    $ checkboxInputSimple False setSelEv (Map.singleton "tabindex" "-1")
   x <- theadTr
-  pure (updated selectAllDyn, x)
+  pure (selectAllDyn, x)
 
 data MapSubset k a = MapSubset
   { _ms_data       :: Map k a
@@ -728,8 +730,14 @@ instance Default (MapSubset k a) where
 instance Functor (MapSubset k) where
   fmap f x = x { _ms_data = fmap f (_ms_data x) }
 
+data Selection k = Selection
+  { _sel_negate :: Bool
+  , _sel_keys   :: Set k
+  , _sel_count  :: Int
+  }
+
 data DatagridResult t a f k r = DatagridResult
-  { _grid_selection :: Dynamic t (Set k)
+  { _grid_selection :: Dynamic t (Selection k)
   , _grid_navigate  :: Event t URI
   , _grid_window    :: Dynamic t ViewWindow
   , _grid_columns   :: Dynamic t [a]
@@ -781,19 +789,20 @@ datagridDyn
   -> m (DatagridResult t a f k r)
 datagridDyn cfg = datagrid 2 $ \dynHeight -> do
   rec
-    (iSelectAllEv, colheads, qfs) <- el "thead" $ do
-      (selectAllEv', colheads') <- headMultiSelect $ do
-        el "th" blank
-        Map.traverseWithKey
-          (\k c -> columnHead' ((k `Set.member`) <$> colKeysDyn) $ do
-            dynSort <- sortlabel
-              (constDyn (_column_label c))
-              (_gridConfig_initialSort cfg Map.!? fst (_column_orderBy c))
-              never
+    (selectAllDyn, colheads, qfs) <- el "thead" $ do
+      (selectAllDyn', colheads') <-
+        headMultiSelect (_gridConfig_selectAll cfg) $ do
+          el "th" blank
+          Map.traverseWithKey
+            (\k c -> columnHead' ((k `Set.member`) <$> colKeysDyn) $ do
+              dynSort <- sortlabel
+                (constDyn (_column_label c))
+                (_gridConfig_initialSort cfg Map.!? fst (_column_orderBy c))
+                never
 
-            pure (fmap (snd (_column_orderBy c)) <$> dynSort)
-          )
-          colsIndexed
+              pure (fmap (snd (_column_orderBy c)) <$> dynSort)
+            )
+            colsIndexed
       el "tr" $ do
         el "td" blank
         el "td" blank
@@ -806,8 +815,10 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
                   $ withFilterCondition avail (initC initF) (editor initF)
           )
           colsIndexed
-        pure (selectAllEv', colheads', qfs')
-    let selectAllEv = leftmost [iSelectAllEv, _gridConfig_selectAll cfg]
+        pure (selectAllDyn', colheads', qfs')
+
+    let selectAllEv =
+          leftmost [updated selectAllDyn, _gridConfig_selectAll cfg]
 
     totalCountWithDef <- holdDyn 0 (mkTotalCount <$> _gridConfig_setValue cfg)
     let heightDynWithDef =
@@ -832,34 +843,47 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
           Map.empty
           (_ms_data <$> _gridConfig_setValue cfg)
       $ \attrs mouseDownDyn _ initR updateR -> do
-          rowMultiSelect
-              attrs
-              mouseDownDyn
-              True
-              (leftmost
-                [ selectAllEv
-                , attachWith isSelected (current selectionDyn) updateR
-                ]
-              )
-            $ do
-                dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
-                                  (_gridConfig_toLink cfg <$> updateR)
-                lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
-                rDyn  <- holdDyn initR updateR
-                rcols <- Reflex.Dom.list
-                  dynCols
-                  (\dynF -> el "td" $ do
-                    dyn_ ((`_column_viewer` rDyn) <$> dynF)
-                    join <$> holdDyn (constDyn Prelude.id) never
-                  )
-                let r = foldResult rDyn rcols
-                pure (lnkEv, r)
+          pb                     <- getPostBuild
+          (selDyn, (lnkEv', r')) <-
+            rowMultiSelect
+                attrs
+                mouseDownDyn
+                True
+                (leftmost
+                  [ selectAllEv
+                  , attachWith
+                    isSelected
+                    ((,) <$> current selectAllDyn <*> current selectionDyn)
+                    (leftmost [updateR, initR <$ pb])
+                  ]
+                )
+              $ do
+                  dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
+                                    (_gridConfig_toLink cfg <$> updateR)
+                  lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
+                  rDyn  <- holdDyn initR updateR
+                  rcols <- Reflex.Dom.list
+                    dynCols
+                    (\dynF -> el "td" $ do
+                      dyn_ ((`_column_viewer` rDyn) <$> dynF)
+                      join <$> holdDyn (constDyn Prelude.id) never
+                    )
+                  let r = foldResult rDyn rcols
+                  pure (lnkEv, r)
+          let selEvUser = attachPromptlyDynWith
+                primaryKeyWithSel
+                r'
+                (updated selDyn `difference` updateR)
+          pure (selEvUser, (lnkEv', r'))
 
-    let selectionDyn = mkSelectionDyn dynR
-    let selcountDyn  = Set.size <$> selectionDyn
+    selectionDyn <- foldDyn ($) Set.empty $ leftmost
+      [const Set.empty <$ selectAllEv, mkSelectionEv selectAllDyn dynR]
+    let selcountDyn =
+          mkSelcount <$> selectAllDyn <*> selectionDyn <*> totalCountWithDef
 
     totalCountDyn <- holdDyn Nothing
                              (_ms_totalCount <$> _gridConfig_setValue cfg)
+
 
     colKeysDyn <- el "tfoot" $ tfooter $ do
       selectedCountInfo selcountDyn
@@ -870,21 +894,23 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
 
       pure colKeysDyn'
 
-    let dynCols = Map.restrictKeys colsIndexed <$> colKeysDyn
+    let dynCols      = Map.restrictKeys colsIndexed <$> colKeysDyn
 
-    let dynRSelected = joinDynThroughMap
-          (Map.map (\(x, (_, y)) -> (,) <$> x <*> y) <$> dynR)
+    let dynRSelected = joinDynThroughMap (Map.map (snd . snd) <$> dynR)
 
-    let pageDyn = mkWindow <$> dynWindow
+    let pageDyn      = mkWindow <$> dynWindow
 
   pure $ DatagridResult
     { _grid_navigate  = switchDyn
                           (leftmost . fmap (fst . snd) . Map.elems <$> dynR)
     , _grid_window    = pageDyn
-    , _grid_selection = selectionDyn
+    , _grid_selection = Selection
+                        <$> selectAllDyn
+                        <*> selectionDyn
+                        <*> selcountDyn
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
                           (constDyn colheads)
-    , _grid_value = MapSubset <$> (fmap snd <$> dynRSelected) <*> totalCountDyn
+    , _grid_value     = MapSubset <$> dynRSelected <*> totalCountDyn
     , _grid_filter    = foldResult (constDyn $ _gridConfig_initialFilter cfg)
                                    (constDyn qfs)
     }
@@ -927,14 +953,21 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     -> Dynamic t a
   foldResult x xs = foldr ($) <$> x <*> joinDynThroughMap xs
 
-  mkSelectionDyn =
-    fmap (Set.fromList . fmap fst . Map.elems . Map.filter snd)
-      . joinDynThroughMap
-      . fmap (fmap (\(selDyn, (_, x)) -> primaryKeyWithSel <$> x <*> selDyn))
+  mkSelectionEv selAllDyn dynR =
+    let selEv = switchDyn (leftmost . fmap fst . Map.elems <$> dynR)
+    in  attachPromptlyDynWith mkUpdater selAllDyn selEv
+  mkUpdater selAll (k, selK) | selAll == selK = Set.delete k
+                             | otherwise      = Set.insert k
 
   primaryKeyWithSel r s' = (_gridConfig_toPrimary cfg r, s')
 
-  isSelected selset r = _gridConfig_toPrimary cfg r `Set.member` selset
+  mkSelcount selAll selKs totC =
+    if selAll then totC - Set.size selKs else Set.size selKs
+
+  isSelected (selAll, selset) r =
+    let memberFn = if selAll then Set.notMember else Set.member
+    in  _gridConfig_toPrimary cfg r `memberFn` selset
+
 
 addDeletes :: Ord k => Set k -> MapSubset k a -> MapSubset k (Maybe a)
 addDeletes oldSet m = m { _ms_data = diffMapSet oldSet (_ms_data m) }

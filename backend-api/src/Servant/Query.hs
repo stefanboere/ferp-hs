@@ -92,7 +92,7 @@ data CrudRoutes t t2 route = CrudRoutes
   , _delete     :: route :- Delete_ t2
   , _post       :: route :- Post_ t2
   , _getList    :: route :- GetList Postgres t
-  , _deleteList :: route :- DeleteList_ t2
+  , _deleteList :: route :- DeleteList_ Postgres t
   , _postList   :: route :- PostList t2
   }
   deriving Generic
@@ -119,9 +119,10 @@ defaultCrud
   => (forall b . m b -> m1 b)  -- ^ Transform to the app monad
   -> DatabaseEntity Postgres db (TableEntity t2) -- ^ The database entity
   -> (PrimaryKey t2 Identity -> PrimaryKey t Identity) -- ^ Function to change the type of the primary key
+  -> (PrimaryKey t Identity -> PrimaryKey t2 Identity) -- ^ Function to change the type of the primary key back
   -> (forall s . Q Postgres db s (t (QExpr Postgres s))) -- ^ The collection
   -> CrudRoutes t t2 (AsServerT m1)
-defaultCrud runDB db coerce coll = CrudRoutes
+defaultCrud runDB db coerce coerceBack coll = CrudRoutes
   { _get        = \key -> runDB (runLookupIn key coll) >>= notFound
   , _put        = \key -> ifInView_ key . runSaveWithId db key
   , _patch      = \key -> ifInView_ key . runPatch db key
@@ -133,7 +134,10 @@ defaultCrud runDB db coerce coll = CrudRoutes
                     hTotalLink' path view
                       <$> runDB (runCountInView view coll)
                       <*> runDB (runSetView view coll)
-  , _deleteList = \keys -> runDB (runDeleteKeys db keys) >> pure keys
+  , _deleteList = \keys fltr -> do
+                    keys' <- runDB (runPrimaryKeysInView fltr keys coll)
+                    runDB (runDeleteKeys db (fmap coerceBack keys'))
+                    pure keys'
   , _postList   = runDB . runInsertMany db
   }
  where

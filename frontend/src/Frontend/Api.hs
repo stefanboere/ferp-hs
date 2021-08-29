@@ -58,10 +58,12 @@ import qualified Reflex.Dom.Prerender          as Prerender
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
-import           Servant.Crud.Headers           ( Offset(..)
+import           Servant.Crud.Headers           ( ExceptLimited(..)
+                                                , Offset(..)
                                                 , PathInfo(..)
                                                 , TotalCount(..)
                                                 )
+import           Servant.Crud.QueryOperator     ( Filter )
 import           Servant.Links                  ( URI(..) )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
@@ -271,7 +273,8 @@ getBlog :: BlogId -> FreeClient Blog
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent
-deleteBlogs :: Token -> [BlogId] -> FreeClient [BlogId]
+deleteBlogs
+  :: Token -> ExceptLimited [BlogId] -> BlogT Filter -> FreeClient [BlogId]
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)

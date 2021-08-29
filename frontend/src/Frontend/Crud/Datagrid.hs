@@ -12,6 +12,7 @@ module Frontend.Crud.Datagrid
   , fromApiPage
   , winToApiPage
   , winFromApiPage
+  , toApiExceptLimited
   , replaceLocation
   , replaceLocationUri
   , toApiDirection
@@ -38,6 +39,7 @@ import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe
                                                 , maybeToList
                                                 )
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text )
 import           GHCJS.DOM.Types                ( SerializedScriptValue(..) )
 import           Language.Javascript.JSaddle    ( pToJSVal )
@@ -47,6 +49,8 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 )
 import qualified Servant.Crud.API              as API
                                                 ( Page(..) )
+import qualified Servant.Crud.Headers          as API
+                                                ( ExceptLimited(..) )
 import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator
 import           Servant.Links                  ( Link
@@ -91,6 +95,11 @@ winFromApiPage p =
   in  ViewWindow { _win_offset = fromMaybe 0 (API.offset p)
                  , _win_limit  = pagesize
                  }
+
+toApiExceptLimited :: Selection t -> API.ExceptLimited [t]
+toApiExceptLimited (Selection neg xs _)
+  | neg       = API.Except (Set.toList xs)
+  | otherwise = API.LimitedTo (Set.toList xs)
 
 replaceLocation
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)

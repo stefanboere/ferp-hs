@@ -43,7 +43,7 @@ type BlogApi' be
       :<|>
       (Auth Admin :> Delete_ BlogT)
       :<|>
-      (Auth Admin :> DeleteList_ BlogT)
+      (Auth Admin :> DeleteList_ be BlogT)
       :<|>
       (Auth Admin :> Post_ BlogT)
       :<|>

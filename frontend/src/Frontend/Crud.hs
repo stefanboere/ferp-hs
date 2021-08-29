@@ -98,61 +98,64 @@ blogsHandler vw = elClass "div" "flex-column" $ do
 
   postBuildEv <- getPostBuild
 
-  rec let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
-      (insertEv, getBlogEv, mDeleteEvResult) <- el "div" $ do
-        insertEv'  <- insertBtn (constDyn newBlogLink)
-        getBlogEv' <- requestBtn
-          refreshBtn
-          (pure . getBlogReq)
-          (constDyn False)
-          (constDyn False)
-          (leftmost [postBuildEv, () <$ updated dynView])
+  rec
+    let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
+    (insertEv, getBlogEv, mDeleteEvResult) <- el "div" $ do
+      insertEv'  <- insertBtn (constDyn newBlogLink)
+      getBlogEv' <- requestBtn refreshBtn
+                               (pure . getBlogReq)
+                               (constDyn False)
+                               (constDyn False)
+                               (leftmost [postBuildEv, () <$ updated dynView])
 
-        let deleteBlogReq ev = do
-              ev' <- deleteConfirmation (tagPromptlyDyn selection ev)
-              pure $ fmap (deleteBlogs usingCookie) ev'
+      let deleteBlogReq ev = do
+            ev' <- deleteConfirmation _sel_count (tagPromptlyDyn selection ev)
+            pure $ attachPromptlyDynWith (flip $ deleteBlogs usingCookie)
+                                         dynFilterUniq
+                                         (toApiExceptLimited <$> ev')
 
-        mDeleteEvResult' <- requestBtn deleteBtn
-                                       deleteBlogReq
-                                       (Set.null <$> selection)
-                                       (constDyn False)
-                                       never
+      mDeleteEvResult' <- requestBtn deleteBtn
+                                     deleteBlogReq
+                                     ((<= 0) . _sel_count <$> selection)
+                                     (constDyn False)
+                                     never
 
-        downloadButton (getBlogsApiLink <$> dynView)
-        pure (insertEv', getBlogEv', mDeleteEvResult')
+      downloadButton (getBlogsApiLink <$> dynView)
+      pure (insertEv', getBlogEv', mDeleteEvResult')
 
-      deleteEvResult <- orAlert mDeleteEvResult
+    deleteEvResult <- orAlert mDeleteEvResult
 
-      recEv          <- orAlert getBlogEv
-      blogsDynRemote <- foldDyn ($) def $ leftmost
-        [const . getListToMapsubset <$> recEv, doDeletes <$> deleteEvResult]
-      keysSet <- holdDyn def (Map.keysSet . _ms_data <$> updateRows)
-      let updateRows =
-            attachWith addDeletes (current keysSet) (updated blogsDynRemote)
+    recEv          <- orAlert getBlogEv
+    blogsDynRemote <- foldDyn ($) def $ leftmost
+      [const . getListToMapsubset <$> recEv, doDeletes <$> deleteEvResult]
+    keysSet <- holdDyn def (Map.keysSet . _ms_data <$> updateRows)
+    let updateRows =
+          attachWith addDeletes (current keysSet) (updated blogsDynRemote)
 
-      gridResult <- datagridDyn DatagridConfig
-        { _gridConfig_columns       =
-          [ gridProp noEditor   eqFilter  blogIdProp
-          , gridProp textEditor strFilter blogTitleProp
-          , gridProp textEditor strFilter blogDescriptionProp
-          ]
-        , _gridConfig_selectAll     = False <$ deleteEvResult
-        , _gridConfig_setValue      = updateRows
-        , _gridConfig_toLink        = blogLink . primaryKey
-        , _gridConfig_initialWindow = winFromApiPage $ page vw
-        , _gridConfig_toPrimary     = primaryKey
-        , _gridConfig_initialSort   = fromApiOrdering $ ordering vw
-        , _gridConfig_initialFilter = filters vw
-        }
+    gridResult <- datagridDyn DatagridConfig
+      { _gridConfig_columns       =
+        [ gridProp noEditor   eqFilter  blogIdProp
+        , gridProp textEditor strFilter blogTitleProp
+        , gridProp textEditor strFilter blogDescriptionProp
+        ]
+      , _gridConfig_selectAll     = leftmost
+        [False <$ deleteEvResult, False <$ updated dynFilterUniq]
+      , _gridConfig_setValue      = updateRows
+      , _gridConfig_toLink        = blogLink . primaryKey
+      , _gridConfig_initialWindow = winFromApiPage $ page vw
+      , _gridConfig_toPrimary     = primaryKey
+      , _gridConfig_initialSort   = fromApiOrdering $ ordering vw
+      , _gridConfig_initialFilter = filters vw
+      }
 
-      let selection = _grid_selection gridResult
-      dynPage <- holdUniqDyn $ winToApiPage <$> _grid_window gridResult
-      dynSort           <- holdUniqDyn $ _grid_columns gridResult
-      dynFilterDebounce <- debounce 1 $ updated (_grid_filter gridResult)
-      dynFilter         <- holdDyn (filters vw) dynFilterDebounce
-      dynFilterUniq     <- holdUniqDyn dynFilter
-      let dynView = View <$> dynPage <*> dynSort <*> dynFilterUniq
-      replaceLocation (blogsLink <$> updated dynView)
+    let selection = _grid_selection gridResult
+    dynPage           <- holdUniqDyn $ winToApiPage <$> _grid_window gridResult
+    dynSort           <- holdUniqDyn $ _grid_columns gridResult
+    dynFilterDebounce <- debounce 1 $ updated (_grid_filter gridResult)
+    dynFilter         <- holdDyn (filters vw) dynFilterDebounce
+    dynFilterUniq     <- holdUniqDyn dynFilter
+    let dynView = View <$> dynPage <*> dynSort <*> dynFilterUniq
+    replaceLocation (blogsLink <$> updated dynView)
 
   pure (leftmost [_grid_navigate gridResult, insertEv])
 
@@ -263,7 +266,7 @@ blogEdit initBlogId = do
   mkHeader Nothing            = "New blog"
 
   deleteBlogReq pk ev = do
-    ev' <- deleteConfirmation (Set.singleton () <$ ev)
+    ev' <- deleteConfirmation (const 1) ev
     pure $ deleteBlog usingCookie pk <$ ev'
 
   deleteButton Nothing   = pure never

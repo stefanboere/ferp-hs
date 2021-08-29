@@ -301,8 +301,8 @@ containerTable = do
 
   el "h2" $ text "Datagrid"
   datagrid 2 $ \_ -> do
-    selectAllEv <- el "thead" $ do
-      (selectAllEv, _) <- headMultiSelect $ do
+    selectAllDyn <- el "thead" $ do
+      (selectAllDyn, _) <- headMultiSelect never $ do
         el "th" $ text ""
         columnHead $ do
           _ <- sortlabel "User ID" def never
@@ -317,9 +317,11 @@ containerTable = do
         _ <- el "td" quickFilter
         _ <- el "td" quickFilter
         _ <- el "td" quickFilter
-        pure selectAllEv
+        pure selectAllDyn
     selcountDyn <- elAttr "tbody" ("style" =: "height:20rem") $ do
-      let rms = rowMultiSelect Map.empty (constDyn False) False selectAllEv
+      let
+        rms =
+          rowMultiSelect Map.empty (constDyn False) False (updated selectAllDyn)
       (s1, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"

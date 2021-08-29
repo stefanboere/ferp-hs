@@ -121,7 +121,7 @@ blogServer =
       Nothing -> filt { _blogIsPublished = def }
 
   gBlog :: CrudRoutes BlogT BlogT (AsServerT App)
-  gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id
+  gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id id
     $ all_ (_appDatabaseBlogs appDatabase)
 
 instance ToParam (QueryParam "key" Text) where

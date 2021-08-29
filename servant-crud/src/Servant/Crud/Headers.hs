@@ -18,10 +18,14 @@ module Servant.Crud.Headers
   , Page(..)
   , TotalCount(..)
   , Offset(..)
+  , ExceptLimited(..)
   ) where
 
 import           Prelude
 
+import           Data.Aeson                     ( FromJSON
+                                                , ToJSON
+                                                )
 import           Data.Default                   ( Default(..) )
 import           Data.Maybe                     ( fromMaybe
                                                 , listToMaybe
@@ -103,6 +107,15 @@ instance Semigroup Page where
 
 instance Monoid Page where
   mempty = def
+
+-- |
+data ExceptLimited t
+  = Except t
+  | LimitedTo t
+  deriving (Eq, Show, Generic)
+
+instance FromJSON t => FromJSON (ExceptLimited t)
+instance ToJSON t => ToJSON (ExceptLimited t)
 
 -- | The total number of rows in this view. Nothing indicates an unknown total
 newtype TotalCount = TotalCount { unTotalCount :: Integer } deriving (Eq, Show)

@@ -43,8 +43,6 @@ import           Data.Default
 import           Data.Functor.Compose           ( Compose(..) )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
-import           Data.Set                       ( Set )
-import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -139,11 +137,12 @@ deleteBtn = triStateBtn trashIcon ("Delete", "Deleting", "Delete")
 
 deleteConfirmation
   :: (DomBuilder t m, MonadHold t m, MonadFix m, PostBuild t m)
-  => Event t (Set a)
-  -> m (Event t [a])
-deleteConfirmation = fmap (fmap Set.toList) . messageBox
+  => (a -> Int)
+  -> Event t a
+  -> m (Event t a)
+deleteConfirmation sz = messageBox
   "Confirm deletion"
-  (getMsg . Set.size)
+  (getMsg . sz)
   (btn def { _buttonConfig_priority = ButtonPrimary Danger } (text "Delete"))
 
  where

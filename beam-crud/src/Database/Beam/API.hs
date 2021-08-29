@@ -41,6 +41,7 @@ module Database.Beam.API
     -- * Utilities
   , runSetView
   , runCountInView
+  , runPrimaryKeysInView
     -- * Advanced
   , Orderable
   , OrderBy'
@@ -66,7 +67,8 @@ import           Database.Beam.Query.Internal
 import           GHC.Generics                   ( Rep )
 import           Servant.API
 import           Servant.Crud.API
-import           Servant.Crud.Headers           ( PathInfo
+import           Servant.Crud.Headers           ( ExceptLimited(..)
+                                                , PathInfo
                                                 , TotalCount(..)
                                                 )
 import           Servant.Crud.OrderBy           ( Direction(..)
@@ -124,8 +126,8 @@ type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'
 type Delete_ t = CaptureId t :> Delete_'
 
 -- | Delete list requests
-type DeleteList_ t
-  = Req' [PrimaryKey t Identity] :> Delete '[JSON] [PrimaryKey t Identity]
+type DeleteList_ be t
+  = Req' (ExceptLimited [PrimaryKey t Identity]) :> QObj (t Filter) :> Delete '[JSON] [PrimaryKey t Identity]
 
 -- | Regular post requests
 type Post_ t
@@ -321,3 +323,35 @@ runCountInView
 runCountInView v =
   fmap (fmap TotalCount) . runCountIn . offset_ 0 . offset_ 0 . matching_
     (filters v)
+
+-- | Aplies the filters from 'View', then counts the total number of rows
+runPrimaryKeysInView
+  :: ( FieldsFulfillConstraintFilter (Operator Filter be) table
+     , HasQBuilder be
+     , MonadBeam be m
+     , Table table
+     , FromBackendRow be (PrimaryKey table Identity)
+     , SqlValableTable be (PrimaryKey table)
+     , HasSqlInTable be
+     )
+  => table Filter
+  -> ExceptLimited [PrimaryKey table Identity]
+  -> Q
+       be
+       db
+       (QNested (QNested (QNested QBaseScope)))
+       (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
+  -> m [PrimaryKey table Identity]
+runPrimaryKeysInView fltr ekeys = case ekeys of
+  Except    xs -> go not_ xs
+  LimitedTo xs -> go id xs
+ where
+  go fn keys =
+    runSelectReturningList
+      . select
+      . fmap pk
+      . offset_ 0
+      . offset_ 0
+      . offset_ 0
+      . filter_ (\t -> fn (pk t `in_` fmap val_ keys))
+      . matching_ fltr

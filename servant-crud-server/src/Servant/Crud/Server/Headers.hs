@@ -32,7 +32,9 @@ import           Prelude
 
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy                     ( Proxy )
-import           Data.Swagger                   ( ToParamSchema(..) )
+import           Data.Swagger                   ( ToParamSchema(..)
+                                                , ToSchema
+                                                )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
@@ -165,6 +167,18 @@ instance HasForeignType lang ftype Integer => ToParams lang ftype Page where
       DocQueryParam "limit" [] "Maximum number of results to return" Normal
     offDoc = DocQueryParam "offset" [] "How many rows to skip" Normal
 
+instance ToSample t => ToSample (ExceptLimited t) where
+  toSamples _ =
+    [ ("When some values should be excluded. " <> m, Except t)
+    | (m, t) <- toSamples (Proxy :: Proxy t)
+    ]
+    ++ [ ( "When the result should be restricted to only these values. " <> m
+         , LimitedTo t
+         )
+       | (m, t) <- toSamples (Proxy :: Proxy t)
+       ]
+
+instance ToSchema t => ToSchema (ExceptLimited t)
 
 instance ToSample Link where
   toSamples _ =
