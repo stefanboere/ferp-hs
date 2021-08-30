@@ -22,6 +22,7 @@ module Components.Table
   , headMultiSelect
   , Column(..)
   , MapSubset(..)
+  , DatagridView(..)
   , DatagridConfig(..)
   , DatagridResult(..)
   , Selection(..)
@@ -764,16 +765,29 @@ data ViewWindow = ViewWindow
   , _win_limit  :: Integer
   }
 
-data DatagridConfig t m a f k0 k r = DatagridConfig
-  { _gridConfig_columns       :: [Column t m a f k0 r]
-  , _gridConfig_selectAll     :: Event t Bool
-  , _gridConfig_setValue      :: Event t (MapSubset Int (Maybe r))
-  , _gridConfig_toLink        :: r -> L.Link
-  , _gridConfig_toPrimary     :: r -> k
-  , _gridConfig_initialWindow :: ViewWindow
-  , _gridConfig_initialSort   :: Map k0 SortOrder
-  , _gridConfig_initialFilter :: f
+data DatagridView k0 f = DatagridView
+  { _view_window :: ViewWindow
+  , _view_sort   :: Map k0 SortOrder
+  , _view_filter :: f
   }
+
+data DatagridConfig t m a f k0 k r = DatagridConfig
+  { _gridConfig_columns     :: [Column t m a f k0 r]
+  , _gridConfig_selectAll   :: Event t Bool
+  , _gridConfig_setValue    :: Event t (MapSubset Int (Maybe r))
+  , _gridConfig_toLink      :: r -> L.Link
+  , _gridConfig_toPrimary   :: r -> k
+  , _gridConfig_initialView :: DatagridView k0 f
+  }
+
+initialSort :: DatagridConfig t m a f k0 k r -> Map k0 SortOrder
+initialSort = _view_sort . _gridConfig_initialView
+
+initialWindow :: DatagridConfig t m a f k0 k r -> ViewWindow
+initialWindow = _view_window . _gridConfig_initialView
+
+initialFilter :: DatagridConfig t m a f k0 k r -> f
+initialFilter = _view_filter . _gridConfig_initialView
 
 datagridDyn
   :: ( Ord k
@@ -797,7 +811,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
             (\k c -> columnHead' ((k `Set.member`) <$> colKeysDyn) $ do
               dynSort <- sortlabel
                 (constDyn (_column_label c))
-                (_gridConfig_initialSort cfg Map.!? fst (_column_orderBy c))
+                (initialSort cfg Map.!? fst (_column_orderBy c))
                 never
 
               pure (fmap (snd (_column_orderBy c)) <$> dynSort)
@@ -809,7 +823,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
         qfs' <- Map.traverseWithKey
           (\k c ->
             let (avail, initC, editor) = _column_filterBy c
-                initF                  = _gridConfig_initialFilter cfg
+                initF                  = initialFilter cfg
             in  elDynClass "td"
                            (visibleDynClass . (k `Set.member`) <$> colKeysDyn)
                   $ withFilterCondition avail (initC initF) (editor initF)
@@ -823,8 +837,8 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     totalCountWithDef <- holdDyn 0 (mkTotalCount <$> _gridConfig_setValue cfg)
     let heightDynWithDef =
           maybe
-              (36
-              * fromIntegral (_win_limit $ _gridConfig_initialWindow cfg)
+              (             36
+              *             fromIntegral (_win_limit $ initialWindow cfg)
               `Prelude.div` bufferSize
               )
               (\x -> Prelude.round x - 107)
@@ -832,16 +846,15 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
 
     (dynWindow, dynR) <-
       elDynAttr "tbody" (mkHeightAttr <$> dynHeight)
-      $ virtualListBuffered'
-          bufferSize
-          heightDynWithDef
-          36
-          totalCountWithDef
-          (fromIntegral $ initOffset $ _gridConfig_initialWindow cfg)
-          never
-          Prelude.id
-          Map.empty
-          (_ms_data <$> _gridConfig_setValue cfg)
+      $ virtualListBuffered' bufferSize
+                             heightDynWithDef
+                             36
+                             totalCountWithDef
+                             (fromIntegral $ initOffset $ initialWindow cfg)
+                             never
+                             Prelude.id
+                             Map.empty
+                             (_ms_data <$> _gridConfig_setValue cfg)
       $ \attrs mouseDownDyn _ initR updateR -> do
           pb                     <- getPostBuild
           (selDyn, (lnkEv', r')) <-
@@ -911,8 +924,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     , _grid_columns   = catMaybes . Map.elems <$> joinDynThroughMap
                           (constDyn colheads)
     , _grid_value     = MapSubset <$> dynRSelected <*> totalCountDyn
-    , _grid_filter    = foldResult (constDyn $ _gridConfig_initialFilter cfg)
-                                   (constDyn qfs)
+    , _grid_filter    = foldResult (constDyn $ initialFilter cfg) (constDyn qfs)
     }
 
  where

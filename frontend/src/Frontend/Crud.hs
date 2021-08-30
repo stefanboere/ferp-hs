@@ -1,12 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE Rank2Types #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module Frontend.Crud
   ( crudHandler
   , crudLinks
@@ -18,7 +14,6 @@ import           Control.Lens
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
-import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import qualified Data.Set                      as Set
@@ -74,84 +69,24 @@ crudHandler
 crudHandler = blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just)
 
 blogsHandler
-  :: forall js t m
-   . ( DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , Prerender js t m
-     , MonadFix m
-     , MonadIO m
-     , MonadIO (Performable m)
-     , TriggerEvent t m
-     , PerformEvent t m
-     )
+  :: (WidgetConstraint js t m)
   => Api.View Api.Be BlogT
   -> ApiWidget t m (Event t URI)
-blogsHandler vw = elClass "div" "flex-column" $ do
-  el "h1" $ text "Blogs"
-
-  postBuildEv <- getPostBuild
-
-  rec
-    let getBlogReq = fmap getBlogs . tagPromptlyDyn dynView
-    (insertEv, getBlogEv, mDeleteEvResult) <- el "div" $ do
-      insertEv'  <- insertBtn (constDyn newBlogLink)
-      getBlogEv' <- requestBtn refreshBtn
-                               (pure . getBlogReq)
-                               (constDyn False)
-                               (constDyn False)
-                               (leftmost [postBuildEv, () <$ updated dynView])
-
-      let deleteBlogReq ev = do
-            ev' <- deleteConfirmation _sel_count (tagPromptlyDyn selection ev)
-            pure $ attachPromptlyDynWith (flip $ deleteBlogs usingCookie)
-                                         dynFilterUniq
-                                         (toApiExceptLimited <$> ev')
-
-      mDeleteEvResult' <- requestBtn deleteBtn
-                                     deleteBlogReq
-                                     ((<= 0) . _sel_count <$> selection)
-                                     (constDyn False)
-                                     never
-
-      downloadButton (linkWithSelection <$> dynView <*> selection)
-      pure (insertEv', getBlogEv', mDeleteEvResult')
-
-    deleteEvResult <- orAlert mDeleteEvResult
-
-    recEv          <- orAlert getBlogEv
-    blogsDynRemote <- foldDyn ($) def $ leftmost
-      [const . getListToMapsubset <$> recEv, doDeletes <$> deleteEvResult]
-    keysSet <- holdDyn def (Map.keysSet . _ms_data <$> updateRows)
-    let updateRows =
-          attachWith addDeletes (current keysSet) (updated blogsDynRemote)
-
-    gridResult <- datagridDyn DatagridConfig
-      { _gridConfig_columns       =
-        [ gridProp noEditor   eqFilter  blogIdProp
-        , gridProp textEditor strFilter blogTitleProp
-        , gridProp textEditor strFilter blogDescriptionProp
-        ]
-      , _gridConfig_selectAll     = leftmost
-        [False <$ deleteEvResult, False <$ updated dynFilterUniq]
-      , _gridConfig_setValue      = updateRows
-      , _gridConfig_toLink        = blogLink . primaryKey
-      , _gridConfig_initialWindow = winFromApiPage $ page vw
-      , _gridConfig_toPrimary     = primaryKey
-      , _gridConfig_initialSort   = fromApiOrdering $ ordering vw
-      , _gridConfig_initialFilter = filters vw
-      }
-
-    let selection = _grid_selection gridResult
-    dynPage           <- holdUniqDyn $ winToApiPage <$> _grid_window gridResult
-    dynSort           <- holdUniqDyn $ _grid_columns gridResult
-    dynFilterDebounce <- debounce 1 $ updated (_grid_filter gridResult)
-    dynFilter         <- holdDyn (filters vw) dynFilterDebounce
-    dynFilterUniq     <- holdUniqDyn dynFilter
-    let dynView = View <$> dynPage <*> dynSort <*> dynFilterUniq
-    replaceLocation (blogsLink <$> updated dynView)
-
-  pure (leftmost [_grid_navigate gridResult, insertEv])
+blogsHandler = browseForm BrowseFormConfig
+  { _browseConfig_actions       = \dynVw dynSel ->
+    downloadButton (linkWithSelection <$> dynVw <*> dynSel)
+  , _browseConfig_alerts        = const (pure never)
+  , _browseConfig_getListReq    = getBlogs
+  , _browseConfig_deleteListReq = deleteBlogs usingCookie
+  , _browseConfig_header        = "Blogs"
+  , _browseConfig_insertRoute   = newBlogLink
+  , _browseConfig_editRoute     = blogLink
+  , _browseConfig_browseRoute   = blogsLink
+  , _browseConfig_columns = [ gridProp noEditor   eqFilter  blogIdProp
+                            , gridProp textEditor strFilter blogTitleProp
+                            , gridProp textEditor strFilter blogDescriptionProp
+                            ]
+  }
 
  where
   linkWithSelection v (Selection neg pks _) =
@@ -161,19 +96,6 @@ blogsHandler vw = elClass "div" "flex-column" $ do
           $ v { filters = over blogId (setFilterFn pks') (filters v) }
 
   unBlogId (BlogId x) = x
-
-  doDeletes xs (MapSubset m c) =
-    let xsSet = Set.fromList xs
-        (deleted, existing) =
-          Map.partition ((`Set.member` xsSet) . primaryKey) m
-        deletedIndices  = Map.keysSet deleted
-        movedUpExisting = Map.mapKeys
-          (\k -> k - Set.size (Set.takeWhileAntitone (< k) deletedIndices))
-          existing
-    in  MapSubset
-          { _ms_data       = movedUpExisting
-          , _ms_totalCount = fmap (\x -> x - fromIntegral (Set.size xsSet)) c
-          }
 
 blogEdit
   :: WidgetConstraint js t m => Maybe BlogId -> ApiWidget t m (Event t URI)
