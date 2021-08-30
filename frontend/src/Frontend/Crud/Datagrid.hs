@@ -37,9 +37,12 @@ module Frontend.Crud.Datagrid
   , toMapSubsetDiff
   , BrowseFormConfig(..)
   , browseForm
+  , linkWithSelection
+  , downloadButtonWithSelection
   ) where
 
 import           Control.Lens                   ( Lens'
+                                                , over
                                                 , set
                                                 , view
                                                 )
@@ -608,3 +611,30 @@ browseForm cfg vw = elClass "div" "flex-column" $ do
 
   pure (leftmost [_grid_navigate gridResult, insertEvResult, customEvSuccess])
 
+linkWithSelection
+  :: (SetFilter "" 'List b, SetFilter "!" 'List b)
+  => Lens' (a Filter) (Filter b)
+  -> (PrimaryKey a Identity -> b)
+  -> (View Be a -> Link)
+  -> View Be a
+  -> Selection (PrimaryKey a Identity)
+  -> Link
+linkWithSelection l unId toLnk v (Selection neg pks _) =
+  let setFilterFn = if neg then setNotInFilter else setInFilter
+      pks'        = unId <$> Set.toList pks
+  in  toLnk $ v { API.filters = over l (setFilterFn pks') (API.filters v) }
+
+downloadButtonWithSelection
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , SetFilter "" 'List b
+     , SetFilter "!" 'List b
+     )
+  => Lens' (a Filter) (Filter b)
+  -> (PrimaryKey a Identity -> b)
+  -> (View Be a -> Link)
+  -> Dynamic t (View Be a)
+  -> Dynamic t (Selection (PrimaryKey a Identity))
+  -> m ()
+downloadButtonWithSelection l unId toLnk dynVw dynSel =
+  downloadButton (linkWithSelection l unId toLnk <$> dynVw <*> dynSel)

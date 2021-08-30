@@ -10,13 +10,11 @@ module Frontend.Crud
   ) where
 
 import           Control.Applicative            ( (<**>) )
-import           Control.Lens
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
-import qualified Data.Set                      as Set
 import           Data.Text                      ( Text )
 import           Data.Time                      ( Day )
 import           GHC.Int                        ( Int64 )
@@ -25,7 +23,6 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 , textInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
-import           Servant.Crud.API               ( View'(..) )
 import           Servant.Crud.QueryObject       ( QObj )
 import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
@@ -44,9 +41,19 @@ import           Frontend.Crud.Utils
 
 
 -- brittany-disable-next-binding
-type CrudApi = Auth Everyone :> "blogs" :> "all" :> QObj (Api.View Api.Be BlogT) :> View
- :<|> Auth Everyone :> "blogs" :> "new" :> View
- :<|> Auth Everyone :> "blogs" :> Capture "key" BlogId :> View
+type CrudApi =
+  ("blogs" :>
+     (    "all" :> QObj (Api.View Api.Be BlogT) :> View
+     :<|> Auth Everyone :> "new" :> View
+     :<|> Auth Everyone :> Capture "key" BlogId :> View
+     )
+  ) :<|>
+  ("channels" :>
+     (    "all" :> QObj (Api.View Api.Be ChannelT) :> View
+     :<|> Auth Everyone :> "new" :> View
+     :<|> Auth Everyone :> Capture "key" ChannelId :> View
+     )
+  )
 
 crudApi :: Proxy CrudApi
 crudApi = Proxy
@@ -54,7 +61,15 @@ crudApi = Proxy
 blogsLink :: Api.View Api.Be BlogT -> Link
 newBlogLink :: Link
 blogLink :: BlogId -> Link
-blogsLink :<|> newBlogLink :<|> blogLink = allLinks crudApi
+
+channelsLink :: Api.View Api.Be ChannelT -> Link
+newChannelLink :: Link
+channelLink :: ChannelId -> Link
+
+-- brittany-disable-next-binding
+(blogsLink :<|> newBlogLink :<|> blogLink) :<|>
+  (channelsLink :<|> newChannelLink :<|> channelLink)
+  = allLinks crudApi
 
 crudLinks
   :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
@@ -62,19 +77,24 @@ crudLinks
   -> m (Event t Link)
 crudLinks dynUri = safelinkGroup
   (text "Crud")
-  [safelink dynUri (blogsLink mempty) $ text "Blogs"]
+  [ safelink dynUri (blogsLink mempty) $ text "Blogs"
+  , safelink dynUri (channelsLink mempty) $ text "Channels"
+  ]
 
 crudHandler
   :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
-crudHandler = blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just)
+crudHandler =
+  (blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just))
+    :<|> (channelsHandler :<|> channelEdit Nothing :<|> (channelEdit . Just))
 
 blogsHandler
   :: (WidgetConstraint js t m)
   => Api.View Api.Be BlogT
   -> ApiWidget t m (Event t URI)
 blogsHandler = browseForm BrowseFormConfig
-  { _browseConfig_actions       = \dynVw dynSel ->
-    downloadButton (linkWithSelection <$> dynVw <*> dynSel)
+  { _browseConfig_actions       = downloadButtonWithSelection blogId
+                                                              unBlogId
+                                                              getBlogsApiLink
   , _browseConfig_alerts        = const (pure never)
   , _browseConfig_getListReq    = getBlogs
   , _browseConfig_deleteListReq = deleteBlogs usingCookie
@@ -87,15 +107,7 @@ blogsHandler = browseForm BrowseFormConfig
                             , gridProp textEditor strFilter blogDescriptionProp
                             ]
   }
-
- where
-  linkWithSelection v (Selection neg pks _) =
-    let setFilterFn = if neg then setNotInFilter else setInFilter
-        pks'        = unBlogId <$> Set.toList pks
-    in  getBlogsApiLink
-          $ v { filters = over blogId (setFilterFn pks') (filters v) }
-
-  unBlogId (BlogId x) = x
+  where unBlogId (BlogId x) = x
 
 blogEdit
   :: WidgetConstraint js t m => Maybe BlogId -> ApiWidget t m (Event t URI)
@@ -148,3 +160,59 @@ blogDescriptionProp =
 
 blogDateProp :: Property BlogT Day
 blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")
+
+
+
+channelsHandler
+  :: (WidgetConstraint js t m)
+  => Api.View Api.Be ChannelT
+  -> ApiWidget t m (Event t URI)
+channelsHandler = browseForm BrowseFormConfig
+  { _browseConfig_actions       = downloadButtonWithSelection channelId
+                                                              unChannelId
+                                                              getChannelsApiLink
+  , _browseConfig_alerts        = const (pure never)
+  , _browseConfig_getListReq    = getChannels
+  , _browseConfig_deleteListReq = deleteChannels usingCookie
+  , _browseConfig_header        = "Channels"
+  , _browseConfig_insertRoute   = newChannelLink
+  , _browseConfig_editRoute     = channelLink
+  , _browseConfig_browseRoute   = channelsLink
+  , _browseConfig_columns = [ gridProp noEditor   eqFilter  channelIdProp
+                            , gridProp textEditor strFilter channelNameProp
+                            ]
+  }
+  where unChannelId (ChannelId x) = x
+
+channelEdit
+  :: WidgetConstraint js t m => Maybe ChannelId -> ApiWidget t m (Event t URI)
+channelEdit = editForm cfg $ \modBlogEv ->
+  el "form"
+    $    getCompose
+    $    pure mempty
+    <**> editWith textEditor channelNameProp modBlogEv
+ where
+  cfg = EditFormConfig { _formConfig_actions          = \_ _ _ _ -> pure never
+                       , _formConfig_getReq           = getChannel
+                       , _formConfig_deleteReq = deleteChannel usingCookie
+                       , _formConfig_postReq          = postChannel usingCookie
+                       , _formConfig_patchReq         = patchChannel usingCookie
+                       , _formConfig_setPrimaryKey    = setChannelPk
+                       , _formConfig_header           = mkHeader
+                       , _formConfig_routeAfterDelete = channelsLink mempty
+                       , _formConfig_editRoute        = channelLink
+                       }
+  setChannelPk (Just (ChannelId pk)) x = x { _channelId = pure pk }
+  setChannelPk Nothing               x = x { _channelId = pure 0 }
+
+  mkHeader x
+    | fromMaybe 0 (unMaybeLast (_channelId x)) > 0 = "Channel - "
+    <> fromMaybe "?" (unMaybeLast $ _channelName x)
+    | otherwise = "New channel"
+
+channelIdProp :: Property ChannelT Int64
+channelIdProp = prop "Id" channelId (Proxy :: Proxy "_channelId")
+
+channelNameProp :: Property ChannelT Text
+channelNameProp = prop "Name" channelName (Proxy :: Proxy "_channelName")
+

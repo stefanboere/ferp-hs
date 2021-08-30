@@ -3,6 +3,7 @@
 module Common.Api
   ( Api'
   , BlogApi'
+  , ChannelApi'
   , ClientApi
   , clientApi
   , Be
@@ -26,7 +27,9 @@ import           Common.Schema
 
 {-# ANN module ("HLint: ignore Redundant bracket" :: String) #-}
 -- | The api
+-- brittany-disable-next-binding
 type Api' be = ("blogs" :> BlogApi' be)
+   :<|> ("channels" :> ChannelApi' be)
 
 -- BLOGS
 
@@ -34,23 +37,26 @@ type Api' be = ("blogs" :> BlogApi' be)
 -- need to handle the permissions differently.
 -- It really is a different api therefore, but we can still reuse our existing generic implementation
 -- brittany-disable-next-binding
-type BlogApi' be
-  = Get_ BlogT
+type WorldReadAdminWrite t be
+  = Get_ t
       :<|>
-      (Auth Admin :> Put_ BlogT)
+      (Auth Admin :> Put_ t)
       :<|>
-      (Auth Admin :> Patch_ BlogT)
+      (Auth Admin :> Patch_ t)
       :<|>
-      (Auth Admin :> Delete_ BlogT)
+      (Auth Admin :> Delete_ t)
       :<|>
-      (Auth Admin :> DeleteList_ be BlogT)
+      (Auth Admin :> DeleteList_ be t)
       :<|>
-      (Auth Admin :> Post_ BlogT)
+      (Auth Admin :> Post_ t)
       :<|>
-      (Auth Admin :> PostList BlogT)
+      (Auth Admin :> PostList t)
       :<|>
-      (GetList be BlogT)
+      (GetList be t)
 
+type BlogApi' be = WorldReadAdminWrite BlogT be
+
+type ChannelApi' be = WorldReadAdminWrite ChannelT be
 
 type ClientApi = Api' Be
 

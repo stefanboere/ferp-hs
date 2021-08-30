@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -19,7 +20,9 @@ module Api
 import           Prelude                 hiding ( div )
 
 import           Control.Concurrent.STM         ( atomically )
-import           Control.Monad.Reader           ( asks )
+import           Control.Monad.Reader           ( MonadReader(..)
+                                                , asks
+                                                )
 import           Data.Default
 import           Data.Text                      ( Text )
 import           Database.Beam
@@ -39,7 +42,6 @@ import           Servant.Docs                   ( DocQueryParam(..)
                                                 )
 import           Servant.Server.Generic         ( AsServerT )
 import           Servant.Subscriber             ( Event(..)
-                                                , Subscriber
                                                 , notify
                                                 )
 import           Servant.Subscriber.Subscribable
@@ -53,6 +55,7 @@ import           Schema
 
 type Api = Api' Postgres
 type BlogApi = BlogApi' Postgres
+type ChannelApi = ChannelApi' Postgres
 
 type instance IsElem' sa (Auth r :> sb) = IsElem sa sb
 type instance IsElem' sa (PathInfo :> sb) = IsElem sa sb
@@ -66,18 +69,45 @@ type instance IsSubscribable' sa (QObj r :> sb) = IsSubscribable sa sb
 type instance IsSubscribable' sa (Get '[JSON , CSV] r)
   = ()
 
-notifyBlogs :: MonadIO m => Subscriber (Api' Postgres) -> m ()
-notifyBlogs sub = liftIO $ atomically $ notify
-  sub
-  ModifyEvent
-  (Proxy :: Proxy ("blogs" :> Get '[JSON, CSV] (GetListHeaders Blog)))
-  linkURI
+instance ToParam (QueryParam "key" Text) where
+  toParam _ = DocQueryParam "key" [] "An authorization key" Normal
 
-notifyBlog :: MonadIO m => Subscriber (Api' Postgres) -> BlogId -> m ()
-notifyBlog sub blogid = liftIO $ atomically $ notify
-  sub
-  ModifyEvent
-  (Proxy :: Proxy ("blogs" :> CaptureId BlogT :> Get '[JSON] Blog))
+instance ToSample Text where
+  toSamples _ = []
+
+-- | A proxy of the api
+api :: Proxy Api
+api = Proxy
+
+-- | The combined server
+server :: AppServer Api
+server = blogServer :<|> channelServer
+
+type GetListSimple t = Get '[JSON , CSV] (GetListHeaders (t Identity))
+type GetSimple t = CaptureId t :> Get '[JSON] (t Identity)
+
+notifyModified
+  :: ( MonadReader AppConfig m
+     , MonadIO m
+     , IsElem endpoint (Api' Postgres)
+     , HasLink endpoint
+     , IsValidEndpoint endpoint
+     , IsSubscribable endpoint (Api' Postgres)
+     )
+  => Proxy endpoint
+  -> (MkLink endpoint Servant.Link -> URI)
+  -> m ()
+notifyModified p mkLnk = do
+  sub <- asks getSubscriber
+  liftIO $ atomically $ notify sub ModifyEvent p mkLnk
+
+notifyBlogs :: (MonadReader AppConfig m, MonadIO m) => m ()
+notifyBlogs =
+  notifyModified (Proxy :: Proxy ("blogs" :> GetListSimple BlogT)) linkURI
+
+notifyBlog :: (MonadReader AppConfig m, MonadIO m) => BlogId -> m ()
+notifyBlog blogid = notifyModified
+  (Proxy :: Proxy ("blogs" :> GetSimple BlogT))
   (linkURI . ($ blogid))
 
 -- | The blog server
@@ -93,10 +123,9 @@ blogServer =
     :<|> getBlogs
  where
   patchBlogs i b = do
-    x   <- _patch gBlog i b
-    sub <- asks getSubscriber
-    notifyBlogs sub
-    notifyBlog sub i
+    x <- _patch gBlog i b
+    notifyBlogs
+    notifyBlog i
     pure x
 
   getBlogs :: AppServer (GetList Postgres BlogT)
@@ -124,16 +153,35 @@ blogServer =
   gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id id
     $ all_ (_appDatabaseBlogs appDatabase)
 
-instance ToParam (QueryParam "key" Text) where
-  toParam _ = DocQueryParam "key" [] "An authorization key" Normal
 
-instance ToSample Text where
-  toSamples _ = []
+notifyChannels :: (MonadReader AppConfig m, MonadIO m) => m ()
+notifyChannels =
+  notifyModified (Proxy :: Proxy ("channels" :> GetListSimple ChannelT)) linkURI
 
--- | A proxy of the api
-api :: Proxy Api
-api = Proxy
+notifyChannel :: (MonadReader AppConfig m, MonadIO m) => ChannelId -> m ()
+notifyChannel pk' = notifyModified
+  (Proxy :: Proxy ("channels" :> GetSimple ChannelT))
+  (linkURI . ($ pk'))
 
--- | The combined server
-server :: AppServer Api
-server = blogServer
+-- | The blog server
+channelServer :: AppServer ChannelApi
+channelServer =
+  _get genericImpl
+    :<|> const (_put genericImpl)
+    :<|> const patchServer
+    :<|> const (_delete genericImpl)
+    :<|> const (_deleteList genericImpl)
+    :<|> const (_post genericImpl)
+    :<|> const (_postList genericImpl)
+    :<|> _getList genericImpl
+ where
+  patchServer i b = do
+    x <- _patch genericImpl i b
+    notifyChannels
+    notifyChannel i
+    pure x
+
+  genericImpl :: CrudRoutes ChannelT ChannelT (AsServerT App)
+  genericImpl = defaultCrud runDB (_appDatabaseChannels appDatabase) id id
+    $ all_ (_appDatabaseChannels appDatabase)
+

@@ -81,3 +81,27 @@ instance ToName BlogT where
 instance Table BlogT where
   data PrimaryKey BlogT f = BlogId (Columnar f Int64) deriving (Generic, Beamable)
   primaryKey = BlogId . _blogId
+
+-- | A group of related blog posts
+data ChannelT f = Channel
+  { _channelId   :: C f Int64
+  , _channelName :: C f Text
+  }
+  deriving (Generic, Beamable)
+
+type Channel = ChannelT Identity
+type ChannelPatch = ChannelT MaybeLast
+type ChannelId = PrimaryKey ChannelT Identity
+
+{- HLINT ignore "Redundant bracket" -}
+$(instances ''ChannelT)
+{- HLINT ignore "Redundant bracket" -}
+$(instancesId ''ChannelT ''Int64)
+
+instance ToName ChannelT where
+  toName = _channelName
+
+instance Table ChannelT where
+  data PrimaryKey ChannelT f = ChannelId (Columnar f Int64) deriving (Generic, Beamable)
+  primaryKey = ChannelId . _channelId
+

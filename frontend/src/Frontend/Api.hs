@@ -3,19 +3,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeOperators #-}
 module Frontend.Api
-  ( getBlog
-  , putBlog
-  , patchBlog
-  , deleteBlog
-  , deleteBlogs
-  , postBlog
-  , postBlogs
-  , getBlogs
-  , getBlogsApiLink
-  -- * Utils
-  , runApi
-  , usingCookie
-  , refreshAccessTokenEvery
+  ( module Frontend.Api
   , ApiWidget
   ) where
 
@@ -79,9 +67,31 @@ deleteBlogs
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)
-getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs
+
+
+getChannel :: ChannelId -> FreeClient Channel
+putChannel :: Token -> ChannelId -> Channel -> FreeClient NoContent
+patchChannel :: Token -> ChannelId -> ChannelPatch -> FreeClient NoContent
+deleteChannel :: Token -> ChannelId -> FreeClient NoContent
+deleteChannels
+  :: Token
+  -> ExceptLimited [ChannelId]
+  -> ChannelT Filter
+  -> FreeClient [ChannelId]
+postChannel
+  :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
+postChannels :: Token -> [Channel] -> FreeClient [ChannelId]
+getChannels :: View Be ChannelT -> FreeClient (GetListHeaders Channel)
+
+-- brittany-disable-next-binding
+(getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs) :<|>
+  (getChannel :<|> putChannel :<|> patchChannel :<|> deleteChannel :<|> deleteChannels :<|> postChannel :<|> postChannels :<|> getChannels)
   = Sub.client clientApi
 
 getBlogsApiLink :: View Be BlogT -> Servant.API.Link
 getBlogsApiLink =
   safeLink clientApi (Proxy :: Proxy ("blogs" :> GetList Be BlogT))
+
+getChannelsApiLink :: View Be ChannelT -> Servant.API.Link
+getChannelsApiLink =
+  safeLink clientApi (Proxy :: Proxy ("channels" :> GetList Be ChannelT))

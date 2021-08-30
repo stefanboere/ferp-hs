@@ -40,7 +40,9 @@ import           Types                          ( )
 
 -- * Blog
 
+{- HLINT ignore "Redundant bracket" -}
 $(instances ''BlogT)
+{- HLINT ignore "Redundant bracket" -}
 $(instancesId ''BlogT ''Int64)
 
 instance ToSample Blog where
@@ -52,11 +54,29 @@ instance ToSample BlogPatch where
 instance ToSample BlogId where
   toSamples _ = []
 
+-- * Channel
+
+{- HLINT ignore "Redundant bracket" -}
+$(instances ''ChannelT)
+{- HLINT ignore "Redundant bracket" -}
+$(instancesId ''ChannelT ''Int64)
+
+instance ToSample Channel where
+  toSamples _ = []
+
+instance ToSample ChannelPatch where
+  toSamples _ = []
+
+instance ToSample ChannelId where
+  toSamples _ = []
+
+
 -- * The Database
 
 -- | Here live all the tables in the database
-newtype AppDatabase f = AppDatabase
-  { _appDatabaseBlogs     :: f (TableEntity BlogT)
+data AppDatabase f = AppDatabase
+  { _appDatabaseBlogs    :: f (TableEntity BlogT)
+  , _appDatabaseChannels :: f (TableEntity ChannelT)
   }
   deriving Generic
 
@@ -67,7 +87,8 @@ instance Database be AppDatabase
 checkedAppDatabase :: CheckedDatabaseSettings Postgres AppDatabase
 checkedAppDatabase =
   defaultMigratableDbSettings `withDbModification` dbModification
-    { _appDatabaseBlogs = renameCheckedEntity (const "blog")
+    { _appDatabaseBlogs    = renameCheckedEntity (const "blog")
+    , _appDatabaseChannels = renameCheckedEntity (const "channel")
     }
 
 -- | The unchecked app database
