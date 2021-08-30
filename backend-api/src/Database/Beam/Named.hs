@@ -11,8 +11,7 @@ Description: Upgrade your records to return names together with keys in GET requ
 -}
 module Database.Beam.Named
   ( module Database.Beam.Expand
-  )
-where
+  ) where
 
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Swagger                   ( NamedSchema(..)
@@ -33,6 +32,7 @@ import           Servant.Crud.Server.QueryObject
                                                 ( ToParams
                                                 , toParams
                                                 )
+import           Servant.Docs                   ( ToSample(..) )
 
 instance ToSchema (PrimaryKey t Identity) => ToSchema (Named t Identity) where
   declareNamedSchema _ = pure $ NamedSchema (Just "Named") schema
@@ -63,3 +63,7 @@ instance (ToParams lang ftype (PrimaryKey t f), ToParams lang ftype (C f Text))
 
     nameProxy :: Proxy (C f Text)
     nameProxy = Proxy
+
+instance (ToName t, ToSample (t Identity)) => ToSample (Named t Identity) where
+  toSamples _ = fmap (fmap toNamed) (toSamples (Proxy :: Proxy (t Identity)))
+

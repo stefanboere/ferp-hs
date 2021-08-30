@@ -30,6 +30,7 @@ module Database.Beam.API
   , setPage
     -- * Types
   , GetList
+  , GetListLabels
   , Get_
   , Put_
   , Patch_
@@ -42,6 +43,7 @@ module Database.Beam.API
   , runSetView
   , runCountInView
   , runPrimaryKeysInView
+  , runNamesInView
     -- * Advanced
   , Orderable
   , OrderBy'
@@ -53,11 +55,14 @@ import           Prelude
 
 import           Control.Monad.Free             ( liftF )
 import           Data.Proxy                     ( Proxy(..) )
+import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.Backend.SQL      ( BeamSqlBackend
                                                 , BeamSqlBackendOrderingSyntax
                                                 )
-import           Database.Beam.Expand           ( Named )
+import           Database.Beam.Expand           ( Named(..)
+                                                , ToName(..)
+                                                )
 import           Database.Beam.Extra            ( runCountIn )
 import           Database.Beam.Operator         ( FieldsFulfillConstraintFilter
                                                 , Operator
@@ -112,6 +117,10 @@ type View be t
 --
 -- E.g. the type of the @\/books@ endpoint.
 type GetList be t = PathInfo :> QObj (View be t) :> GetList' (t Identity)
+
+-- | Subroute compared to @GetList@ which only returns the primary keys and labels
+type GetListLabels be t
+  = "labels" :> PathInfo :> QObj (View be t) :> Get '[JSON] (GetListHeaders (Named t Identity))
 
 -- | Regular get requests
 type Get_ t = CaptureId t :> Get' (t Identity)
@@ -355,3 +364,30 @@ runPrimaryKeysInView fltr ekeys = case ekeys of
       . offset_ 0
       . filter_ (\t -> fn (pk t `in_` fmap val_ keys))
       . matching_ fltr
+
+-- | As @runInView@ but only returns primary keys and labels
+runNamesInView
+  :: ( FromBackendRow be (table Identity)
+     , FieldsFulfillConstraintFilter (Operator Filter be) table
+     , HasQBuilder be
+     , MonadBeam be m
+     , ToName table
+     , FromBackendRow be (PrimaryKey table Identity)
+     , FromBackendRow be Text
+     )
+  => View'
+       (Orderable be)
+       (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
+       (table Filter)
+  -> Q
+       be
+       db
+       (QNested (QNested (QNested QBaseScope)))
+       (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
+  -> m [Named table Identity]
+runNamesInView v =
+  fmap (fmap (uncurry Named))
+    . runSelectReturningList
+    . select
+    . fmap (\x -> (primaryKey x, toName x))
+    . setView v

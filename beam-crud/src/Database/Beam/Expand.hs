@@ -100,6 +100,7 @@ module Database.Beam.Expand
     -- * Types to apply to 'D'
   , Named(..)
   , ToName(..)
+  , toNamed
   , Full
   , ToExpanded(..)
     -- * Querying functions
@@ -107,8 +108,7 @@ module Database.Beam.Expand
     -- * Other
   , TablesFulfillConstraint
   , HasNameConstraint
-  )
-where
+  ) where
 
 import           Prelude
 

@@ -121,6 +121,7 @@ blogServer =
     :<|> const (_post gBlog)
     :<|> const (_postList gBlog)
     :<|> getBlogs
+    :<|> getBlogsLabels
  where
   patchBlogs i b = do
     x <- _patch gBlog i b
@@ -129,12 +130,16 @@ blogServer =
     pure x
 
   getBlogs :: AppServer (GetList Postgres BlogT)
-  getBlogs pinfo v = _getList gBlog pinfo newView
+  getBlogs pinfo v = _getList gBlog pinfo (buildNewView v)
+
+  getBlogsLabels :: AppServer (GetListLabels Postgres BlogT)
+  getBlogsLabels pinfo v = _getListLabels gBlog pinfo (buildNewView v)
+
+  buildNewView v = v { filters = newFilt }
    where
-    newView = v { filters = newFilt }
   --  newOrd  = ord { blogDate = Ordering Desc (-1) } -- Force the blogs to be ordered newest first
 
-    filt    = filters v
+    filt = filters v
 
     maximumMaybe [] = Nothing
     maximumMaybe xs = Just $ maximum xs
@@ -174,6 +179,7 @@ channelServer =
     :<|> const (_post genericImpl)
     :<|> const (_postList genericImpl)
     :<|> _getList genericImpl
+    :<|> _getListLabels genericImpl
  where
   patchServer i b = do
     x <- _patch genericImpl i b

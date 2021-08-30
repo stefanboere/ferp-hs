@@ -9,6 +9,7 @@ module Frontend.Api
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.Functor.Identity          ( Identity )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Time                      ( NominalDiffTime )
 import           Language.Javascript.JSaddle    ( MonadJSM )
@@ -67,6 +68,8 @@ deleteBlogs
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
 getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)
+getBlogLabels
+  :: View Be BlogT -> FreeClient (GetListHeaders (Named BlogT Identity))
 
 
 getChannel :: ChannelId -> FreeClient Channel
@@ -82,10 +85,12 @@ postChannel
   :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
 postChannels :: Token -> [Channel] -> FreeClient [ChannelId]
 getChannels :: View Be ChannelT -> FreeClient (GetListHeaders Channel)
+getChannelLabels
+  :: View Be ChannelT -> FreeClient (GetListHeaders (Named ChannelT Identity))
 
 -- brittany-disable-next-binding
-(getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs) :<|>
-  (getChannel :<|> putChannel :<|> patchChannel :<|> deleteChannel :<|> deleteChannels :<|> postChannel :<|> postChannels :<|> getChannels)
+(getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs :<|> getBlogLabels) :<|>
+  (getChannel :<|> putChannel :<|> patchChannel :<|> deleteChannel :<|> deleteChannels :<|> postChannel :<|> postChannels :<|> getChannels :<|> getChannelLabels)
   = Sub.client clientApi
 
 getBlogsApiLink :: View Be BlogT -> Servant.API.Link

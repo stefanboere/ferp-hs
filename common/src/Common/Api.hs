@@ -53,6 +53,8 @@ type WorldReadAdminWrite t be
       (Auth Admin :> PostList t)
       :<|>
       (GetList be t)
+      :<|>
+      (GetListLabels be t)
 
 type BlogApi' be = WorldReadAdminWrite BlogT be
 

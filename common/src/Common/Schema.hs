@@ -21,6 +21,8 @@ module Common.Schema
   , PrimaryKey
   , primaryKey
   , C
+  , Named(..)
+  , ToName(..)
   ) where
 
 import           Data.Int                       ( Int64 )

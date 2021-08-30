@@ -31,6 +31,7 @@ import           Database.Beam.API
 import           Database.Beam.Backend.SQL      ( BeamSqlBackendCanSerialize )
 import           Database.Beam.Backend.SQL.BeamExtensions
                                                 ( MonadBeamInsertReturning )
+import           Database.Beam.Expand           ( ToName )
 import           Database.Beam.Extra
 import           Database.Beam.Operator
 import           Database.Beam.Postgres         ( Postgres )
@@ -86,20 +87,22 @@ throwNotFound = throwError err404
 -- ordering as described by 'OrderBy'
 -- and "offset" and "limit" parameters.
 data CrudRoutes t t2 route = CrudRoutes
-  { _get        :: route :- Get_ t
-  , _put        :: route :- Put_ t2
-  , _patch      :: route :- Patch_ t2
-  , _delete     :: route :- Delete_ t2
-  , _post       :: route :- Post_ t2
-  , _getList    :: route :- GetList Postgres t
-  , _deleteList :: route :- DeleteList_ Postgres t
-  , _postList   :: route :- PostList t2
+  { _get           :: route :- Get_ t
+  , _put           :: route :- Put_ t2
+  , _patch         :: route :- Patch_ t2
+  , _delete        :: route :- Delete_ t2
+  , _post          :: route :- Post_ t2
+  , _getList       :: route :- GetList Postgres t
+  , _getListLabels :: route :- GetListLabels Postgres t
+  , _deleteList    :: route :- DeleteList_ Postgres t
+  , _postList      :: route :- PostList t2
   }
   deriving Generic
 
 
 defaultCrud
   :: ( Table t
+     , ToName t
      , Table t2
      , ToHttpApiData (PrimaryKey t2 Identity)
      , FromBackendRow Postgres (t Identity)
@@ -123,22 +126,26 @@ defaultCrud
   -> (forall s . Q Postgres db s (t (QExpr Postgres s))) -- ^ The collection
   -> CrudRoutes t t2 (AsServerT m1)
 defaultCrud runDB db coerce coerceBack coll = CrudRoutes
-  { _get        = \key -> runDB (runLookupIn key coll) >>= notFound
-  , _put        = \key -> ifInView_ key . runSaveWithId db key
-  , _patch      = \key -> ifInView_ key . runPatch db key
-  , _delete     = \key -> ifInView_ key $ runDeleteKey db key
-  , _post       = \path x ->
-                    hLocation' (removeZero path)
-                      <$> (runDB (runInsertOne db x) >>= insertErr)
-  , _getList    = \path view ->
-                    hTotalLink' path view
-                      <$> runDB (runCountInView view coll)
-                      <*> runDB (runSetView view coll)
-  , _deleteList = \keys fltr -> do
-                    keys' <- runDB (runPrimaryKeysInView fltr keys coll)
-                    runDB (runDeleteKeys db (fmap coerceBack keys'))
-                    pure keys'
-  , _postList   = runDB . runInsertMany db
+  { _get           = \key -> runDB (runLookupIn key coll) >>= notFound
+  , _put           = \key -> ifInView_ key . runSaveWithId db key
+  , _patch         = \key -> ifInView_ key . runPatch db key
+  , _delete        = \key -> ifInView_ key $ runDeleteKey db key
+  , _post          = \path x ->
+                       hLocation' (removeZero path)
+                         <$> (runDB (runInsertOne db x) >>= insertErr)
+  , _getList       = \path view ->
+                       hTotalLink' path view
+                         <$> runDB (runCountInView view coll)
+                         <*> runDB (runSetView view coll)
+  , _getListLabels = \path view ->
+                       hTotalLink' path view
+                         <$> runDB (runCountInView view coll)
+                         <*> runDB (runNamesInView view coll)
+  , _deleteList    = \keys fltr -> do
+                       keys' <- runDB (runPrimaryKeysInView fltr keys coll)
+                       runDB (runDeleteKeys db (fmap coerceBack keys'))
+                       pure keys'
+  , _postList      = runDB . runInsertMany db
   }
  where
   noc = fmap (const NoContent)
