@@ -15,6 +15,10 @@ module Common.Schema
   , makePatch
   , purePatch
   , joinPatch
+  , FieldsFulfillConstraint
+  , Beamable
+  , Table
+  , PrimaryKey
   , primaryKey
   , C
   ) where
@@ -27,7 +31,8 @@ import           Data.Time                      ( Day
 import           Database.Beam
 import           Database.Beam.Deriving
 import           Database.Beam.Expand
-import           Database.Beam.Extra            ( joinPatch
+import           Database.Beam.Extra            ( FieldsFulfillConstraint
+                                                , joinPatch
                                                 , makePatch
                                                 , purePatch
                                                 )

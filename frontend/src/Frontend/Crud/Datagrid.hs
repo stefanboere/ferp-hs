@@ -13,8 +13,6 @@ module Frontend.Crud.Datagrid
   , winToApiPage
   , winFromApiPage
   , toApiExceptLimited
-  , replaceLocation
-  , replaceLocationUri
   , toApiDirection
   , fromApiDirection
   , fromApiOrdering
@@ -24,8 +22,8 @@ module Frontend.Crud.Datagrid
   , setInFilter
   , setNotInFilter
   -- * Column definition
+  , prop
   , gridProp
-  , Property(..)
   , IndexLens(..)
   , filterWith
   ) where
@@ -43,8 +41,11 @@ import           Data.Maybe                     ( fromMaybe
                                                 )
 import qualified Data.Set                      as Set
 import           Data.Text                      ( Text )
-import           GHCJS.DOM.Types                ( SerializedScriptValue(..) )
-import           Language.Javascript.JSaddle    ( pToJSVal )
+import           Data.Typeable                  ( Proxy
+                                                , Typeable
+                                                )
+import           GHC.Records                    ( HasField(..) )
+import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
@@ -55,12 +56,9 @@ import qualified Servant.Crud.Headers          as API
                                                 ( ExceptLimited(..) )
 import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator
-import           Servant.Links                  ( Link
-                                                , URI(..)
-                                                , linkURI
-                                                )
 
 import           Common.Api                     ( Be
+                                                , OrderByScope
                                                 , ViewOrderBy
                                                 )
 import           Common.Schema                  ( C )
@@ -102,27 +100,6 @@ toApiExceptLimited :: Selection t -> API.ExceptLimited [t]
 toApiExceptLimited (Selection neg xs _)
   | neg       = API.Except (Set.toList xs)
   | otherwise = API.LimitedTo (Set.toList xs)
-
-replaceLocation
-  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
-  => Event t Link
-  -> m ()
-replaceLocation lEv = replaceLocationUri $ linkURI <$> lEv
-
-replaceLocationUri
-  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
-  => Event t URI
-  -> m ()
-replaceLocationUri lEv = prerender_ (pure ()) $ do
-  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem <$> lEv)
-  pure ()
- where
-  historyItem :: URI -> HistoryStateUpdate
-  historyItem uri = HistoryStateUpdate
-    { _historyStateUpdate_state = SerializedScriptValue (pToJSVal False)
-    , _historyStateUpdate_title = ""
-    , _historyStateUpdate_uri   = Just uri { uriPath = "/" <> uriPath uri }
-    }
 
 fromApiDirection :: API.Direction -> SortOrder
 fromApiDirection API.Ascending  = Ascending
@@ -302,12 +279,23 @@ eqFilter = IndexLens { _ilens_set    = toApiFilterEq
                      , _ilens_domain = [Equal, DoesNotEqual]
                      }
 
-data Property a b = Property
-  { _prop_label   :: Text
-  , _prop_lens    :: forall f . Lens' (a f) (C f b)
-  , _prop_key     :: API.Path
-  , _prop_orderBy :: SortOrder -> ViewOrderBy Be a
-  }
+prop
+  :: ( KnownSymbol s
+     , HasField s (a (OrderByScope Be)) (C (OrderByScope Be) b)
+     , Typeable (a (OrderByScope Be))
+     )
+  => Text
+  -> (forall f . Lens' (a f) (C f b))
+  -> Proxy s
+  -> Property a b
+prop lbl l p =
+  let fn = API.fromHasField p . toApiDirection
+  in  Property { _prop_label   = lbl
+               , _prop_lens    = l
+               , _prop_key     = API.orderByPath (fn Ascending)
+               , _prop_orderBy = fn
+               }
+
 
 gridProp
   :: ( DomBuilder t m

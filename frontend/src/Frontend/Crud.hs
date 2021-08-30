@@ -19,25 +19,18 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
 import qualified Data.Map                      as Map
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import qualified Data.Set                      as Set
-import           Data.Text                      ( Text
-                                                , pack
-                                                )
+import           Data.Text                      ( Text )
 import           Data.Time                      ( Day )
-import           Data.Typeable                  ( Typeable )
 import           GHC.Int                        ( Int64 )
-import           GHC.Records                    ( HasField(..) )
-import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( View'(..) )
-import           Servant.Crud.OrderBy           ( fromHasField
-                                                , orderByPath
-                                                )
 import           Servant.Crud.QueryObject       ( QObj )
 import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
@@ -51,6 +44,7 @@ import           Common.Schema
 import           Components
 import           Frontend.Api
 import           Frontend.Crud.Datagrid
+import           Frontend.Crud.Edit
 import           Frontend.Crud.Utils
 
 
@@ -182,161 +176,36 @@ blogsHandler vw = elClass "div" "flex-column" $ do
           }
 
 blogEdit
-  :: forall js t m
-   . ( DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , Prerender js t m
-     , MonadFix m
-     , MonadIO m
-     , TriggerEvent t m
-     , MonadIO (Performable m)
-     , PerformEvent t m
-     )
-  => Maybe BlogId
-  -> ApiWidget t m (Event t URI)
-blogEdit initBlogId = do
-
-  rec
-    let setBlogIdEv = Just . getResponse <$> postEvSuccess
-    dynBlogId <- holdDyn initBlogId setBlogIdEv
-    el "h1" $ dynText (mkHeader <$> dynBlogId)
-
-    backBtn "Close"
-
-    getResp       <- dynButton initBlogId setBlogIdEv getButton
-
-    patchEvResult <- dynButton initBlogId
-                               setBlogIdEv
-                               (patchButton dynPatch patchEv)
-    postEvResult      <- dynButton initBlogId setBlogIdEv (postButton dynBlog)
-    deleteEvResult    <- dynButton initBlogId setBlogIdEv deleteButton
-
-    uniqDynBlog       <- holdUniqDyn mDynBlog
-    debounceDynBlogEv <- debounce 1 (difference (updated uniqDynBlog) getBlogEv)
-    undoEv            <- undoRedo mempty debounceDynBlogEv
-
-    getBlogEv         <- orAlert getResp
-    let modBlogEv = leftmost [purePatch <$> getBlogEv, undoEv]
-
-    _               <- orAlert patchEvResult
-    deleteEvSuccess <- orAlert deleteEvResult
-    postEvSuccess   <- orAlert postEvResult
-    replaceLocationUri (fmapMaybe readLocationHeader postEvSuccess)
-
-    dynBlogRemote <- holdDyn
-      Nothing
-      (leftmost [Just <$> getBlogEv, tagPromptlyDyn dynBlog setBlogIdEv])
-
-    mDynBlog <-
-      el "form"
-      $    getCompose
-      $    pure mempty
-      <**> editPk dynBlogId
-      <**> editWith textEditor       blogTitleProp       mempty modBlogEv
-      <**> editWith checkboxEditor   blogIsExtraProp     mempty modBlogEv
-      <**> editWith toggleEditor     blogIsPublishedProp mempty modBlogEv
-      <**> editWith (req dateEditor) blogDateProp        mempty modBlogEv
-      <**> editWith markdownEditor   blogDescriptionProp mempty modBlogEv
-
-    let dynBlog  = joinPatch <$> mDynBlog
-
-    let dynPatch = makePatch' <$> dynBlogRemote <*> dynBlog
-    patchEv <- debounce 3 (() <$ fmapMaybe validAndNonempty (updated dynPatch))
-
-  pure $ coerceUri (linkURI (blogsLink mempty)) <$ leftmost
-    [() <$ deleteEvSuccess]
+  :: WidgetConstraint js t m => Maybe BlogId -> ApiWidget t m (Event t URI)
+blogEdit = editForm cfg $ \modBlogEv ->
+  el "form"
+    $    getCompose
+    $    pure mempty
+    <**> editWith textEditor       blogTitleProp       modBlogEv
+    <**> editWith checkboxEditor   blogIsExtraProp     modBlogEv
+    <**> editWith toggleEditor     blogIsPublishedProp modBlogEv
+    <**> editWith (req dateEditor) blogDateProp        modBlogEv
+    <**> editWith markdownEditor   blogDescriptionProp modBlogEv
  where
-  makePatch' x my = makePatch <$> x <*> my
-  validAndNonempty (Just x) | x == mempty = Nothing
-                            | otherwise   = Just x
-  validAndNonempty Nothing = Nothing
-
+  cfg = EditFormConfig { _formConfig_actions          = \_ _ _ _ -> pure never
+                       , _formConfig_getReq           = getBlog
+                       , _formConfig_deleteReq        = deleteBlog usingCookie
+                       , _formConfig_postReq          = postBlog usingCookie
+                       , _formConfig_patchReq         = patchBlog usingCookie
+                       , _formConfig_setPrimaryKey    = setBlogPk
+                       , _formConfig_header           = mkHeader
+                       , _formConfig_routeAfterDelete = blogsLink mempty
+                       , _formConfig_editRoute        = blogLink
+                       }
   req = requiredEditor
 
-  dynButton initPk setPk b = switchDyn <$> widgetHold (b initPk) (b <$> setPk)
+  setBlogPk (Just (BlogId pk)) x = x { _blogId = pure pk }
+  setBlogPk Nothing            x = x { _blogId = pure 0 }
 
-  getButton Nothing   = pure never
-  getButton (Just pk) = do
-    autoEv <- getPostBuild
-    requestBtn refreshBtn
-               (pure . (getBlog pk <$))
-               (constDyn False)
-               (constDyn False)
-               autoEv
-
-  editPk dynPatch = Compose $ pure (setPk <$> dynPatch)
-   where
-    setPk (Just (BlogId pk)) x = x { _blogId = pure pk }
-    setPk Nothing            x = x { _blogId = pure 0 }
-
-  mkHeader (Just (BlogId pk)) = "Blog " <> pack (show pk)
-  mkHeader Nothing            = "New blog"
-
-  deleteBlogReq pk ev = do
-    ev' <- deleteConfirmation (const 1) ev
-    pure $ deleteBlog usingCookie pk <$ ev'
-
-  deleteButton Nothing   = pure never
-  deleteButton (Just pk) = requestBtn deleteBtn
-                                      (deleteBlogReq pk)
-                                      (constDyn False)
-                                      (constDyn False)
-                                      never
-
-
-  patchBlogReq dynPatch pk ev = attachPromptlyDynWithMaybe
-    (\x () -> patchBlog usingCookie pk <$> x)
-    dynPatch
-    ev
-
-  patchButton _        _       Nothing   = pure never
-  patchButton dynPatch patchEv (Just pk) = requestBtn
-    saveBtn
-    (pure . patchBlogReq dynPatch pk)
-    ((Just mempty ==) <$> dynPatch)
-    ((Nothing ==) <$> dynPatch)
-    patchEv
-
-
-  postBlogReq dynBlog ev = attachPromptlyDynWithMaybe
-    (\x () -> fmap (postBlog usingCookie) x)
-    dynBlog
-    ev
-
-  postButton _       (Just _) = pure never
-  postButton dynBlog Nothing  = requestBtn saveBtn
-                                           (pure . postBlogReq dynBlog)
-                                           (constDyn False)
-                                           ((== Nothing) <$> dynBlog)
-                                           never
-
-prop
-  :: ( KnownSymbol s
-     , HasField s (a (Api.OrderByScope Api.Be)) (C (Api.OrderByScope Api.Be) b)
-     , Typeable (a (Api.OrderByScope Api.Be))
-     )
-  => Text
-  -> (forall f . Lens' (a f) (C f b))
-  -> Proxy s
-  -> Property a b
-prop lbl l p =
-  let fn = fromHasField p . toApiDirection
-  in  Property { _prop_label   = lbl
-               , _prop_lens    = l
-               , _prop_key     = orderByPath (fn Ascending)
-               , _prop_orderBy = fn
-               }
-
-editWith
-  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m, Functor c)
-  => Editor c t m (Maybe b)
-  -> Property a b
-  -> a MaybeLast
-  -> Event t (a MaybeLast)
-  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
-editWith e' prp = formProp e (_prop_label prp) (_prop_lens prp)
-  where e = coerceEditor MaybeLast unMaybeLast e'
+  mkHeader x
+    | fromMaybe 0 (unMaybeLast (_blogId x)) > 0 = "Blog - "
+    <> fromMaybe "?" (unMaybeLast $ _blogName x)
+    | otherwise = "New blog"
 
 blogIdProp :: Property BlogT Int64
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")

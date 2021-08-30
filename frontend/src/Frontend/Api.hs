@@ -5,7 +5,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -22,10 +21,6 @@ module Frontend.Api
   , getBlogsApiLink
   -- * Utils
   , getListToMapsubset
-  , readLocationHeader
-  , orAlert
-  , orAlertF
-  , requestBtn
   , runApi
   , withXsrfHeader
   , usingCookie
@@ -33,49 +28,32 @@ module Frontend.Api
   , ApiWidget
   ) where
 
-import           Control.Exception.Base         ( displayException )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
-import           Data.ByteString                ( ByteString )
-import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( catMaybes
-                                                , fromMaybe
-                                                )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy                     ( Proxy(..) )
-import           Data.Text                      ( Text )
-import qualified Data.Text                     as Text
-import qualified Data.Text.Encoding            as Text
 import           Data.Time                      ( NominalDiffTime )
 import           Language.Javascript.JSaddle    ( MonadJSM )
-import           Network.HTTP.Types
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
                                                 )
-import qualified Reflex.Dom.Prerender          as Prerender
-                                                ( Client )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.AccessControl          ( Token(..) )
 import           Servant.Crud.API
 import           Servant.Crud.Headers           ( ExceptLimited(..)
                                                 , Offset(..)
-                                                , PathInfo(..)
                                                 , TotalCount(..)
                                                 )
 import           Servant.Crud.QueryOperator     ( Filter )
-import           Servant.Links                  ( URI(..) )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( ApiWidget
-                                                , ClientError(..)
                                                 , FreeClient
                                                 )
 
 import           Common.Api
 import           Common.Schema
-import           Components.Alert
-import           Components.Button
-import           Components.Class
 import           Components.Table               ( MapSubset(..) )
 
 getListToMapsubset :: GetListHeaders a -> MapSubset Int a
@@ -93,142 +71,6 @@ getListToMapsubset resp = MapSubset
     case lookupResponseHeader x :: ResponseHeader "X-Offset" Offset of
       Servant.API.Header (Offset c) -> Just c
       _                             -> Nothing
-
-readLocationHeader :: Headers '[LocationHdr] a -> Maybe URI
-readLocationHeader x =
-  case lookupResponseHeader x :: ResponseHeader "Location" PathInfo of
-    Servant.API.Header c -> Just (pathInfoUri c)
-    _                    -> Nothing
-
- where
-  pathInfoUri :: PathInfo -> URI
-  pathInfoUri (PathInfo p) = URI
-    { uriScheme    = ""
-    , uriAuthority = Nothing
-    , uriPath      = Text.unpack (Text.intercalate "/" p)
-    , uriQuery     = ""
-    , uriFragment  = ""
-    }
-
-orAlertF
-  :: ( Prerender js t m
-     , DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , MonadFix m
-     )
-  => m (Event t (Either ClientError a))
-  -> m (Event t a)
-orAlertF getResultEv = do
-  resultEv <- getResultEv
-  let (errEv, rEv) = fanEither resultEv
-  alerts def { _alertConfig_status = Danger } (showError <$> errEv)
-  pure rEv
-
-showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
-showError (FailureResponse rq rsp) =
-  let status  = Sub.responseStatusCode rsp
-      statusI = statusCode status
-      msg =
-        Text.unlines
-          . catMaybes
-          $ [ Just
-            $  "The request to "
-            <> showUrl (Sub.requestPath rq)
-            <> " failed. The server responded with "
-            <> (Text.pack . show $ statusI)
-            <> " "
-            <> (Text.decodeUtf8 . statusMessage $ status)
-            <> "."
-            , if BL.null (Sub.responseBody rsp)
-              then Nothing
-              else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
-            , if statusI == 403
-              then Just "Please try reloading this page."
-              else Nothing
-            ]
-  in  (msg, if statusI == 403 then reloadAction else pure ())
-
-showError (DecodeFailure x _) =
-  ("The response decoding failed: " <> x, pure ())
-showError (UnsupportedContentType x _) =
-  ("The content type " <> Text.pack (show x) <> " is not supported.", pure ())
-showError (InvalidContentTypeHeader _) =
-  ("The content type header of the response is invalid.", pure ())
-showError (ConnectionError e) =
-  ("A connection error occured: " <> Text.pack (displayException e), pure ())
-
-showUrl :: (Sub.BaseUrl, ByteString) -> Text
-showUrl (_, p) = Text.decodeUtf8 p
-
-reloadAction :: (Applicative m, Prerender js t m) => m ()
-reloadAction = prerender_ (pure ()) $ do
-  loc <- getLocationAfterHost
-  elAttr "a" ("href" =: loc) (text "Reload page")
-
-orAlert
-  :: ( Prerender js t m
-     , DomBuilder t m
-     , PostBuild t m
-     , MonadHold t m
-     , MonadFix m
-     )
-  => Event t (Either ClientError a)
-  -> m (Event t a)
-orAlert resultEv = orAlertF (pure resultEv)
-
-requestBtn
-  :: ( DomBuilder t m
-     , MonadHold t m
-     , Prerender js t m
-     , MonadFix m
-     , PerformEvent t m
-     , TriggerEvent t m
-     , MonadIO (Performable m)
-     )
-  => (Dynamic t ActionState -> ApiWidget t m (Event t ()))
-  -> (  Event t ()
-     -> ApiWidget
-          t
-          m
-          (Event t (Request (Prerender.Client (ApiWidget t m)) a))
-     )
-  -> Dynamic t Bool
-  -> Dynamic t Bool
-  -> Event t ()
-  -> ApiWidget
-       t
-       m
-       ( Event
-           t
-           (Response (Prerender.Client (ApiWidget t m)) a)
-       )
-requestBtn mkBtn req dynDisabled dynError reqEvAuto = do
-
-  rec dynState <- holdDyn def $ leftmost
-        [ ActionLoading <$ reqEv
-        , responseState <$> resultEv
-        , def <$ resultEvDelay
-        ]
-
-      reqEvMan <- mkBtn
-        ((disabledState <$> dynDisabled <*> dynError) <> dynState)
-      let reqEv' = leftmost [reqEvAuto, reqEvMan]
-
-      reqEv         <- req reqEv'
-
-      resultEv      <- Sub.requestingJs reqEv
-
-      resultEvDelay <- debounce 2 resultEv
-
-  pure resultEv
- where
-  disabledState _    True = ActionError
-  disabledState True _    = ActionDisabled
-  disabledState _    _    = ActionAvailable
-
-  responseState (Right _) = ActionSuccess
-  responseState _         = ActionError
 
 -- | Supplying a token is not needed for xhr because the cookie is sent.
 -- This is a utility for this.

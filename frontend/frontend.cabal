@@ -67,6 +67,7 @@ library
     Frontend.Core
     Frontend.Crud
     Frontend.Crud.Datagrid
+    Frontend.Crud.Edit
     Frontend.Crud.Utils
     Frontend.Input
     Nordtheme

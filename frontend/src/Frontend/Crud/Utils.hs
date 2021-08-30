@@ -4,8 +4,10 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
 module Frontend.Crud.Utils
-  ( -- * Buttons
-    triStateBtn
+  ( -- * General
+    replaceLocation
+    -- * Buttons
+  , triStateBtn
   , backBtn
   , saveBtn
   , refreshBtn
@@ -14,6 +16,9 @@ module Frontend.Crud.Utils
   , downloadButton
   , deleteConfirmation
   , messageBox
+    -- * Properties
+  , Property(..)
+  , editWith
     -- * Forms
   , formProp
   , respectFocus
@@ -30,8 +35,13 @@ module Frontend.Crud.Utils
   , markdownEditor
   , dateEditor
   , requiredEditor
+    -- * Api
+  , requestBtn
+  , orAlert
+  , orAlertF
   ) where
 
+import           Control.Exception.Base         ( displayException )
 import           Control.Lens                   ( Const
                                                 , Lens'
                                                 , set
@@ -39,31 +49,78 @@ import           Control.Lens                   ( Const
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.ByteString                ( ByteString )
+import qualified Data.ByteString.Lazy          as BL
 import           Data.Default
 import           Data.Functor.Compose           ( Compose(..) )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( fromMaybe )
+import           Data.Maybe                     ( catMaybes
+                                                , fromMaybe
+                                                )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
+import qualified Data.Text                     as Text
+import qualified Data.Text.Encoding            as Text
 import           Data.Time                      ( Day )
-import           Reflex.Dom              hiding ( Link(..)
+import           GHCJS.DOM.Types                ( SerializedScriptValue(..)
+                                                , pToJSVal
+                                                )
+import           Network.HTTP.Types
+import           Reflex.Dom              hiding ( Client
+                                                , Link(..)
                                                 , rangeInput
                                                 , textInput
                                                 )
 import           Reflex.Dom.Contrib.Router      ( goBack )
+import qualified Reflex.Dom.Prerender          as Prerender
+                                                ( Client )
 import           Servant.API                    ( toUrlPiece
                                                 , uriPath
                                                 , uriQuery
                                                 )
+import qualified Servant.Crud.OrderBy          as API
+import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import qualified Servant.Links                 as L
                                                 ( Link
+                                                , URI(..)
                                                 , linkURI
+                                                )
+import qualified Servant.Subscriber.Reflex     as Sub
+import           Servant.Subscriber.Reflex      ( ApiWidget
+                                                , ClientError(..)
                                                 )
 import           URI.ByteString                 ( URI )
 
+
+
+import           Common.Api                     ( Be
+                                                , ViewOrderBy
+                                                )
+import           Common.Schema                  ( C )
 import           Components
 import           Reflex.Dom.Ace                 ( AceConfig )
+
+replaceLocation
+  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  => Event t L.Link
+  -> m ()
+replaceLocation lEv = replaceLocationUri $ L.linkURI <$> lEv
+
+replaceLocationUri
+  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  => Event t L.URI
+  -> m ()
+replaceLocationUri lEv = prerender_ (pure ()) $ do
+  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem <$> lEv)
+  pure ()
+ where
+  historyItem :: L.URI -> HistoryStateUpdate
+  historyItem uri = HistoryStateUpdate
+    { _historyStateUpdate_state = SerializedScriptValue (pToJSVal False)
+    , _historyStateUpdate_title = ""
+    , _historyStateUpdate_uri   = Just uri { L.uriPath = "/" <> L.uriPath uri }
+    }
 
 
 triStateBtn
@@ -169,6 +226,29 @@ messageBox titl msg okBtn openEv = fmapMaybe id
       cancelEv <- cardAction "Cancel"
       okEv     <- okBtn
       pure $ leftmost [Nothing <$ x, Nothing <$ cancelEv, Just y <$ okEv]
+
+
+data Property a b = Property
+  { _prop_label   :: Text
+  , _prop_lens    :: forall f . Lens' (a f) (C f b)
+  , _prop_key     :: API.Path
+  , _prop_orderBy :: SortOrder -> ViewOrderBy Be a
+  }
+
+editWith
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , MonadIO m
+     , MonadFix m
+     , Functor c
+     , Monoid (a MaybeLast)
+     )
+  => Editor c t m (Maybe b)
+  -> Property a b
+  -> Event t (a MaybeLast)
+  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
+editWith e' prp = formProp e (_prop_label prp) (_prop_lens prp) mempty
+  where e = coerceEditor MaybeLast unMaybeLast e'
 
 
 data Editor c t m b = Editor
@@ -312,3 +392,125 @@ requiredEditor
   => Editor c t m (Maybe a)
   -> Editor c t m (Maybe a)
 requiredEditor e = e { _edit_editor = requiredInput (_edit_editor e) }
+
+
+orAlertF
+  :: ( Prerender js t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     )
+  => m (Event t (Either ClientError a))
+  -> m (Event t a)
+orAlertF getResultEv = do
+  resultEv <- getResultEv
+  let (errEv, rEv) = fanEither resultEv
+  alerts def { _alertConfig_status = Danger } (showError <$> errEv)
+  pure rEv
+
+showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
+showError (FailureResponse rq rsp) =
+  let status  = Sub.responseStatusCode rsp
+      statusI = statusCode status
+      msg =
+        Text.unlines
+          . catMaybes
+          $ [ Just
+            $  "The request to "
+            <> showUrl (Sub.requestPath rq)
+            <> " failed. The server responded with "
+            <> (Text.pack . show $ statusI)
+            <> " "
+            <> (Text.decodeUtf8 . statusMessage $ status)
+            <> "."
+            , if BL.null (Sub.responseBody rsp)
+              then Nothing
+              else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
+            , if statusI == 403
+              then Just "Please try reloading this page."
+              else Nothing
+            ]
+  in  (msg, if statusI == 403 then reloadAction else pure ())
+
+showError (DecodeFailure x _) =
+  ("The response decoding failed: " <> x, pure ())
+showError (UnsupportedContentType x _) =
+  ("The content type " <> Text.pack (show x) <> " is not supported.", pure ())
+showError (InvalidContentTypeHeader _) =
+  ("The content type header of the response is invalid.", pure ())
+showError (ConnectionError e) =
+  ("A connection error occured: " <> Text.pack (displayException e), pure ())
+
+showUrl :: (Sub.BaseUrl, ByteString) -> Text
+showUrl (_, p) = Text.decodeUtf8 p
+
+reloadAction :: (Applicative m, Prerender js t m) => m ()
+reloadAction = prerender_ (pure ()) $ do
+  loc <- getLocationAfterHost
+  elAttr "a" ("href" =: loc) (text "Reload page")
+
+orAlert
+  :: ( Prerender js t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     )
+  => Event t (Either ClientError a)
+  -> m (Event t a)
+orAlert resultEv = orAlertF (pure resultEv)
+
+requestBtn
+  :: ( DomBuilder t m
+     , MonadHold t m
+     , Prerender js t m
+     , MonadFix m
+     , PerformEvent t m
+     , TriggerEvent t m
+     , MonadIO (Performable m)
+     )
+  => (Dynamic t ActionState -> ApiWidget t m (Event t ()))
+  -> (  Event t ()
+     -> ApiWidget
+          t
+          m
+          (Event t (Request (Prerender.Client (ApiWidget t m)) a))
+     )
+  -> Dynamic t Bool
+  -> Dynamic t Bool
+  -> Event t ()
+  -> ApiWidget
+       t
+       m
+       ( Event
+           t
+           (Response (Prerender.Client (ApiWidget t m)) a)
+       )
+requestBtn mkBtn req dynDisabled dynError reqEvAuto = do
+
+  rec dynState <- holdDyn def $ leftmost
+        [ ActionLoading <$ reqEv
+        , responseState <$> resultEv
+        , def <$ resultEvDelay
+        ]
+
+      reqEvMan <- mkBtn
+        ((disabledState <$> dynDisabled <*> dynError) <> dynState)
+      let reqEv' = leftmost [reqEvAuto, reqEvMan]
+
+      reqEv         <- req reqEv'
+
+      resultEv      <- Sub.requestingJs reqEv
+
+      resultEvDelay <- debounce 2 resultEv
+
+  pure resultEv
+ where
+  disabledState _    True = ActionError
+  disabledState True _    = ActionDisabled
+  disabledState _    _    = ActionAvailable
+
+  responseState (Right _) = ActionSuccess
+  responseState _         = ActionError
+

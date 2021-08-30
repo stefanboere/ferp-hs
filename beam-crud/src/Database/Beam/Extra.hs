@@ -37,6 +37,7 @@ module Database.Beam.Extra
   , makePatch
   , purePatch
   , joinPatch
+  , FieldsFulfillConstraint
   ) where
 
 import           Prelude
