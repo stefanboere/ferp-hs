@@ -17,7 +17,6 @@ import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import           Data.Text                      ( Text )
 import           Data.Time                      ( Day )
-import           GHC.Int                        ( Int64 )
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
                                                 , textInput
@@ -141,7 +140,7 @@ blogEdit = editForm cfg $ \modBlogEv ->
     <> fromMaybe "?" (unMaybeLast $ _blogName x)
     | otherwise = "New blog"
 
-blogIdProp :: Property BlogT Int64
+blogIdProp :: Property BlogT SerialInt64
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
 
 blogTitleProp :: Property BlogT Text
@@ -210,7 +209,7 @@ channelEdit = editForm cfg $ \modBlogEv ->
     <> fromMaybe "?" (unMaybeLast $ _channelName x)
     | otherwise = "New channel"
 
-channelIdProp :: Property ChannelT Int64
+channelIdProp :: Property ChannelT SerialInt64
 channelIdProp = prop "Id" channelId (Proxy :: Proxy "_channelId")
 
 channelNameProp :: Property ChannelT Text

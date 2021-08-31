@@ -42,6 +42,7 @@ library
     Common.Api
     Common.Auth
     Common.Schema
+    Common.Types
 
   other-modules:   Common.Schema.TH
   build-depends:

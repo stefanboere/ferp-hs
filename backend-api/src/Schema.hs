@@ -23,7 +23,6 @@ module Schema
   , module Schema
   ) where
 
-import           Data.Int                       ( Int64 )
 import           Database.Beam
 import           Database.Beam.Migrate
 import           Database.Beam.Postgres         ( Postgres )
@@ -43,7 +42,7 @@ import           Types                          ( )
 {- HLINT ignore "Redundant bracket" -}
 $(instances ''BlogT)
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogT ''Int64)
+$(instancesId ''BlogT ''SerialInt64)
 
 instance ToSample Blog where
   toSamples _ = []
@@ -59,7 +58,7 @@ instance ToSample BlogId where
 {- HLINT ignore "Redundant bracket" -}
 $(instances ''ChannelT)
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''ChannelT ''Int64)
+$(instancesId ''ChannelT ''SerialInt64)
 
 instance ToSample Channel where
   toSamples _ = []
