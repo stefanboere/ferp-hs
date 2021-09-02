@@ -12,14 +12,20 @@ module Components.Class
   , absoluteBlock
   , spantext
   , WidgetConstraint
-  )
-where
+  , MapSubset(..)
+  , addDeletes
+  , universe
+  ) where
 
 
 import           Clay
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
+import           Data.Map                       ( Map )
+import qualified Data.Map                      as Map
+import           Data.Set                       ( Set )
+import qualified Data.Set                      as Set
 import           Data.Text                      ( Text )
 import           Reflex.Dom
 
@@ -77,3 +83,47 @@ type WidgetConstraint js t m
     , MonadIO (Performable m)
     , Prerender js t m
     )
+
+-- | A subset of a map of known or unknown size.
+-- Used to model requesting a page (offset and limit) of a dataset,
+-- together with the total number of records in the dataset.
+-- Differs from a set in that each element is indexed by a key k, usually the offset position.
+data MapSubset k a = MapSubset
+  { _ms_data       :: Map k a
+  , _ms_totalCount :: Maybe Integer
+  }
+
+-- | An empty subset of a set of unknown size
+instance Default (MapSubset k a) where
+  def = MapSubset Map.empty Nothing
+
+instance Functor (MapSubset k) where
+  fmap f x = x { _ms_data = fmap f (_ms_data x) }
+
+-- | Set union, with two distinct universes
+instance Ord k => Semigroup (MapSubset k a) where
+  x <> y = MapSubset
+    { _ms_data       = _ms_data x <> _ms_data y
+    , _ms_totalCount = (+) <$> _ms_totalCount x <*> _ms_totalCount y
+    }
+
+-- | Empty universe
+instance Ord k => Monoid (MapSubset k a) where
+  mempty = universe Map.empty
+
+-- | The entire map as a MapSubset, so it's size is known
+universe :: Map k a -> MapSubset k a
+universe xs = MapSubset { _ms_data       = xs
+                        , _ms_totalCount = Just . fromIntegral $ Map.size xs
+                        }
+
+
+addDeletes :: Ord k => Set k -> MapSubset k a -> MapSubset k (Maybe a)
+addDeletes oldSet m = m { _ms_data = diffMapSet oldSet (_ms_data m) }
+
+diffMapSet :: (Ord k) => Set k -> Map k v -> Map k (Maybe v)
+diffMapSet olds news = fmap Just news
+  `Map.union` Map.fromSet
+                (const Nothing)
+                (Set.difference olds (Map.keysSet news))
+

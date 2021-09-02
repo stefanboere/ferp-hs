@@ -275,7 +275,7 @@ comboboxHandler = do
     pure never
  where
   showOpt k v = dynText ((<> " ") . pack . show <$> k) >> dynText v
-  flavors = constDyn $ Map.fromList $ zip
+  flavors = Map.fromList $ zip
     [(1 :: Integer), 2 ..]
     [ "Cherry"
     , "Mint chip"

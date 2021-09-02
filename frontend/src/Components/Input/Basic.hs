@@ -26,6 +26,7 @@ module Components.Input.Basic
   , NumberInputConfig
   , EnumInputConfig
   , OpElem(..)
+  , Elem
   , DomInputEl
   , inputConfig
   , inputConfig'

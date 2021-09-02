@@ -21,7 +21,6 @@ module Components.Table
   , withFilterCondition
   , headMultiSelect
   , Column(..)
-  , MapSubset(..)
   , DatagridView(..)
   , DatagridConfig(..)
   , DatagridResult(..)
@@ -31,7 +30,6 @@ module Components.Table
   , PageSize
   , ViewWindow(..)
   , SortOrder(..)
-  , addDeletes
   , FilterCondition(..)
   ) where
 
@@ -720,17 +718,6 @@ headMultiSelect setSelEv theadTr = el "tr" $ do
   x <- theadTr
   pure (selectAllDyn, x)
 
-data MapSubset k a = MapSubset
-  { _ms_data       :: Map k a
-  , _ms_totalCount :: Maybe Integer
-  }
-
-instance Default (MapSubset k a) where
-  def = MapSubset Map.empty Nothing
-
-instance Functor (MapSubset k) where
-  fmap f x = x { _ms_data = fmap f (_ms_data x) }
-
 data Selection k = Selection
   { _sel_negate :: Bool
   , _sel_keys   :: Set k
@@ -979,16 +966,6 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
   isSelected (selAll, selset) r =
     let memberFn = if selAll then Set.notMember else Set.member
     in  _gridConfig_toPrimary cfg r `memberFn` selset
-
-
-addDeletes :: Ord k => Set k -> MapSubset k a -> MapSubset k (Maybe a)
-addDeletes oldSet m = m { _ms_data = diffMapSet oldSet (_ms_data m) }
-
-diffMapSet :: (Ord k) => Set k -> Map k v -> Map k (Maybe v)
-diffMapSet olds news = fmap Just news
-  `Map.union` Map.fromSet
-                (const Nothing)
-                (Set.difference olds (Map.keysSet news))
 
 
 -- | Modified from Reflex.Dom.Widget.Lazy for better fit with datagrid
