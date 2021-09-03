@@ -39,6 +39,8 @@ module Frontend.Crud.Utils
   , requestBtn
   , orAlert
   , orAlertF
+  , showError
+  , showClientError
   ) where
 
 import           Control.Exception.Base         ( displayException )
@@ -410,7 +412,12 @@ orAlertF getResultEv = do
   pure rEv
 
 showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
-showError (FailureResponse rq rsp) =
+showError =
+  fmap (\statusI -> if statusI == Just 403 then reloadAction else pure ())
+    . showClientError
+
+showClientError :: ClientError -> (Text, Maybe Int)
+showClientError (FailureResponse rq rsp) =
   let status  = Sub.responseStatusCode rsp
       statusI = statusCode status
       msg =
@@ -431,16 +438,16 @@ showError (FailureResponse rq rsp) =
               then Just "Please try reloading this page."
               else Nothing
             ]
-  in  (msg, if statusI == 403 then reloadAction else pure ())
+  in  (msg, Just statusI)
 
-showError (DecodeFailure x _) =
-  ("The response decoding failed: " <> x, pure ())
-showError (UnsupportedContentType x _) =
-  ("The content type " <> Text.pack (show x) <> " is not supported.", pure ())
-showError (InvalidContentTypeHeader _) =
-  ("The content type header of the response is invalid.", pure ())
-showError (ConnectionError e) =
-  ("A connection error occured: " <> Text.pack (displayException e), pure ())
+showClientError (DecodeFailure x _) =
+  ("The response decoding failed: " <> x, Nothing)
+showClientError (UnsupportedContentType x _) =
+  ("The content type " <> Text.pack (show x) <> " is not supported.", Nothing)
+showClientError (InvalidContentTypeHeader _) =
+  ("The content type header of the response is invalid.", Nothing)
+showClientError (ConnectionError e) =
+  ("A connection error occured: " <> Text.pack (displayException e), Nothing)
 
 showUrl :: (Sub.BaseUrl, ByteString) -> Text
 showUrl (_, p) = Text.decodeUtf8 p

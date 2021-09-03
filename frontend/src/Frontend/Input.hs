@@ -212,13 +212,19 @@ checkboxHandler = do
   where materialExample = materialExample' Set.singleton
 
 materialExample'
-  :: (DomBuilder t m)
+  :: (DomBuilder t m, DomBuilder t m1)
   => (Material -> f Material)
-  -> EnumInputConfig t m (f Material)
+  -> InputConfig' (OpElem m1) t m (f Material)
 materialExample' bump = inputConfig' (OpElem printMaterial) (bump M14307)
 
 comboboxHandler
-  :: (PostBuild t m, DomBuilder t m, MonadIO m, MonadHold t m, MonadFix m)
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadIO m
+     , MonadHold t m
+     , MonadFix m
+     , Prerender js t m
+     )
   => m (Event t URI)
 comboboxHandler = do
   el "h1" $ text "Combobox"

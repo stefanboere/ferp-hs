@@ -821,7 +821,9 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
     let selectAllEv =
           leftmost [updated selectAllDyn, _gridConfig_selectAll cfg]
 
-    totalCountWithDef <- holdDyn 0 (mkTotalCount <$> _gridConfig_setValue cfg)
+    totalCountWithDef <- holdDyn
+      0
+      (totalCountOrSize <$> _gridConfig_setValue cfg)
     let heightDynWithDef =
           maybe
               (             36
@@ -931,9 +933,6 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
 
   mkWindow (off, lim) =
     ViewWindow { _win_offset = fromIntegral off, _win_limit = fromIntegral lim }
-
-  mkTotalCount (MapSubset _  (Just x)) = fromIntegral x
-  mkTotalCount (MapSubset xs _       ) = Map.size xs
 
   mkHeightAttr Nothing =
     Map.singleton "style" "position:relative;height:calc(100vh - 17rem - 1px)"
@@ -1082,40 +1081,12 @@ virtualListBuffered'
        , Dynamic t (Map k a)
        )
 virtualListBuffered' buffer heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
-  = do
-    (win, m) <- virtualList' heightPx
-                             rowPx
-                             maxIndex
-                             i0
-                             setI
-                             keyToIndex
-                             items0
-                             itemsUpdate
-                             itemBuilder
-    pb <- getPostBuild
-    let extendWin o l =
-          (Prelude.max 0 (o - l * (buffer - 1) `Prelude.div` 2), l * buffer)
-    rec
-      let winHitEdge = attachWithMaybe
-            (\(oldOffset, oldLimit) (winOffset, winLimit) ->
-              if winOffset
-                 >  oldOffset
-                 && winOffset
-                 +  winLimit
-                 <  oldOffset
-                 +  oldLimit
-              then
-                Nothing
-              else
-                Just (extendWin winOffset winLimit)
-            )
-            (current winBuffered)
-            (updated win)
-      winBuffered <-
-        holdDyn (0, 0)
-          $ leftmost
-              [ winHitEdge
-              , attachPromptlyDynWith (\(x, y) _ -> extendWin x y) win pb
-              ]
-    return (winBuffered, m)
-
+  = buffered buffer $ virtualList' heightPx
+                                   rowPx
+                                   maxIndex
+                                   i0
+                                   setI
+                                   keyToIndex
+                                   items0
+                                   itemsUpdate
+                                   itemBuilder

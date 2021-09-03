@@ -23,6 +23,8 @@ module Frontend.Crud.Datagrid
   , eqFilter
   , setInFilter
   , setNotInFilter
+  , setContainsFilter
+  , setContains
   -- * Column definition
   , prop
   , gridProp
@@ -94,6 +96,7 @@ import           Common.Api                     ( Be
                                                 , ViewOrderBy
                                                 )
 import           Common.Schema
+import           Components.Class
 import           Components.Input.Basic
 import           Components.Table
 import           Frontend.Crud.Utils
@@ -213,6 +216,15 @@ setInFilter = setf @""
 
 setNotInFilter :: SetFilter "!" 'List a => [a] -> Filter a -> Filter a
 setNotInFilter = setf @"!"
+
+setContainsFilter
+  :: SetFilter "contains" 'Normal Text => MaybeLast Text -> Filter Text
+setContainsFilter x = setf @"contains" x mempty
+
+setContains
+  :: Lens' (a Filter) (C Filter Text) -> Text -> View be a -> View be a
+setContains l c vw =
+  vw { API.filters = set l (setContainsFilter (pure c)) (API.filters vw) }
 
 type GetFilter s k a
   = (GetOp (Find s (DefaultFilters a) :: IsInDict s k (DefaultFilters a)))

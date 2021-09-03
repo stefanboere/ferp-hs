@@ -31,6 +31,7 @@ module Components.Input.Basic
   , inputConfig
   , inputConfig'
   , textInput
+  , textInputEl
   , textInputWithIco
   , textInputWithIco'
   , textInputWithIco''
@@ -60,6 +61,9 @@ module Components.Input.Basic
   , statusModAttrEv'
   , statusMessageDiv
   , requiredInput
+  , statusMessageIcon
+  , statusMessageElement
+  , colorCls
   ) where
 
 import           Prelude                 hiding ( rem )

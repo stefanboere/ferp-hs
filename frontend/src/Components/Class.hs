@@ -1,7 +1,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo #-}
 module Components.Class
   ( Status(..)
   , ComponentSize(..)
@@ -15,6 +16,8 @@ module Components.Class
   , MapSubset(..)
   , addDeletes
   , universe
+  , totalCountOrSize
+  , buffered
   ) where
 
 
@@ -127,3 +130,37 @@ diffMapSet olds news = fmap Just news
                 (const Nothing)
                 (Set.difference olds (Map.keysSet news))
 
+totalCountOrSize :: MapSubset k a -> Int
+totalCountOrSize (MapSubset _  (Just x)) = fromIntegral x
+totalCountOrSize (MapSubset xs _       ) = Map.size xs
+
+-- | Helper for virtualListBuffered, modified from @Reflex.Dom.Wigdet.Lazy.virtualListBuffered@
+buffered
+  :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
+  => Int
+  -> m (Dynamic t (Int, Int), a)
+  -> m (Dynamic t (Int, Int), a)
+buffered buffer vList = do
+  (win, m) <- vList
+  pb       <- getPostBuild
+  let extendWin o l =
+        (Prelude.max 0 (o - l * (buffer - 1) `Prelude.div` 2), l * buffer)
+  rec
+    let winHitEdge = attachWithMaybe
+          (\(oldOffset, oldLimit) (winOffset, winLimit) ->
+            if winOffset
+               >  oldOffset
+               && winOffset
+               +  winLimit
+               <  oldOffset
+               +  oldLimit
+            then
+              Nothing
+            else
+              Just (extendWin winOffset winLimit)
+          )
+          (current winBuffered)
+          (updated win)
+    winBuffered <- holdDyn (0, 0) $ leftmost
+      [winHitEdge, attachPromptlyDynWith (\(x, y) _ -> extendWin x y) win pb]
+  return (winBuffered, m)
