@@ -6,6 +6,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -41,6 +42,7 @@ module Database.Beam.API
   , CaptureId
     -- * Utilities
   , runSetView
+  , runSetViewAround
   , runCountInView
   , runPrimaryKeysInView
   , runNamesInViewWithCount
@@ -58,6 +60,7 @@ import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.Backend.SQL      ( BeamSql2003ExpressionBackend
+                                                , BeamSql99CommonTableExpressionBackend
                                                 , BeamSqlBackend
                                                 , BeamSqlBackendOrderingSyntax
                                                 )
@@ -71,6 +74,7 @@ import           Database.Beam.Operator         ( FieldsFulfillConstraintFilter
                                                 , Operator
                                                 , matching_
                                                 )
+import           Database.Beam.Query.CTE        ( QAnyScope )
 import           Database.Beam.Query.Internal
 import           GHC.Generics                   ( Rep )
 import           Servant.API
@@ -310,6 +314,52 @@ runSetView
        (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
   -> m [table Identity]
 runSetView v = runSelectReturningList . select . setView v
+
+runSetViewAround
+  :: ( BeamSql2003ExpressionBackend be
+     , BeamSql99CommonTableExpressionBackend be
+     , MonadBeam be m
+     , FromBackendRow be Integer
+     , SqlValableTable be (PrimaryKey t)
+     , HasTableEquality be (PrimaryKey t)
+     , Table t
+     , HasQBuilder be
+     , FromBackendRow be (t Identity)
+     , FieldsFulfillConstraintFilter (Operator Filter be) t
+     , SqlOrderable
+         be
+         (QExpr be (QNested (QNested (QNested QBaseScope))) Integer)
+     )
+  => PrimaryKey t Identity
+  -> View' (Orderable be) (t (QExpr be (QNested QAnyScope))) (t Filter)
+  -> Q be db (QNested QAnyScope) (t (QExpr be (QNested QAnyScope)))
+  -> m ([t Identity], Integer, Integer)
+runSetViewAround p (View pag ords filt) q = do
+  xs <- runSelectReturningList $ selectWith $ do
+    numberedRows <- selecting $ withWindow_
+      (\i ->
+        ( frame_ (noPartition_ @Integer) (noOrder_ @Integer)          noBounds_
+        , frame_ (noPartition_ @Integer) (Just $ fmap (mkOrd i) ords) noBounds_
+        )
+      )
+      (\i (win1, win2) -> (i, countAll_ `over_` win1, rowNumber_ `over_` win2))
+      (matching_ filt q)
+    pure $ setPage pag $ orderBy_ (\(_, _, rn) -> rn) $ filter_
+      (\(_, _, rn) -> rn >=. subquery_
+        (do
+          (x', _, rn') <- reuse numberedRows
+          guard_ (primaryKey x' ==. val_ p)
+          pure rn'
+        )
+      )
+      (reuse numberedRows)
+
+  let (c, rn) = case xs of
+        []               -> (0, 0)
+        (_, c', rn') : _ -> (fromInteger c', fromInteger rn')
+  pure (fmap (\(x, _, _) -> x) xs, c, rn)
+  where mkOrd r ord = QOrd $ extract Proxy r ord
+
 
 -- | Aplies the filters from 'View', then counts the total number of rows
 runCountInView
