@@ -133,14 +133,10 @@ defaultCrud runDB db coerce coerceBack coll = CrudRoutes
   , _post          = \path x ->
                        hLocation' (removeZero path)
                          <$> (runDB (runInsertOne db x) >>= insertErr)
-  , _getList       = \path view ->
-                       hTotalLink' path view
-                         <$> runDB (runCountInView view coll)
-                         <*> runDB (runSetView view coll)
-  , _getListLabels = \path view ->
-                       hTotalLink' path view
-                         <$> runDB (runCountInView view coll)
-                         <*> runDB (runNamesInView view coll)
+  , _getList       = \path view -> hTotalLink'' path view <$> runDB
+                       (runSelectReturningListWithCount (setView view coll))
+  , _getListLabels = \path view -> hTotalLink'' path view
+                       <$> runDB (runNamesInViewWithCount view coll)
   , _deleteList    = \keys fltr -> do
                        keys' <- runDB (runPrimaryKeysInView fltr keys coll)
                        runDB (runDeleteKeys db (fmap coerceBack keys'))
@@ -155,3 +151,6 @@ defaultCrud runDB db coerce coerceBack coll = CrudRoutes
     unless found throwNotFound
     runDB fn
   removeZero (PathInfo xs) = PathInfo (init xs)
+
+  hTotalLink'' path view (xs, c) =
+    hTotalLink' path view (Just (TotalCount c)) xs

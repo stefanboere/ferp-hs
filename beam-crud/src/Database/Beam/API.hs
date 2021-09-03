@@ -2,11 +2,11 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-|
@@ -43,7 +43,7 @@ module Database.Beam.API
   , runSetView
   , runCountInView
   , runPrimaryKeysInView
-  , runNamesInView
+  , runNamesInViewWithCount
     -- * Advanced
   , Orderable
   , OrderBy'
@@ -57,13 +57,16 @@ import           Control.Monad.Free             ( liftF )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import           Database.Beam
-import           Database.Beam.Backend.SQL      ( BeamSqlBackend
+import           Database.Beam.Backend.SQL      ( BeamSql2003ExpressionBackend
+                                                , BeamSqlBackend
                                                 , BeamSqlBackendOrderingSyntax
                                                 )
 import           Database.Beam.Expand           ( Named(..)
                                                 , ToName(..)
                                                 )
-import           Database.Beam.Extra            ( runCountIn )
+import           Database.Beam.Extra            ( runCountIn
+                                                , runSelectReturningListWithCount
+                                                )
 import           Database.Beam.Operator         ( FieldsFulfillConstraintFilter
                                                 , Operator
                                                 , matching_
@@ -99,7 +102,8 @@ type OrderBy' be s t = OrderBy (Orderable be) (t (QExpr be s))
 -- | @OrderBy'@ with specialized scope
 type ViewOrderBy be t = OrderBy (Orderable be) (t (OrderByScope be))
 
-type OrderByScope be = QExpr be (QNested (QNested (QNested QBaseScope)))
+type OrderByScope be
+  = QExpr be (QNested (QNested (QNested (QNested QBaseScope))))
 
 -- | Contains ordering, filtering and pageination info. This particular type works
 -- nice with 'setView'. You can use this type with 'QueryObject' to allow the client
@@ -107,11 +111,7 @@ type OrderByScope be = QExpr be (QNested (QNested (QNested QBaseScope)))
 -- parameters.
 --
 -- Then, in the handler, simply use 'setView' to alter the query to match this requested view.
-type View be t
-  = View'
-      (Orderable be)
-      (t (QExpr be (QNested (QNested (QNested QBaseScope)))))
-      (t Filter)
+type View be t = View' (Orderable be) (t (OrderByScope be)) (t Filter)
 
 -- | Endpoint returning a list of @t Identity@ based on a @View@ in the request query parameters
 --
@@ -366,7 +366,7 @@ runPrimaryKeysInView fltr ekeys = case ekeys of
       . matching_ fltr
 
 -- | As @runInView@ but only returns primary keys and labels
-runNamesInView
+runNamesInViewWithCount
   :: ( FromBackendRow be (table Identity)
      , FieldsFulfillConstraintFilter (Operator Filter be) table
      , HasQBuilder be
@@ -374,20 +374,26 @@ runNamesInView
      , ToName table
      , FromBackendRow be (PrimaryKey table Identity)
      , FromBackendRow be Text
+     , BeamSql2003ExpressionBackend be
+     , FromBackendRow be Integer
+     , Integral c
      )
   => View'
        (Orderable be)
-       (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
+       (table (QExpr be (QNested (QNested (QNested (QNested QBaseScope))))))
        (table Filter)
   -> Q
        be
        db
-       (QNested (QNested (QNested QBaseScope)))
-       (table (QExpr be (QNested (QNested (QNested QBaseScope)))))
-  -> m [Named table Identity]
-runNamesInView v =
-  fmap (fmap (uncurry Named))
-    . runSelectReturningList
-    . select
+       (QNested (QNested (QNested (QNested QBaseScope))))
+       ( table
+           (QExpr be (QNested (QNested (QNested (QNested QBaseScope)))))
+       )
+  -> m ([Named table Identity], c)
+runNamesInViewWithCount v q = do
+  (xs, c) <-
+    runSelectReturningListWithCount
     . fmap (\x -> (primaryKey x, toName x))
-    . setView v
+    $ setView v q
+
+  pure (fmap (uncurry Named) xs, c)

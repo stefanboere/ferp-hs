@@ -33,6 +33,7 @@ module Database.Beam.Extra
   , ignorePrimary
   , countIn_
   , runCountIn
+  , runSelectReturningListWithCount
   , runIsInView
   , makePatch
   , purePatch
@@ -50,7 +51,8 @@ import           Control.Monad.Trans.State.Lazy ( evalState
 import           Data.Functor.Identity
 import           Data.Maybe                     ( isJust )
 import           Database.Beam           hiding ( save' )
-import           Database.Beam.Backend.SQL      ( BeamSqlBackend
+import           Database.Beam.Backend.SQL      ( BeamSql2003ExpressionBackend
+                                                , BeamSqlBackend
                                                 , BeamSqlBackendCanSerialize
                                                 )
 import           Database.Beam.Backend.SQL.BeamExtensions
@@ -390,6 +392,56 @@ runCountIn
   => Q be db (QNested QBaseScope) r
   -> m (Maybe a)
 runCountIn = runSelectReturningOne . select . countIn_
+
+runSelectReturningListWithCount
+  :: ( Projectible
+         be
+         ( WithRewrittenThread
+             (QNested QBaseScope)
+             QBaseScope
+             (WithRewrittenContext a QValueContext)
+         )
+     , Projectible be a
+     , MonadBeam be m
+     , HasQBuilder be
+     , FromBackendRow
+         be
+         ( QExprToIdentity
+             ( WithRewrittenThread
+                 (QNested QBaseScope)
+                 QBaseScope
+                 (WithRewrittenContext a QValueContext)
+             )
+         )
+     , FromBackendRow be Integer
+     , Integral c
+     , BeamSql2003ExpressionBackend be
+     , ContextRewritable a
+     , ThreadRewritable
+         (QNested QBaseScope)
+         (WithRewrittenContext a QValueContext)
+     )
+  => Q be db (QNested QBaseScope) a
+  -> m
+       ( [ QExprToIdentity
+             ( WithRewrittenThread
+                 (QNested QBaseScope)
+                 QBaseScope
+                 (WithRewrittenContext a QValueContext)
+             )
+         ]
+       , c
+       )
+runSelectReturningListWithCount q = do
+  rs <- runSelectReturningList $ select $ withWindow_
+    (\_ -> frame_ (noPartition_ @Integer) (noOrder_ @Integer) noBounds_)
+    (\i r -> (i, countAll_ `over_` r))
+    q
+  let c = case rs of
+        []         -> 0
+        (_, x) : _ -> fromInteger x
+  pure (fmap fst rs, c)
+
 
 -- | Find a row in the collection matching the id
 runLookupIn
