@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Servant.Subscriber.Reflex
   ( performWebSocketRequests
   , WebSocketEndpoint
@@ -31,8 +32,7 @@ import qualified Data.ByteString.Lazy          as BL
 import qualified Data.CaseInsensitive          as CI
 import           Data.Dependent.Sum             ( DSum(..) )
 import           Data.Foldable                  ( toList )
-import qualified Data.IntMap.Strict            as IntMap
-import           Data.IntSet                    ( IntSet )
+import           Data.Function                  ( fix )
 import qualified Data.Map                      as Map
 import           Data.Map                       ( Map )
 import           Data.Maybe                     ( fromJust )
@@ -69,6 +69,10 @@ import qualified Servant.Subscriber.Compat.Response
 import           Servant.Subscriber.Compat.Response
                                                 ( HttpResponse(..) )
 import           Unsafe.Coerce                  ( unsafeCoerce )
+
+import           Language.Haskell.TH.Lib
+import           Language.Haskell.TH.Syntax
+import           Unsafe.TrueName
 
 toSubRequest :: C.Request -> HttpRequest
 toSubRequest C.Request {..} = HttpRequest
@@ -191,9 +195,9 @@ performWebSocketRequests url req =
   -- This allows for e.g. dynamic filtering,
   -- i.e. automatic unsubscribing for the original filter if the filter changes
   toUnsub
-    :: Map IntSet HttpRequest
-    -> (IntSet, HttpRequest)
-    -> Maybe (IntSet, HttpRequest, Maybe HttpRequest)
+    :: Map [[Int]] HttpRequest
+    -> ([[Int]], HttpRequest)
+    -> Maybe ([[Int]], HttpRequest, Maybe HttpRequest)
   toUnsub prev (k, r)
     | httpMethod r == "GET"
     = let r'  = prev Map.!? k
@@ -262,7 +266,7 @@ matchResponsesWithRequests'
   -- ^ The incoming responses, tagged by an identifying key
   -> m
        ( Event t (Map key rawRequest)
-       , Event t (IntSet, key)
+       , Event t ([[Int]], key)
        , Event t (RequesterData response)
        )
   -- ^ A map of outgoing wire-format requests and an event of responses keyed
@@ -306,9 +310,91 @@ matchResponsesWithRequests' f send recv = do
         return $ Just (n, singletonRequesterData k rsp)
 
 
-  keyWithOrig :: (key, RequesterData response) -> (IntSet, key)
-  keyWithOrig (x, y) = (IntMap.keysSet . unsafeCoerce $ y, x)
+  keyWithOrig :: (key, RequesterData response) -> ([[Int]], key)
+  keyWithOrig (x, y) = (requesterDataHash y, x)
 
+
+-- | Calculate a unique number based on the origin of the request.
+-- This number is used to automatically unsubscribe if caller subscribes to a different request.
+-- That is, stop being subscribed to the old filter if the filter updates
+requesterDataHash :: RequesterData response -> [[Int]]
+requesterDataHash = fmap toHashSingle . requesterDataToList
+  where
+    toHashSingle (x :=> _) = fix go x
+
+    -- Extremely dirty implementation by bringing nonexported constructors into
+    -- scope using Template Haskell and furthermore some unsafeCoerce here and there
+    go = $(lamE [varP (mkName "rec")] $ lamCaseE
+      [ match
+          ((`ConP`
+            [VarP (mkName "x")]
+           )
+              <$> summon "RequesterDataKey_Single" ''RequesterDataKey
+          )
+          (normalB (listE
+            [ appE (varE (mkName "unsafeCoerce")) (varE (mkName "x"))
+            ])
+          )
+          []
+      , match
+          ((`ConP`
+            [VarP (mkName "x"), VarP (mkName "y"), VarP (mkName "z")]
+           )
+              <$> summon "RequesterDataKey_Multi" ''RequesterDataKey
+          )
+          (normalB
+            (infixE (Just $ listE
+              [ appE (varE (mkName "unsafeCoerce")) (varE (mkName "x"))
+              , varE (mkName "y")
+              ])
+              (varE (mkName "++"))
+              (Just $ appE (varE (mkName "rec")) (varE (mkName "z")))
+            )
+          )
+          []
+      , match
+          ((`ConP`
+            [ VarP (mkName "x")
+            , WildP
+            , VarP (mkName "y")
+            , VarP (mkName "z")
+            ]
+           )
+              <$> summon "RequesterDataKey_Multi2" ''RequesterDataKey
+          )
+          (normalB
+            (infixE (Just $ listE
+              [ appE (varE (mkName "unsafeCoerce")) (varE (mkName "x"))
+              , varE (mkName "y")
+              ])
+              (varE (mkName "++"))
+              (Just $ appE (varE (mkName "rec")) (varE (mkName "z")))
+            )
+          )
+          []
+      , match
+          ((`ConP`
+            [ VarP (mkName "w")
+            , VarP (mkName "x")
+            , VarP (mkName "y")
+            , VarP (mkName "z")
+            ]
+           )
+              <$> summon "RequesterDataKey_Multi3" ''RequesterDataKey
+          )
+          (normalB
+            (infixE (Just $ listE
+              [ appE (varE (mkName "unsafeCoerce")) (varE (mkName "w"))
+              , varE (mkName "x")
+              , varE (mkName "y")
+              ])
+              (varE (mkName "++"))
+              (Just $ appE (varE (mkName "rec")) (varE (mkName "z")))
+            )
+          )
+          []
+      ]
+      )
 
 type ApiWidget t m = (RequesterT t FreeClient (Either ClientError) m)
 

@@ -60,4 +60,6 @@ library
     , reflex-dom
     , servant
     , servant-client-core
+    , template-haskell
     , text
+    , true-name
