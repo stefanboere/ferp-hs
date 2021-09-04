@@ -72,6 +72,12 @@ type instance IsSubscribable' sa (Get '[JSON , CSV] r)
 instance ToParam (QueryParam "key" Text) where
   toParam _ = DocQueryParam "key" [] "An authorization key" Normal
 
+instance ToParam (QueryParam "around" (PrimaryKey t Identity)) where
+  toParam _ = DocQueryParam "around"
+                            []
+                            "Jump to the page in which this primary key lies"
+                            Normal
+
 instance ToSample Text where
   toSamples _ = []
 

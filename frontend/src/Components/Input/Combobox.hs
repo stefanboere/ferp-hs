@@ -1,8 +1,9 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 module Components.Input.Combobox
   ( comboboxStyle
   , ComboboxValue(..)
@@ -139,8 +140,12 @@ filterPureFuzzy
   :: (Reflex t, Applicative m)
   => Map k Text
   -> Event t (OptionsRequest k)
-  -> m (Event t (Either Text (MapSubset Int (k, Text))))
-filterPureFuzzy allOptions reqEv = pure (Right . mkResult <$> reqEv)
+  -> m
+       ( Event t (Either Text (MapSubset Int (k, Text)))
+       , Dynamic t Bool
+       )
+filterPureFuzzy allOptions reqEv = pure
+  (Right . mkResult <$> reqEv, constDyn False)
  where
   mkResult (SearchText searchText _) =
     universeList $ filterOptions searchText allOptions
@@ -205,14 +210,47 @@ comboboxInputKS
   -> (Dynamic t k -> Dynamic t Text -> Client m ())
   -> MapSubset Int (k, Text)
   -> (  Event t (OptionsRequest k)
-     -> m (Event t (Either Text (MapSubset Int (k, Text))))
+     -> m
+          ( Event t (Either Text (MapSubset Int (k, Text)))
+          , Dynamic t Bool
+          )
      )
   -> InputConfig t m (ComboboxValue (Maybe k))
   -> m (DomInputEl t m (ComboboxValue (Maybe k)), b)
 comboboxInputKS before' showOpt initOpts mkSetOptsEv cfg = comboboxInputWrapper
   before'
-  (comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg)
+  (comboboxInputRawInput (_inputConfig_setValue cfg)
+                         showOpt
+                         initOpts
+                         mkSetOptsEv
+                         cfg
+  )
 
+comboboxInputKS'
+  :: forall t m k b js
+   . ( PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , MonadHold t m
+     , Ord k
+     , Prerender js t m
+     )
+  => m b
+  -> Event t (ComboboxValue (Maybe k))
+  -> (Dynamic t k -> Dynamic t Text -> Client m ())
+  -> MapSubset Int (k, Text)
+  -> (  Event t (OptionsRequest k)
+     -> m
+          ( Event t (Either Text (MapSubset Int (k, Text)))
+          , Dynamic t Bool
+          )
+     )
+  -> InputConfig t m (ComboboxValue (Maybe k))
+  -> m (DomInputEl t m (ComboboxValue (Maybe k)), b)
+comboboxInputKS' before' setDynSelection showOpt initOpts mkSetOptsEv cfg =
+  comboboxInputWrapper
+    before'
+    (comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg)
 
 
 comboboxInputRawInput
@@ -224,17 +262,21 @@ comboboxInputRawInput
      , Ord k
      , Prerender js t m
      )
-  => (Dynamic t k -> Dynamic t Text -> Client m ())
+  => Event t (ComboboxValue (Maybe k))
+  -> (Dynamic t k -> Dynamic t Text -> Client m ())
   -> MapSubset Int (k, Text)
   -> (  Event t (OptionsRequest k)
-     -> m (Event t (Either Text (MapSubset Int (k, Text))))
+     -> m
+          ( Event t (Either Text (MapSubset Int (k, Text)))
+          , Dynamic t Bool
+          )
      )
   -> InputConfig t m (ComboboxValue (Maybe k))
   -> m
        ( DomInputEl t m (ComboboxValue (Maybe k))
        , Dynamic t InputStatus
        )
-comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
+comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
   rec
     searchStrInput <- textInputEl (_cb_text <$> cfg)
       { _inputConfig_setValue         = leftmost
@@ -264,8 +306,8 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
       elDynAttr' "div" (mkDatalistAttr <$> openDyn) $ do
         elDynClass
             "i"
-            (   (\c loading -> mkVisible (c == 0 && Prelude.not loading))
-            <$> dynCountWithDef
+            (   (\c loading -> mkVisible (c == Just 0 && Prelude.not loading))
+            <$> dynCount
             <*> loadingDyn
             )
           $ text "No results found"
@@ -273,7 +315,7 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
           prerender
               (pure (constDyn (0, 0), (constDyn (0, 0), constDyn Map.empty)))
             $ virtualListMaxHeightBuffered bufferSize
-                                           240
+                                           252
                                            24
                                            dynCountWithDef
                                            0
@@ -295,7 +337,7 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
 
 -- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
     mousePressed <- holdDyn False
-      $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Mouseup e]
+      $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Click e]
 
     openDyn <- holdDyn False $ leftmost
       [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
@@ -322,8 +364,7 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
       , False <$ updated (_inputEl_value searchStrInput)
       ]
     let searchEv = gate isInputDyn (updated (_inputEl_value searchStrInput))
-    searchText <- holdDyn (_cb_text $ _inputConfig_initialValue cfg)
-      $ leftmost [searchEv, _cb_text <$> _inputConfig_setValue cfg]
+    searchText <- holdDyn "" searchEv
 
 -- Whenever the current selection is not in the list any more, clear it
     let setOpenEv = False <$ ffilter (== 13) arrowUpDownEv
@@ -333,30 +374,27 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
 
     let dynOptions = joinDynThroughMap (fmap snd <$> dynOptEv')
 
-    let scrollEv = leftmost
-          [ 0 <$ searchEv
-          , attachWithMaybe jumpToSelected
-                            (current pageDyn)
-                            (updated selectedIndex)
+    let scrollEv = attachWithMaybe jumpToSelected
+                                   (current pageDyn)
+                                   (updated selectedIndex)
+
+    let reqEv = leftmost
+          [ (`NearSelection` (pageSize + 4)) . fmap fst <$> tag
+            (current dynSelection)
+            (ffilter Prelude.id (updated hasFocusDyn))
+          , (`SearchText` (0, pageSize)) <$> searchEv
+          , attachWith
+            SearchText
+            (current searchText)
+            (attachWithMaybe needsNewPage
+                             (current dynOptions)
+                             (gate (current hasFocusDyn) pageEv)
+            )
           ]
 
-    let
-      reqEv = leftmost
-        [ (`NearSelection` pageSize) . fmap fst <$> tag
-          (current dynSelection)
-          (ffilter Prelude.id (updated hasFocusDyn))
-        , (`SearchText` (0, pageSize)) <$> searchEv
-        , attachWith SearchText
-                     (current searchText)
-                     (gate (current hasFocusDyn) pageEv)
-        ]
-
-    setOptsEvResult <- mkSetOptsEv reqEv
+    (setOptsEvResult, loadingDyn) <- mkSetOptsEv reqEv
 
     let (setOptsEvErr, setOptsEv) = fanEither setOptsEvResult
-
-    loadingDyn <- holdDyn False
-      $ leftmost [False <$ setOptsEvResult, True <$ reqEv]
 
     dynError <- holdDyn def
       $ leftmost [InputError <$> setOptsEvErr, def <$ setOptsEv]
@@ -391,20 +429,29 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
             [() <$ lostFocusEv, () <$ arrowUpDownEv, () <$ selectedIndexEv]
           )
 
-    selectedIndex <- foldDyn ($) (findIndex initialKey initOpts) $ leftmost
-      [ const (Just 0) <$ autofillEv
-      , attachWith selectNext (current dynCount) arrowUpDownEv
-      , const Nothing <$ clearEv
-      , const Nothing <$ clearNoOptionEv
-      , const . Just <$> selectedIndexEv
-      , ifEmpty <$> autofillExact
-      , const
-        <$> attachWith findIndex (current (fmap fst <$> dynSelection)) setOptsEv
+    selectedIndex' <- holdDyn (findIndex initialKey initOpts) $ leftmost
+      [ attachWithMaybe findNewIndex
+                        (current (fmap fst <$> dynSelection))
+                        setOptsEv
+      , attachWith (flip findIndex')
+                   (current dynOptions)
+                   (fmap fst <$> updated dynSelection)
       ]
+    selectedIndex <- holdUniqDyn selectedIndex'
 
-    let dynSelection =
-          (\o' i' -> (o' Map.!?) =<< i') <$> dynOptions <*> selectedIndex
-        sdemux = demux selectedIndex
+    let sdemux = demux selectedIndex
+
+    dynSelection <- holdDyn (toPair $ _inputConfig_initialValue cfg) $ leftmost
+      [ toPair <$> setDynSelection
+      , fmap snd . Map.lookupMin <$> tagPromptlyDyn dynOptions autofillEv
+      , Nothing <$ clearEv
+      , Nothing <$ clearNoOptionEv
+      , attachWith (Map.!?) (current dynOptions) selectedIndexEv
+      , attachWithMaybe selectNext
+                        ((,) <$> current dynOptions <*> current selectedIndex)
+                        arrowUpDownEv
+      , Just <$> autofillExact
+      ]
 
 -- Show an error if selection is null and the value is not null, and show it on lose focus
     let dynStatus =
@@ -423,11 +470,16 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
 
   pure (InputEl comboValUniq hasFocusDyn inputEls, dynStatusFull)
  where
-  ifEmpty x Nothing = Just x
-  ifEmpty _ y       = y
+  needsNewPage m pg@(o, l) =
+    case (fst <$> Map.lookupMin m, fst <$> Map.lookupMax m) of
+      (Just o', Just ol') ->
+        if o' <= o && o + l <= ol' then Nothing else Just pg
+      _ -> Just pg
+
+  toPair x = fmap (, _cb_text x) (_cb_selection x)
 
   -- If outide the range jump to the selected index
-  jumpToSelected _ Nothing = Nothing
+  jumpToSelected (voff, _) Nothing = Just voff
   jumpToSelected (voff, vlim) (Just ind)
     | voff <= ind && ind < voff + vlim = Nothing
     | otherwise = Just (Prelude.max 0 (ind - (vlim `Prelude.div` 2)))
@@ -446,25 +498,32 @@ comboboxInputRawInput showOpt initOpts mkSetOptsEv cfg = do
   initialKey = _cb_selection $ _inputConfig_initialValue cfg
   findIndex k (MapSubset d _) = findIndex' k d
 
+  -- Only clear the selection if the count is 0
+  findNewIndex k (MapSubset d (Just 0)) = Just (findIndex' k d)
+  findNewIndex k (MapSubset d _       ) = fmap Just (findIndex' k d)
+
   findIndex' (Just k) d =
     fmap fst . Map.lookupMin $ Map.filter ((== k) . fst) d
   findIndex' Nothing _ = Nothing
 
   findExactMatch "" _ = Nothing
-  findExactMatch k  d = fmap fst . Map.lookupMin $ Map.filter
+  findExactMatch k  d = fmap snd . Map.lookupMin $ Map.filter
     ((== Text.toCaseFold k) . Text.toCaseFold . snd)
     d
 
-  selectNext :: Maybe Integer -> Word -> Maybe Int -> Maybe Int
-  selectNext _ 13 x       = x
-  selectNext _ _  Nothing = Just 0
-  selectNext m key (Just k) =
+  selectNext _ 13 = Nothing
+  selectNext (m, Just s') key =
     let offs = case key of
           38 -> -1
           40 -> 1
           _  -> 0
-        setMax = maybe Prelude.id (Prelude.min . fromIntegral . subtract 1) m
-    in  Just (setMax (Prelude.max 0 (k + offs)))
+    in  fmap Just $ m Map.!? (s' + offs)
+  selectNext (m, Nothing) key =
+    let offs = case key of
+          38 -> Map.lookupMax
+          40 -> Map.lookupMin
+          _  -> const Nothing
+    in  Just . snd <$> offs m
 
   mkVisible True  = ""
   mkVisible False = "hidden"
@@ -545,44 +604,38 @@ multiComboboxInput
   -> InputConfig t m (ComboboxValue (Set k))
   -> m (DomInputEl t m (ComboboxValue (Set k)))
 multiComboboxInput showOpt allOptions cfg = do
-  rec
-    (r, dEv) <- comboboxInputKS
-      (before' dynValue)
-      showOpt
-      (universeList $ Map.toList allOptions)
-      (filterPureFuzzy allOptions)
-      (cfg { _inputConfig_initialValue = def
-           , _inputConfig_setValue     = leftmost [def <$ addOnChange]
-           , _inputConfig_extra        = Const ()
-           }
-      )
+  rec (r, dEv) <- comboboxInputKS'
+        (before' dynValue)
+        never
+        showOpt
+        (universeList $ Map.toList allOptions)
+        (filterPureFuzzy allOptions)
+        (cfg { _inputConfig_initialValue = def
+             , _inputConfig_setValue     = leftmost [def <$ addOnChange]
+             , _inputConfig_extra        = Const ()
+             }
+        )
 
-    let searchText   = _cb_text <$> _inputEl_value r
+      let searchText   = _cb_text <$> _inputEl_value r
 
-    let selectionDyn = _cb_selection <$> _inputEl_value r
+      let selectionDyn = _cb_selection <$> _inputEl_value r
 
-    let addOnChange = fmapMaybe Prelude.id $ gate
-          (current (Prelude.not <$> _inputEl_hasFocus r))
-          (updated selectionDyn)
+      let addOnChange = attachPromptlyDynWithMaybe
+            const
+            selectionDyn
+            (ffilter Prelude.not (updated (_inputEl_hasFocus r)))
 
-    dynPop <- hold Nothing
-      $ leftmost [Just <$> addOnChange, Nothing <$ addOnChange']
-    let addOnChange' =
-          attachWithMaybe onNothingPop dynPop (updated selectionDyn)
+      let enabledDyn = current ((/= InputDisabled) <$> _inputConfig_status cfg)
 
-    let enabledDyn = current ((/= InputDisabled) <$> _inputConfig_status cfg)
-
-    dynValue <-
-      foldDyn ($) (_cb_selection $ _inputConfig_initialValue cfg) $ leftmost
-        [ gate enabledDyn $ Set.insert <$> addOnChange'
-        , gate enabledDyn ((\m xs -> Set.difference xs (Map.keysSet m)) <$> dEv)
-        , const . _cb_selection <$> _inputConfig_setValue cfg
-        ]
+      dynValue <-
+        foldDyn ($) (_cb_selection $ _inputConfig_initialValue cfg) $ leftmost
+          [ gate enabledDyn $ Set.insert <$> addOnChange
+          , gate enabledDyn
+                 ((\m xs -> Set.difference xs (Map.keysSet m)) <$> dEv)
+          , const . _cb_selection <$> _inputConfig_setValue cfg
+          ]
   pure $ r { _inputEl_value = ComboboxValue <$> dynValue <*> searchText }
  where
-  onNothingPop x Nothing = x
-  onNothingPop _ _       = Nothing
-
   before' dynValues =
     listViewWithKey (Map.restrictKeys allOptions <$> dynValues) $ \_ v -> do
       tagEl def { _tagConfig_action = Just TagDismiss } v
@@ -596,6 +649,7 @@ virtualListMaxHeight
      , PostBuild t m
      , MonadHold t m
      , PerformEvent t m
+     , TriggerEvent t m
      , MonadJSM (Performable m)
      , DomBuilderSpace m ~ GhcjsDomSpace
      , MonadFix m
@@ -616,13 +670,14 @@ virtualListMaxHeight
          , Dynamic t (Map k a)
          )
        ) -- ^ A tuple containing: a 'Dynamic' of the index (based on the current scroll position) and number of items currently being rendered, and the 'Dynamic' list result
-virtualListMaxHeight heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
+virtualListMaxHeight heightPx rowPx maxIndex i0 setI' keyToIndex items0 itemsUpdate itemBuilder
   = do
     let virtualH       = mkVirtualHeight <$> maxIndex
         minHeightPx    = Prelude.min heightPx . (* rowPx) <$> maxIndex
         containerStyle = fmap mkContainer minHeightPx
         viewportStyle  = fmap mkViewport minHeightPx
-    pb <- getPostBuild
+    pb   <- getPostBuild
+    setI <- delay 0.2 setI'
     rec (viewport, result) <-
           elDynAttr "div" containerStyle
           $ elDynAttr' "div" viewportStyle
@@ -674,6 +729,7 @@ virtualListMaxHeightBuffered
      , PostBuild t m
      , MonadHold t m
      , PerformEvent t m
+     , TriggerEvent t m
      , MonadJSM (Performable m)
      , DomBuilderSpace m ~ GhcjsDomSpace
      , MonadFix m

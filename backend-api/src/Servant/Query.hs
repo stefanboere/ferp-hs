@@ -135,8 +135,11 @@ defaultCrud runDB db coerce coerceBack coll = CrudRoutes
                          <$> (runDB (runInsertOne db x) >>= insertErr)
   , _getList       = \path view -> hTotalLink'' path view <$> runDB
                        (runSelectReturningListWithCount (setView view coll))
-  , _getListLabels = \path view -> hTotalLink'' path view
-                       <$> runDB (runNamesInViewWithCount view coll)
+  , _getListLabels = \path view a -> case a of
+    Just x -> hTotalLinkSetOff path view
+      <$> runDB (runNamesInViewWithCountAround x view coll)
+    Nothing ->
+      hTotalLink'' path view <$> runDB (runNamesInViewWithCount view coll)
   , _deleteList    = \keys fltr -> do
                        keys' <- runDB (runPrimaryKeysInView fltr keys coll)
                        runDB (runDeleteKeys db (fmap coerceBack keys'))
@@ -154,3 +157,6 @@ defaultCrud runDB db coerce coerceBack coll = CrudRoutes
 
   hTotalLink'' path view (xs, c) =
     hTotalLink' path view (Just (TotalCount c)) xs
+
+  hTotalLinkSetOff path view (xs, c, off) =
+    hTotalLink'' path view { page = (page view) { offset = Just off } } (xs, c)

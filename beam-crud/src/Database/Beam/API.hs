@@ -46,6 +46,7 @@ module Database.Beam.API
   , runCountInView
   , runPrimaryKeysInView
   , runNamesInViewWithCount
+  , runNamesInViewWithCountAround
     -- * Advanced
   , Orderable
   , OrderBy'
@@ -56,12 +57,14 @@ module Database.Beam.API
 import           Prelude
 
 import           Control.Monad.Free             ( liftF )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.Backend.SQL      ( BeamSql2003ExpressionBackend
                                                 , BeamSql99CommonTableExpressionBackend
                                                 , BeamSqlBackend
+                                                , BeamSqlBackendCanSerialize
                                                 , BeamSqlBackendOrderingSyntax
                                                 )
 import           Database.Beam.Expand           ( Named(..)
@@ -124,7 +127,7 @@ type GetList be t = PathInfo :> QObj (View be t) :> GetList' (t Identity)
 
 -- | Subroute compared to @GetList@ which only returns the primary keys and labels
 type GetListLabels be t
-  = "labels" :> PathInfo :> QObj (View be t) :> Get '[JSON] (GetListHeaders (Named t Identity))
+  = "labels" :> PathInfo :> QObj (View be t) :> QueryParam "around" (PrimaryKey t Identity) :> Get '[JSON] (GetListHeaders (Named t Identity))
 
 -- | Regular get requests
 type Get_ t = CaptureId t :> Get' (t Identity)
@@ -188,6 +191,23 @@ instance
                     , constructorTagModifier = const ""
                     }
     )
+
+extract'
+  :: forall r be s s1
+   . (Beamable r)
+  => Proxy be
+  -> r (QExpr be s)
+  -> OrderBy (Orderable be) (r (QExpr be s1))
+  -> WithExprContext (BeamSqlBackendOrderingSyntax be)
+extract' p r ord = toVal (orderBySelector ord)
+ where
+  toVal
+    :: HSelector (Orderable be) (r (QExpr be s1))
+    -> WithExprContext (BeamSqlBackendOrderingSyntax be)
+  toVal (HSelector sel) = toOrdering
+    p
+    (orderByDirection ord)
+    (sel $ rewriteThread (Proxy :: Proxy s1) r)
 
 extract
   :: forall r be
@@ -325,13 +345,11 @@ runSetViewAround
      , Table t
      , HasQBuilder be
      , FromBackendRow be (t Identity)
+     , BeamSqlBackendCanSerialize be Integer
      , FieldsFulfillConstraintFilter (Operator Filter be) t
-     , SqlOrderable
-         be
-         (QExpr be (QNested (QNested (QNested QBaseScope))) Integer)
      )
   => PrimaryKey t Identity
-  -> View' (Orderable be) (t (QExpr be (QNested QAnyScope))) (t Filter)
+  -> View' (Orderable be) (t (QExpr be s)) (t Filter)
   -> Q be db (QNested QAnyScope) (t (QExpr be (QNested QAnyScope)))
   -> m ([t Identity], Integer, Integer)
 runSetViewAround p (View pag ords filt) q = do
@@ -344,21 +362,25 @@ runSetViewAround p (View pag ords filt) q = do
       )
       (\i (win1, win2) -> (i, countAll_ `over_` win1, rowNumber_ `over_` win2))
       (matching_ filt q)
-    pure $ setPage pag $ orderBy_ (\(_, _, rn) -> rn) $ filter_
-      (\(_, _, rn) -> rn >=. subquery_
-        (do
-          (x', _, rn') <- reuse numberedRows
-          guard_ (primaryKey x' ==. val_ p)
-          pure rn'
-        )
-      )
-      (reuse numberedRows)
+    pure
+      $ setPage pag { offset = Nothing }
+      $ orderBy_ (\(_, _, rn) -> asc_ rn)
+      $ filter_
+          (\(_, _, rn) ->
+            (rn - fromInteger (fromMaybe 0 (offset pag))) >=. subquery_
+              (do
+                (x', _, rn') <- reuse numberedRows
+                guard_ (primaryKey x' ==. val_ p)
+                pure rn'
+              )
+          )
+          (reuse numberedRows)
 
   let (c, rn) = case xs of
         []               -> (0, 0)
         (_, c', rn') : _ -> (fromInteger c', fromInteger rn')
   pure (fmap (\(x, _, _) -> x) xs, c, rn)
-  where mkOrd r ord = QOrd $ extract Proxy r ord
+  where mkOrd r ord = QOrd $ extract' Proxy r ord
 
 
 -- | Aplies the filters from 'View', then counts the total number of rows
@@ -447,3 +469,60 @@ runNamesInViewWithCount v q = do
     $ setView v q
 
   pure (fmap (uncurry Named) xs, c)
+
+
+runNamesInViewWithCountAround
+  :: ( BeamSql2003ExpressionBackend be
+     , BeamSql99CommonTableExpressionBackend be
+     , FieldsFulfillConstraintFilter (Operator Filter be) t
+     , FromBackendRow be (PrimaryKey t Identity)
+     , FromBackendRow be Integer
+     , FromBackendRow be Text
+     , HasQBuilder be
+     , HasTableEquality be (PrimaryKey t)
+     , MonadBeam be m
+     , SqlValableTable be (PrimaryKey t)
+     , BeamSqlBackendCanSerialize be Integer
+     , Table t
+     , ToName t
+     )
+  => PrimaryKey t Identity
+  -> View' (Orderable be) (t (QExpr be s)) (t Filter)
+  -> Q be db (QNested QAnyScope) (t (QExpr be (QNested QAnyScope)))
+  -> m ([Named t Identity], Integer, Integer)
+runNamesInViewWithCountAround p (View pag ords filt) q = do
+  xs <- runSelectReturningList $ selectWith $ do
+    numberedRows <- selecting $ withWindow_
+      (\i ->
+        ( frame_ (noPartition_ @Integer) (noOrder_ @Integer)          noBounds_
+        , frame_ (noPartition_ @Integer) (Just $ fmap (mkOrd i) ords) noBounds_
+        )
+      )
+      (\i (win1, win2) ->
+        ( primaryKey i
+        , toName i
+        , countAll_ `over_` win1
+        , rowNumber_ `over_` win2
+        )
+      )
+      (matching_ filt q)
+    pure
+      $ setPage pag { offset = Nothing }
+      $ orderBy_ (\(_, _, _, rn) -> asc_ rn)
+      $ filter_
+          (\(_, _, _, rn) ->
+            (rn - fromInteger (fromMaybe 0 (offset pag))) >=. subquery_
+              (do
+                (p', _, _, rn') <- reuse numberedRows
+                guard_ (p' ==. val_ p)
+                pure rn'
+              )
+          )
+          (reuse numberedRows)
+
+  let (c, rn) = case xs of
+        []                  -> (0, 0)
+        (_, _, c', rn') : _ -> (fromInteger c', fromInteger (rn' - 1))
+  pure (fmap (\(p', x, _, _) -> Named p' x) xs, c, rn)
+  where mkOrd r ord = QOrd $ extract' Proxy r ord
+

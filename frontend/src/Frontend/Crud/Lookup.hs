@@ -75,11 +75,13 @@ lookupInput cfg = do
     dynReqUniq   <- holdUniqDyn dynReq
     dynReqTrottl <- debounce 1 (updated dynReqUniq)
     let reqEv = endpoint <$> fmapMaybe Prelude.id dynReqTrottl
-    resultEv <- requestingJs reqEv
+    resultEv   <- requestingJs reqEv
+    loadingDyn <- holdDyn False $ leftmost [False <$ resultEv, True <$ reqEv]
     pure
-      (   either (Left . fst . showClientError)
-                 (Right . fmap toTuple . getListToMapsubset)
-      <$> resultEv
+      ( either (Left . fst . showClientError)
+               (Right . fmap toTuple . getListToMapsubset)
+        <$> resultEv
+      , loadingDyn
       )
 
   toTuple n = (_id n, _name n)
@@ -103,6 +105,7 @@ labelEndpoint
   :: (Monoid (a Filter))
   => Lens' (a Filter) (C Filter Text)
   -> (  View be a
+     -> Maybe (PrimaryKey a Identity)
      -> Request
           (Prerender.Client (ApiWidget t m))
           (API.GetListHeaders (Named a Identity))
@@ -114,20 +117,20 @@ labelEndpoint
        (Maybe (Named a Identity))
 labelEndpoint l req = LabelEndpoint mkRequest
  where
-  mkRequest (SearchText    t (off, lim)) = mkRequestText t off lim
-  mkRequest (NearSelection _ lim       ) = mkRequestText "" (0 :: Integer) lim
+  mkRequest (SearchText t (off, lim)) =
+    req (setContains l t $ pageVw (<=) off lim) Nothing
+  mkRequest (NearSelection (Just x) lim) =
+    req (pageVw (==) (-lim `div` 2) lim) (Just x)
+  mkRequest (NearSelection Nothing lim) =
+    req (pageVw (==) (0 :: Integer) lim) Nothing
 
-  mkRequestText t off lim = req $ setContains
-    l
-    t
-    (mempty
-      { API.page = API.Page
-                     { API.offset = if off <= 0
-                                      then Nothing
-                                      else Just (fromIntegral off)
-                     , API.limit  = Just . fromIntegral $ lim
-                     }
-      }
-    )
+  pageVw cond off lim = mempty
+    { API.page = API.Page
+                   { API.offset = if off `cond` 0
+                                    then Nothing
+                                    else Just (fromIntegral off)
+                   , API.limit  = Just . fromIntegral $ lim
+                   }
+    }
 
 
