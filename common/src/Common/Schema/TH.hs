@@ -127,6 +127,12 @@ instancesId n n0 = [d|
 
     instance ToHttpApiData (Columnar f $(t0)) => ToHttpApiData (PrimaryKey $(conT n) f) where
       toQueryParam $(matchX) = toQueryParam x
+
+    instance Semigroup (Columnar f $(t0)) => Semigroup (PrimaryKey $(t) f) where
+      $(matchX) <> $(matchY) = $(conE nameIdT) $ x <> y
+
+    instance Monoid (Columnar f $(t0)) => Monoid (PrimaryKey $(t) f) where
+      mempty = $(conE nameIdT) mempty
     |]
     where
         t = conT n
@@ -134,3 +140,4 @@ instancesId n n0 = [d|
 
         nameIdT = mkName (L.dropWhileEnd C.isUpper (nameBase n) ++ "Id" )
         matchX = conP nameIdT [varP (mkName "x") ]
+        matchY = conP nameIdT [varP (mkName "y") ]

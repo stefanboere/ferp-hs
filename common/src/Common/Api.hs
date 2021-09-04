@@ -37,28 +37,28 @@ type Api' be = ("blogs" :> BlogApi' be)
 -- need to handle the permissions differently.
 -- It really is a different api therefore, but we can still reuse our existing generic implementation
 -- brittany-disable-next-binding
-type WorldReadAdminWrite t be
+type WorldReadAdminWrite t t0 be
   = Get_ t
       :<|>
-      (Auth Admin :> Put_ t)
+      (Auth Admin :> Put_ t0)
       :<|>
-      (Auth Admin :> Patch_ t)
+      (Auth Admin :> Patch_ t0)
       :<|>
-      (Auth Admin :> Delete_ t)
+      (Auth Admin :> Delete_ t0)
       :<|>
       (Auth Admin :> DeleteList_ be t)
       :<|>
-      (Auth Admin :> Post_ t)
+      (Auth Admin :> Post_ t0)
       :<|>
-      (Auth Admin :> PostList t)
+      (Auth Admin :> PostList t0)
       :<|>
       (GetList be t)
       :<|>
       (GetListLabels be t)
 
-type BlogApi' be = WorldReadAdminWrite BlogT be
+type BlogApi' be = WorldReadAdminWrite BlogN BlogT be
 
-type ChannelApi' be = WorldReadAdminWrite ChannelT be
+type ChannelApi' be = WorldReadAdminWrite ChannelT ChannelT be
 
 type ClientApi = Api' Be
 

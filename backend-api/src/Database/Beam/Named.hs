@@ -13,6 +13,7 @@ module Database.Beam.Named
   ( module Database.Beam.Expand
   ) where
 
+import qualified Data.Csv                      as Csv
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Swagger                   ( NamedSchema(..)
                                                 , SwaggerType(..)
@@ -34,7 +35,7 @@ import           Servant.Crud.Server.QueryObject
                                                 )
 import           Servant.Docs                   ( ToSample(..) )
 
-instance ToSchema (PrimaryKey t Identity) => ToSchema (Named t Identity) where
+instance ToSchema (PrimaryKey t f) => ToSchema (Named t f) where
   declareNamedSchema _ = pure $ NamedSchema (Just "Named") schema
    where
     schema =
@@ -47,7 +48,7 @@ instance ToSchema (PrimaryKey t Identity) => ToSchema (Named t Identity) where
             , ("name", Swagger.Inline (toSchema nameProxy))
             ]
 
-    idProxy :: Proxy (PrimaryKey t Identity)
+    idProxy :: Proxy (PrimaryKey t f)
     idProxy = Proxy
 
     nameProxy :: Proxy Text
@@ -64,6 +65,9 @@ instance (ToParams lang ftype (PrimaryKey t f), ToParams lang ftype (C f Text))
     nameProxy :: Proxy (C f Text)
     nameProxy = Proxy
 
-instance (ToName t, ToSample (t Identity)) => ToSample (Named t Identity) where
-  toSamples _ = fmap (fmap toNamed) (toSamples (Proxy :: Proxy (t Identity)))
+instance (ToName t, ToSample (t f)) => ToSample (Named t f) where
+  toSamples _ = fmap (fmap toNamed) (toSamples (Proxy :: Proxy (t f)))
+
+instance Csv.ToField (PrimaryKey t f) => Csv.ToField (Named t f) where
+  toField x = Csv.toField (_id x)
 

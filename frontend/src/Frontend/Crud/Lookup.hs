@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
@@ -6,14 +7,28 @@ module Frontend.Crud.Lookup
   , LabelEndpoint(..)
   , labelEndpoint
   , LookupInputConfig
+  , FkProperty(..)
+  , fkProp
+  , editFk
+  , gridFkProp
   ) where
 
-import           Control.Lens                   ( Lens' )
+import           Control.Lens                   ( Lens'
+                                                , set
+                                                , view
+                                                )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
+import           Data.Functor.Compose           ( Compose(..) )
 import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Identity          ( Identity(..) )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text )
+import           Data.Typeable                  ( Proxy(..)
+                                                , Typeable
+                                                )
+import           GHC.Records                    ( HasField(..) )
+import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom
 import qualified Reflex.Dom.Prerender          as Prerender
                                                 ( Client )
@@ -22,21 +37,29 @@ import qualified Servant.Crud.API              as API
                                                 , Page(..)
                                                 , page
                                                 )
-import           Servant.Crud.QueryOperator     ( Filter )
+import qualified Servant.Crud.OrderBy          as API
+import           Servant.Crud.QueryOperator     ( Filter
+                                                , MaybeLast(..)
+                                                )
 import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , requestingJs
                                                 )
 
-import           Common.Api                     ( View )
+import           Common.Api                     ( Be
+                                                , OrderByScope
+                                                , View
+                                                , ViewOrderBy
+                                                )
 import           Common.Schema
 import           Components.Input
+import           Components.Table
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Utils
 
 type LookupInputConfig t m k = InputConfig' (LabelEndpoint t m k) t m
 
 newtype LabelEndpoint t m k a = LabelEndpoint {
-  unLabelEndpoint :: OptionsRequest k -> Request (Prerender.Client (ApiWidget t m)) (API.GetListHeaders (Elem a))
+  unLabelEndpoint :: OptionsRequest k -> Request (Prerender.Client m) (API.GetListHeaders (Elem a))
 }
 
 lookupInput
@@ -112,7 +135,7 @@ labelEndpoint
      )
   -> LabelEndpoint
        t
-       m
+       (ApiWidget t m)
        (PrimaryKey a Identity)
        (Maybe (Named a Identity))
 labelEndpoint l req = LabelEndpoint mkRequest
@@ -134,3 +157,103 @@ labelEndpoint l req = LabelEndpoint mkRequest
     }
 
 
+data FkProperty t m a b = FkProperty
+  { _fkProp_label   :: Text
+  , _fkProp_lens    :: forall f . Lens' (a f) (Named b f)
+  , _fkProp_key     :: API.Path
+  , _fkProp_orderBy :: SortOrder -> ViewOrderBy Be a
+  , _fkProp_endpoint
+      :: View Be b
+      -> Maybe (PrimaryKey b Identity)
+      -> Request
+           (Prerender.Client (ApiWidget t m))
+           (API.GetListHeaders (Named b Identity))
+  , _fkProp_searchField :: Lens' (b Filter) (C Filter Text)
+  }
+
+fkProp
+  :: ( KnownSymbol s
+     , HasField s (a (OrderByScope Be)) (Named b (OrderByScope Be))
+     , Typeable (a (OrderByScope Be))
+     , Typeable b
+     )
+  => Text
+  -> (forall f . Lens' (a f) (Named b f))
+  -> Proxy s
+  -> Lens' (b Filter) (C Filter Text)
+  -> (  View Be b
+     -> Maybe (PrimaryKey b Identity)
+     -> Request
+          (Prerender.Client (ApiWidget t m))
+          (API.GetListHeaders (Named b Identity))
+     )
+  -> FkProperty t m a b
+fkProp lbl l p sf ep =
+  let fn = API.prependHasField p . sortByName . toApiDirection
+  in  FkProperty { _fkProp_label       = lbl
+                 , _fkProp_lens        = l
+                 , _fkProp_key         = API.orderByPath (fn Ascending)
+                 , _fkProp_orderBy     = fn
+                 , _fkProp_searchField = sf
+                 , _fkProp_endpoint    = ep
+                 }
+  where sortByName = API.fromHasField (Proxy :: Proxy "_name")
+
+editFk
+  :: ( DomBuilder t m
+     , MonadFix m
+     , MonadHold t m
+     , MonadIO (Performable m)
+     , MonadIO m
+     , Monoid (b Filter)
+     , Ord (PrimaryKey b Identity)
+     , PerformEvent t m
+     , PostBuild t m
+     , Prerender js t m
+     , TriggerEvent t m
+     , Beamable (PrimaryKey b)
+     , Monoid (PrimaryKey b MaybeLast)
+     )
+  => FkProperty t m a b
+  -> Event t (a MaybeLast)
+  -> Compose (ApiWidget t m) (Dynamic t) (a MaybeLast -> a MaybeLast)
+editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
+  (_fkProp_label prp)
+  (respectFocus lookupInput)
+  (inputConfig'
+      (labelEndpoint (_fkProp_searchField prp) (_fkProp_endpoint prp))
+      Nothing
+    )
+    { _inputConfig_setValue = viewer <$> setEv
+    }
+ where
+  mksetter (Just x) = set (_fkProp_lens prp) (purePatch x)
+  mksetter Nothing  = set (_fkProp_lens prp) mempty
+
+  viewer x = case view (_fkProp_lens prp) x of
+    Named mpk mlbl ->
+      fmap (`Named` fromMaybe "?" (unMaybeLast mlbl)) (joinPatch mpk)
+
+gridFkProp
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => FkProperty t m a b
+  -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
+gridFkProp prp = Column
+  { _column_label    = _fkProp_label prp
+  , _column_viewer   = \d -> _edit_viewer e (MaybeLast . Just . view l <$> d)
+  , _column_orderBy  = (_fkProp_key prp, _fkProp_orderBy prp)
+  , _column_filterBy = ( _ilens_domain il'
+                       , initFilterCondition il'
+                       , filterEditor e il'
+                       )
+  }
+ where
+  il' = filterWith (_fkProp_lens prp . name) strFilter
+  e   = coerceEditor MaybeLast unMaybeLast textEditor
+
+  l   = _fkProp_lens prp . name
+
+
+name :: Lens' (Named a f) (C f Text)
+name inj (Named k l) = Named k <$> inj l
+{-# INLINE name #-}

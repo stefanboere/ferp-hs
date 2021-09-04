@@ -59,19 +59,19 @@ runApi
   :: (MonadHold t m, MonadFix m, Prerender js t m) => ApiWidget t m a -> m a
 runApi = Sub.runApiWidget "ws://localhost:3005/subscriber"
 
-getBlog :: BlogId -> FreeClient Blog
+getBlog :: BlogNId -> FreeClient BlogN1
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent
 deleteBlogs
-  :: Token -> ExceptLimited [BlogId] -> BlogT Filter -> FreeClient [BlogId]
+  :: Token -> ExceptLimited [BlogNId] -> BlogN Filter -> FreeClient [BlogNId]
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
-getBlogs :: View Be BlogT -> FreeClient (GetListHeaders Blog)
+getBlogs :: View Be BlogN -> FreeClient (GetListHeaders BlogN1)
 getBlogLabels
-  :: View Be BlogT
-  -> Maybe BlogId
-  -> FreeClient (GetListHeaders (Named BlogT Identity))
+  :: View Be BlogN
+  -> Maybe BlogNId
+  -> FreeClient (GetListHeaders (Named BlogN Identity))
 
 
 getChannel :: ChannelId -> FreeClient Channel
@@ -97,9 +97,9 @@ getChannelLabels
   (getChannel :<|> putChannel :<|> patchChannel :<|> deleteChannel :<|> deleteChannels :<|> postChannel :<|> postChannels :<|> getChannels :<|> getChannelLabels)
   = Sub.client clientApi
 
-getBlogsApiLink :: View Be BlogT -> Servant.API.Link
+getBlogsApiLink :: View Be BlogN -> Servant.API.Link
 getBlogsApiLink =
-  safeLink clientApi (Proxy :: Proxy ("blogs" :> GetList Be BlogT))
+  safeLink clientApi (Proxy :: Proxy ("blogs" :> GetList Be BlogN))
 
 getChannelsApiLink :: View Be ChannelT -> Servant.API.Link
 getChannelsApiLink =

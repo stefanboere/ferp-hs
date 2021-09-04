@@ -27,7 +27,9 @@ import           Data.Default
 import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.API
+import           Database.Beam.Expand
 import           Database.Beam.Postgres         ( Postgres )
+import           Database.Beam.Schema.Tables    ( Ignored(..) )
 import           Servant
 import           Servant.Crud.Server.API
 import           Servant.Crud.Server.Headers    ( PathInfo(..) )
@@ -109,12 +111,12 @@ notifyModified p mkLnk = do
 
 notifyBlogs :: (MonadReader AppConfig m, MonadIO m) => m ()
 notifyBlogs =
-  notifyModified (Proxy :: Proxy ("blogs" :> GetListSimple BlogT)) linkURI
+  notifyModified (Proxy :: Proxy ("blogs" :> GetListSimple BlogN)) linkURI
 
 notifyBlog :: (MonadReader AppConfig m, MonadIO m) => BlogId -> m ()
-notifyBlog blogid = notifyModified
-  (Proxy :: Proxy ("blogs" :> GetSimple BlogT))
-  (linkURI . ($ blogid))
+notifyBlog (BlogId blogid) = notifyModified
+  (Proxy :: Proxy ("blogs" :> GetSimple BlogN))
+  (linkURI . ($ BlogId blogid))
 
 -- | The blog server
 blogServer :: AppServer BlogApi
@@ -135,10 +137,10 @@ blogServer =
     notifyBlog i
     pure x
 
-  getBlogs :: AppServer (GetList Postgres BlogT)
+  getBlogs :: AppServer (GetList Postgres BlogN)
   getBlogs pinfo v = _getList gBlog pinfo (buildNewView v)
 
-  getBlogsLabels :: AppServer (GetListLabels Postgres BlogT)
+  getBlogsLabels :: AppServer (GetListLabels Postgres BlogN)
   getBlogsLabels pinfo v = _getListLabels gBlog pinfo (buildNewView v)
 
   buildNewView v = v { filters = newFilt }
@@ -160,9 +162,23 @@ blogServer =
         }
       Nothing -> filt { _blogIsPublished = def }
 
-  gBlog :: CrudRoutes BlogT BlogT (AsServerT App)
-  gBlog = defaultCrud runDB (_appDatabaseBlogs appDatabase) id id
-    $ all_ (_appDatabaseBlogs appDatabase)
+  gBlog :: CrudRoutes BlogN BlogT (AsServerT App)
+  gBlog =
+    defaultCrud runDB (_appDatabaseBlogs appDatabase) coerce coerceBack
+      $ all_' (_appDatabaseBlogs appDatabase) blogJoins
+   where
+    coerce (BlogId x) = BlogId x
+    coerceBack (BlogId x) = BlogId x
+
+  blogJoins :: BlogTT (Referenced Postgres AppDatabase) Ignored
+  blogJoins = Blog { _blogId          = Ignored
+                   , _blogChannel     = _appDatabaseChannels appDatabase
+                   , _blogName        = Ignored
+                   , _blogDescription = Ignored
+                   , _blogIsExtra     = Ignored
+                   , _blogIsPublished = Ignored
+                   , _blogDate        = Ignored
+                   }
 
 
 notifyChannels :: (MonadReader AppConfig m, MonadIO m) => m ()

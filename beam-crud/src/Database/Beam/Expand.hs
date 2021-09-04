@@ -105,6 +105,8 @@ module Database.Beam.Expand
   , ToExpanded(..)
     -- * Querying functions
   , expand
+  , flattenNamed
+  , flattenFull
     -- * Other
   , TablesFulfillConstraint
   , HasNameConstraint
@@ -119,12 +121,15 @@ import           Data.Aeson                     ( (.:)
                                                 , object
                                                 , withObject
                                                 )
+import           Data.Functor.Identity          ( Identity(..) )
 import           Data.Kind                      ( Constraint )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import           Database.Beam
 import           Database.Beam.Backend.SQL      ( BeamSqlBackend )
-import           Database.Beam.Schema.Tables    ( Ignored )
+import           Database.Beam.Schema.Tables    ( Ignored(..)
+                                                , tblSkeleton
+                                                )
 import           GHC.Generics            hiding ( C
                                                 , D
                                                 )
@@ -227,6 +232,15 @@ instance (ToQueryText (PrimaryKey t f), ToQueryText (C f Text))
     => ToQueryText (Named t f) where
   toQueryTextPrio p (Named i name) =
     toQueryTextPrio (p <> ".id") i ++ toQueryTextPrio p name
+
+instance (Semigroup (PrimaryKey t f), Semigroup (C f Text))
+  => Semigroup (Named t f) where
+  Named i0 n0 <> Named i1 n1 = Named (i0 <> i1) (n0 <> n1)
+
+instance (Monoid (PrimaryKey t f), Monoid (C f Text))
+  => Monoid (Named t f) where
+  mempty = Named mempty mempty
+
 
 -- | We need to know how to create a label for a record.
 -- This should only be done once for each type, hence we implemented it as a typeclass.
@@ -487,3 +501,38 @@ all_'
   -> table (Referenced be db) Ignored
   -> Q be db s (table n (QExpr be s))
 all_' tbl fkTbl = expand fkTbl $ all_ tbl
+
+-- | Removes the labels of the Named type, so that we have a type conversion
+-- @tt Named g@@ to @@t PrimaryKey g@@
+flattenNamed
+  :: forall table f
+   . (Beamable1 table, Beamable (table PrimaryKey))
+  => table Named f
+  -> table PrimaryKey f
+flattenNamed n = runIdentity $ zipBeamFieldsM1
+  (\_ (D' x) -> Identity $ D' (_id x))
+  (tblSkeleton :: table PrimaryKey Ignored)
+  n
+
+-- | Remove expanded extra data and only keep the primaryKey. See @flattenNamed@
+flattenFull
+  :: forall table f
+   . ( Beamable1 table
+     , Beamable (table PrimaryKey)
+     , TablesFulfillConstraint Ignored Table table
+     )
+  => table Full f
+  -> table PrimaryKey f
+flattenFull n = runIdentity $ zipBeamFieldsM1
+  combine
+  (withConstrainedTables (tblSkeleton :: table PrimaryKey Ignored))
+  n
+ where
+  combine
+    :: D' (WithConstraint1 Table) t Ignored
+    -> D' Full t f
+    -> Identity (D' PrimaryKey t f)
+  combine (D' (WithConstraint1 c)) (D' x) = Identity $ D' $ go c x
+
+  go :: Table t => PrimaryKey t Ignored -> t f -> PrimaryKey t f
+  go _ = primaryKey

@@ -36,15 +36,15 @@ import           Components
 import           Frontend.Api
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Edit
+import           Frontend.Crud.Lookup
 import           Frontend.Crud.Utils
-
 
 -- brittany-disable-next-binding
 type CrudApi =
   ("blogs" :>
-     (    "all" :> QObj (Api.View Api.Be BlogT) :> View
+     (    "all" :> QObj (Api.View Api.Be BlogN) :> View
      :<|> Auth Everyone :> "new" :> View
-     :<|> Auth Everyone :> Capture "key" BlogId :> View
+     :<|> Auth Everyone :> Capture "key" BlogNId :> View
      )
   ) :<|>
   ("channels" :>
@@ -57,9 +57,9 @@ type CrudApi =
 crudApi :: Proxy CrudApi
 crudApi = Proxy
 
-blogsLink :: Api.View Api.Be BlogT -> Link
+blogsLink :: Api.View Api.Be BlogN -> Link
 newBlogLink :: Link
-blogLink :: BlogId -> Link
+blogLink :: BlogNId -> Link
 
 channelsLink :: Api.View Api.Be ChannelT -> Link
 newChannelLink :: Link
@@ -88,7 +88,7 @@ crudHandler =
 
 blogsHandler
   :: (WidgetConstraint js t m)
-  => Api.View Api.Be BlogT
+  => Api.View Api.Be BlogN
   -> ApiWidget t m (Event t URI)
 blogsHandler = browseForm BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection blogId
@@ -104,33 +104,41 @@ blogsHandler = browseForm BrowseFormConfig
   , _browseConfig_columns = [ gridProp noEditor   eqFilter  blogIdProp
                             , gridProp textEditor strFilter blogTitleProp
                             , gridProp textEditor strFilter blogDescriptionProp
+                            , gridFkProp blogChannelProp
                             ]
   }
   where unBlogId (BlogId x) = x
 
 blogEdit
-  :: WidgetConstraint js t m => Maybe BlogId -> ApiWidget t m (Event t URI)
+  :: WidgetConstraint js t m => Maybe BlogNId -> ApiWidget t m (Event t URI)
 blogEdit = editForm cfg $ \modBlogEv ->
   el "form"
     $    getCompose
     $    pure mempty
-    <**> editWith textEditor       blogTitleProp       modBlogEv
+    <**> editWith textEditor blogTitleProp modBlogEv
+    <**> editFk blogChannelProp modBlogEv
     <**> editWith checkboxEditor   blogIsExtraProp     modBlogEv
     <**> editWith toggleEditor     blogIsPublishedProp modBlogEv
     <**> editWith (req dateEditor) blogDateProp        modBlogEv
     <**> editWith markdownEditor   blogDescriptionProp modBlogEv
  where
-  cfg = EditFormConfig { _formConfig_actions          = \_ _ _ _ -> pure never
-                       , _formConfig_getReq           = getBlog
-                       , _formConfig_deleteReq        = deleteBlog usingCookie
-                       , _formConfig_postReq          = postBlog usingCookie
-                       , _formConfig_patchReq         = patchBlog usingCookie
-                       , _formConfig_setPrimaryKey    = setBlogPk
-                       , _formConfig_header           = mkHeader
-                       , _formConfig_routeAfterDelete = blogsLink mempty
-                       , _formConfig_editRoute        = blogLink
-                       }
+  cfg = EditFormConfig
+    { _formConfig_actions          = \_ _ _ _ -> pure never
+    , _formConfig_getReq           = getBlog
+    , _formConfig_deleteReq        = deleteBlog usingCookie . coerce
+    , _formConfig_postReq          = fmap (fmap coerce)
+                                     . postBlog usingCookie
+                                     . flattenNamed
+    , _formConfig_patchReq         = \pk ->
+                                       patchBlog usingCookie (coerce pk) . flattenNamed
+    , _formConfig_setPrimaryKey    = setBlogPk
+    , _formConfig_header           = mkHeader
+    , _formConfig_routeAfterDelete = blogsLink mempty
+    , _formConfig_editRoute        = blogLink
+    }
   req = requiredEditor
+
+  coerce (BlogId x) = BlogId x
 
   setBlogPk (Just (BlogId pk)) x = x { _blogId = pure pk }
   setBlogPk Nothing            x = x { _blogId = pure 0 }
@@ -140,24 +148,31 @@ blogEdit = editForm cfg $ \modBlogEv ->
     <> fromMaybe "?" (unMaybeLast $ _blogName x)
     | otherwise = "New blog"
 
-blogIdProp :: Property BlogT SerialInt64
+blogIdProp :: Property BlogN SerialInt64
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
 
-blogTitleProp :: Property BlogT Text
+blogChannelProp :: FkProperty t m BlogN ChannelT
+blogChannelProp = fkProp "Channel"
+                         blogChannel
+                         (Proxy :: Proxy "_blogChannel")
+                         channelName
+                         getChannelLabels
+
+blogTitleProp :: Property BlogN Text
 blogTitleProp = prop "Title" blogName (Proxy :: Proxy "_blogName")
 
-blogIsExtraProp :: Property BlogT Bool
+blogIsExtraProp :: Property BlogN Bool
 blogIsExtraProp = prop "Extra" blogIsExtra (Proxy :: Proxy "_blogIsExtra")
 
-blogIsPublishedProp :: Property BlogT Bool
+blogIsPublishedProp :: Property BlogN Bool
 blogIsPublishedProp =
   prop "Published" blogIsPublished (Proxy :: Proxy "_blogIsPublished")
 
-blogDescriptionProp :: Property BlogT Text
+blogDescriptionProp :: Property BlogN Text
 blogDescriptionProp =
   prop "Description" blogDescription (Proxy :: Proxy "_blogDescription")
 
-blogDateProp :: Property BlogT Day
+blogDateProp :: Property BlogN Day
 blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")
 
 

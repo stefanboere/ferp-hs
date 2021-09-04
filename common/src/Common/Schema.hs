@@ -16,6 +16,7 @@ module Common.Schema
   , makePatch
   , purePatch
   , joinPatch
+  , flattenNamed
   , FieldsFulfillConstraint
   , Beamable
   , Table
@@ -57,35 +58,6 @@ type instance DefaultFilters (Maybe a) = AddNullFilter (DefaultFilters a)
 type instance DefaultFilters Day = OrdFilter
 type instance DefaultFilters UTCTime = OrdFilter
 
--- | The full user blog info
-data BlogT f = Blog
-  { _blogId          :: C f SerialInt64
-  , _blogName        :: C f Text
-  , _blogDescription :: C f Text
-  , _blogIsExtra     :: C f Bool
-  , _blogIsPublished :: C f Bool
-  , _blogDate        :: C f Day
-  }
-  deriving (Generic, Beamable)
-
-
-type Blog = BlogT Identity
-type BlogPatch = BlogT MaybeLast
-type BlogId = PrimaryKey BlogT Identity
-
-{- HLINT ignore "Redundant bracket" -}
-$(instances ''BlogT)
-{- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogT ''SerialInt64)
-
-instance ToName BlogT where
-  toName = _blogName
-
--- | Beam boilerplate
-instance Table BlogT where
-  data PrimaryKey BlogT f = BlogId (Columnar f SerialInt64) deriving (Generic, Beamable)
-  primaryKey = BlogId . _blogId
-
 -- | A group of related blog posts
 data ChannelT f = Channel
   { _channelId   :: C f SerialInt64
@@ -109,3 +81,39 @@ instance Table ChannelT where
   data PrimaryKey ChannelT f = ChannelId (Columnar f SerialInt64) deriving (Generic, Beamable)
   primaryKey = ChannelId . _channelId
 
+
+-- | The full user blog info
+data BlogTT g f = Blog
+  { _blogId          :: C f SerialInt64
+  , _blogChannel     :: D g ChannelT f
+  , _blogName        :: C f Text
+  , _blogDescription :: C f Text
+  , _blogIsExtra     :: C f Bool
+  , _blogIsPublished :: C f Bool
+  , _blogDate        :: C f Day
+  }
+  deriving (Generic, Beamable1)
+
+type BlogN = BlogTT Named
+type BlogN1 = BlogN Identity
+type BlogT = BlogTT PrimaryKey
+type Blog = BlogT Identity
+type BlogPatch = BlogT MaybeLast
+type BlogId = PrimaryKey BlogT Identity
+type BlogNId = PrimaryKey BlogN Identity
+
+{- HLINT ignore "Redundant bracket" -}
+$(instancesT ''BlogTT)
+
+instance (Typeable g, Beamable (BlogTT g)) => ToName (BlogTT g) where
+  toName = _blogName
+
+-- | Beam boilerplate
+instance (Typeable g, Beamable (BlogTT g)) => Table (BlogTT g) where
+  data PrimaryKey (BlogTT g) f = BlogId (Columnar f SerialInt64) deriving (Generic, Beamable)
+  primaryKey = BlogId . _blogId
+
+{- HLINT ignore "Redundant bracket" -}
+$(instancesId ''BlogT ''SerialInt64)
+{- HLINT ignore "Redundant bracket" -}
+$(instancesId ''BlogN ''SerialInt64)

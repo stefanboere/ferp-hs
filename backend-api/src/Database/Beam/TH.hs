@@ -20,6 +20,12 @@ module Database.Beam.TH
   , instancesBody
   ) where
 
+import           Data.Aeson                     ( FromJSON(..)
+                                                , ToJSON(..)
+                                                , eitherDecodeStrict'
+                                                , encode
+                                                )
+import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Csv                      as Csv
 import           Data.Swagger                   ( ToParamSchema
                                                 , ToSchema
@@ -61,6 +67,7 @@ instancesT' n0 n = concat <$>
   sequence [ instancesBody  (t ''PrimaryKey) -- HaskellValue / Put / Post / Patch
            , instancesBody  (t n0)      -- Get / Filter object for Get
            , instancesSchema (t ''PrimaryKey)
+           , instancesSchema (t n0)
            ]
     where
       t :: Name -> TypeQ
@@ -115,6 +122,12 @@ instancesId n n0 = [d|
         where
           unProxy :: proxy (PrimaryKey x f) -> proxy (Columnar f $(t0))
           unProxy _ = undefined
+
+    instance ToJSON (PrimaryKey $(conT n) f) => Csv.ToField (PrimaryKey $(conT n) f) where
+      toField = BL.toStrict . encode
+
+    instance FromJSON (PrimaryKey $(conT n) f) => Csv.FromField (PrimaryKey $(conT n) f) where
+      parseField = either fail pure . eitherDecodeStrict'
     |]
     where
         t = conT n

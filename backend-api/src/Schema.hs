@@ -31,6 +31,7 @@ import           Servant.Docs
 
 import           Database.Beam.TH               ( instances
                                                 , instancesId
+                                                , instancesT
                                                 )
 import           Servant.Crud.Server.Deriving   ( CsvBody(..) )
 
@@ -40,9 +41,11 @@ import           Types                          ( )
 -- * Blog
 
 {- HLINT ignore "Redundant bracket" -}
-$(instances ''BlogT)
+$(instancesT ''BlogTT)
 {- HLINT ignore "Redundant bracket" -}
 $(instancesId ''BlogT ''SerialInt64)
+{- HLINT ignore "Redundant bracket" -}
+$(instancesId ''BlogN ''SerialInt64)
 
 instance ToSample Blog where
   toSamples _ = []
@@ -51,6 +54,12 @@ instance ToSample BlogPatch where
   toSamples _ = []
 
 instance ToSample BlogId where
+  toSamples _ = []
+
+instance ToSample (BlogN Identity) where
+  toSamples _ = []
+
+instance ToSample (PrimaryKey BlogN Identity) where
   toSamples _ = []
 
 -- * Channel

@@ -30,6 +30,8 @@ module Frontend.Crud.Datagrid
   , gridProp
   , IndexLens(..)
   , filterWith
+  , initFilterCondition
+  , filterEditor
   -- * Browse form
   , deleteFromMapsubset
   , dynUniqDebounce
