@@ -151,12 +151,14 @@ blogEdit = editForm cfg $ \modBlogEv ->
 blogIdProp :: Property BlogN SerialInt64
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
 
-blogChannelProp :: FkProperty t m BlogN ChannelT
+blogChannelProp
+  :: (Request (Client m) ~ FreeClient) => FkProperty t m BlogN ChannelT
 blogChannelProp = fkProp "Channel"
                          blogChannel
                          (Proxy :: Proxy "_blogChannel")
                          channelName
                          getChannelLabels
+                         channelLink
 
 blogTitleProp :: Property BlogN Text
 blogTitleProp = prop "Title" blogName (Proxy :: Proxy "_blogName")

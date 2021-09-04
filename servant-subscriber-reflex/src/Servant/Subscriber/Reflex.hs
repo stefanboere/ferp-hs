@@ -323,9 +323,9 @@ runApiWidget ws start = do
   pure x
 
 requestingJs
-  :: (MonadFix m, Prerender js t m)
-  => Event t (Request (Client (ApiWidget t m)) a)
-  -> ApiWidget t m (Event t (Response (Client (ApiWidget t m)) a))
+  :: (Requester t (Client m), Applicative m, Prerender js t m)
+  => Event t (Request (Client m) a)
+  -> m (Event t (Response (Client m) a))
 requestingJs r =
   fmap (switch . current) $ prerender (pure never) $ requesting r
 

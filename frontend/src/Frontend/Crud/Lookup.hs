@@ -2,6 +2,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeFamilies #-}
 module Frontend.Crud.Lookup
   ( lookupInput
   , LabelEndpoint(..)
@@ -22,6 +24,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose           ( Compose(..) )
 import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Identity          ( Identity(..) )
+import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text )
 import           Data.Typeable                  ( Proxy(..)
@@ -32,6 +35,7 @@ import           GHC.TypeLits                   ( KnownSymbol )
 import           Reflex.Dom
 import qualified Reflex.Dom.Prerender          as Prerender
                                                 ( Client )
+import           Servant.API                    ( toUrlPiece )
 import qualified Servant.Crud.API              as API
                                                 ( GetListHeaders
                                                 , Page(..)
@@ -41,9 +45,14 @@ import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator     ( Filter
                                                 , MaybeLast(..)
                                                 )
-import           Servant.Subscriber.Reflex      ( ApiWidget
+import qualified Servant.Links                 as L
+                                                ( Link
+                                                , linkURI
+                                                )
+import           Servant.Subscriber.Reflex      ( ClientError
                                                 , requestingJs
                                                 )
+import           URI.ByteString                 ( URI )
 
 import           Common.Api                     ( Be
                                                 , OrderByScope
@@ -52,15 +61,19 @@ import           Common.Api                     ( Be
                                                 )
 import           Common.Schema
 import           Components.Input
+import           Components.Navigation
 import           Components.Table
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Utils
 
 type LookupInputConfig t m k = InputConfig' (LabelEndpoint t m k) t m
 
-newtype LabelEndpoint t m k a = LabelEndpoint {
-  unLabelEndpoint :: OptionsRequest k -> Request (Prerender.Client m) (API.GetListHeaders (Elem a))
-}
+data LabelEndpoint t m k a = LabelEndpoint
+  { unLabelEndpoint
+      :: OptionsRequest k
+      -> Request (Prerender.Client m) (API.GetListHeaders (Elem a))
+  , editLink :: k -> L.Link
+  }
 
 lookupInput
   :: ( PostBuild t m
@@ -72,23 +85,21 @@ lookupInput
      , MonadIO (Performable m)
      , Prerender js t m
      , Ord (PrimaryKey a Identity)
+     , EventWriter t (MaybeLast URI) m
+     , Requester t (Prerender.Client m)
+     , Response (Client m)  ~ Either ClientError
      )
-  => LookupInputConfig
-       t
-       (ApiWidget t m)
-       (PrimaryKey a Identity)
-       (Maybe (Named a Identity))
-  -> ApiWidget
-       t
-       m
-       (DomInputEl t (ApiWidget t m) (Maybe (Named a Identity)))
+  => LookupInputConfig t m (PrimaryKey a Identity) (Maybe (Named a Identity))
+  -> m (DomInputEl t m (Maybe (Named a Identity)))
 lookupInput cfg = do
-  (x, _) <- comboboxInputKS
-    (pure ())
-    showOpt
-    def
-    requestOptions
-    (fmap toCbValue cfg { _inputConfig_extra = Const () })
+  rec (x, routeEv) <- comboboxInputKS
+        (openlinkEl (_cb_selection <$> _inputEl_value x))
+        showOpt
+        def
+        requestOptions
+        (fmap toCbValue cfg { _inputConfig_extra = Const () })
+
+  tellEvent (MaybeLast . Just <$> routeEv)
 
   pure (fmap fromCbValue x)
 
@@ -110,6 +121,7 @@ lookupInput cfg = do
   toTuple n = (_id n, _name n)
 
   endpoint = unLabelEndpoint (_inputConfig_extra cfg)
+  mklnk    = editLink (_inputConfig_extra cfg)
 
   showOpt _ = dynText
 
@@ -124,18 +136,42 @@ lookupInput cfg = do
   fromCbValue ComboboxValue { _cb_selection = mx, _cb_text = t } =
     (\pk -> Named { _id = pk, _name = t }) <$> mx
 
+  openlinkEl mkey = do
+    mkeyDyn <- maybeDyn mkey
+    dynEv   <- dyn
+      (   maybe (pure never) (safelinkNoTab angleDoubleRightIcon . fmap mklnk)
+      <$> mkeyDyn
+      )
+    switchHold never dynEv
+
+safelinkNoTab
+  :: (PostBuild t m, DomBuilder t m)
+  => m ()
+  -> Dynamic t L.Link
+  -> m (Event t URI)
+safelinkNoTab cnt lnk = do
+  clickEv <- ahrefPreventDefault
+    (("/" <>) . toUrlPiece <$> lnk)
+    (constDyn False)
+    (  Map.singleton "tabindex" "-1"
+    <> Map.singleton "style" "padding-top:0.125rem"
+    )
+    cnt
+  pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
+
 labelEndpoint
   :: (Monoid (a Filter))
   => Lens' (a Filter) (C Filter Text)
   -> (  View be a
      -> Maybe (PrimaryKey a Identity)
      -> Request
-          (Prerender.Client (ApiWidget t m))
+          (Prerender.Client m)
           (API.GetListHeaders (Named a Identity))
      )
+  -> (PrimaryKey a Identity -> L.Link)
   -> LabelEndpoint
        t
-       (ApiWidget t m)
+       m
        (PrimaryKey a Identity)
        (Maybe (Named a Identity))
 labelEndpoint l req = LabelEndpoint mkRequest
@@ -165,10 +201,9 @@ data FkProperty t m a b = FkProperty
   , _fkProp_endpoint
       :: View Be b
       -> Maybe (PrimaryKey b Identity)
-      -> Request
-           (Prerender.Client (ApiWidget t m))
-           (API.GetListHeaders (Named b Identity))
+      -> Request (Prerender.Client m) (API.GetListHeaders (Named b Identity))
   , _fkProp_searchField :: Lens' (b Filter) (C Filter Text)
+  , _fkProp_editLink    :: PrimaryKey b Identity -> L.Link
   }
 
 fkProp
@@ -184,17 +219,19 @@ fkProp
   -> (  View Be b
      -> Maybe (PrimaryKey b Identity)
      -> Request
-          (Prerender.Client (ApiWidget t m))
+          (Prerender.Client m)
           (API.GetListHeaders (Named b Identity))
      )
+  -> (PrimaryKey b Identity -> L.Link)
   -> FkProperty t m a b
-fkProp lbl l p sf ep =
+fkProp lbl l p sf ep lnk =
   let fn = API.prependHasField p . sortByName . toApiDirection
   in  FkProperty { _fkProp_label       = lbl
                  , _fkProp_lens        = l
                  , _fkProp_key         = API.orderByPath (fn Ascending)
                  , _fkProp_orderBy     = fn
                  , _fkProp_searchField = sf
+                 , _fkProp_editLink    = lnk
                  , _fkProp_endpoint    = ep
                  }
   where sortByName = API.fromHasField (Proxy :: Proxy "_name")
@@ -213,15 +250,21 @@ editFk
      , TriggerEvent t m
      , Beamable (PrimaryKey b)
      , Monoid (PrimaryKey b MaybeLast)
+     , EventWriter t (MaybeLast URI) m
+     , Requester t (Prerender.Client m)
+     , Response (Client m)  ~ Either ClientError
      )
   => FkProperty t m a b
   -> Event t (a MaybeLast)
-  -> Compose (ApiWidget t m) (Dynamic t) (a MaybeLast -> a MaybeLast)
+  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
 editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
   (_fkProp_label prp)
   (respectFocus lookupInput)
   (inputConfig'
-      (labelEndpoint (_fkProp_searchField prp) (_fkProp_endpoint prp))
+      (labelEndpoint (_fkProp_searchField prp)
+                     (_fkProp_endpoint prp)
+                     (_fkProp_editLink prp)
+      )
       Nothing
     )
     { _inputConfig_setValue = viewer <$> setEv

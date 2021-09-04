@@ -408,7 +408,10 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
 -- Clear the selection if the text is null
     let clearEv = ffilter Text.null $ updated (_inputEl_value searchStrInput)
     let clearNoOptionEv = ffilter (== Just 0) $ updated dynCount
-    let autofillEv = ffilter (== Just 1) $ updated dynCount
+    let autofillEv =
+          gate (Prelude.not . Text.null <$> current searchText)
+            $ ffilter (== Just 1)
+            $ updated dynCount
     let autofillExact = fmapMaybe Prelude.id $ leftmost
           [ attachWith (flip findExactMatch) (current dynOptions) searchEv
           , attachWith findExactMatch

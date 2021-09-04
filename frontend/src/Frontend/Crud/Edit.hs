@@ -285,7 +285,13 @@ editForm
      , Monoid (a MaybeLast)
      )
   => EditFormConfig t m a
-  -> (Event t (a MaybeLast) -> ApiWidget t m (Dynamic t (a MaybeLast)))
+  -> (  Event t (a MaybeLast)
+     -> EventWriterT
+          t
+          (MaybeLast URI)
+          (ApiWidget t m)
+          (Dynamic t (a MaybeLast))
+     )
   -> Maybe (PrimaryKey a Identity)
   -> ApiWidget t m (Event t URI)
 editForm cfg editor initPk = do
@@ -310,7 +316,7 @@ editForm cfg editor initPk = do
     dynRecRemote    <- holdDyn Nothing (Just <$> getEvSuccess)
 
     dynPk           <- holdDyn initPk setPkEv
-    mDynRec'        <- editor modRecEv
+    (mDynRec', rEv) <- runEventWriterT $ editor modRecEv
     let mDynRec = _formConfig_setPrimaryKey cfg <$> dynPk <*> mDynRec'
     let dynRec  = joinPatch <$> mDynRec
 
@@ -319,6 +325,7 @@ editForm cfg editor initPk = do
   pure $ leftmost
     [ coerceUri (linkURI (_formConfig_routeAfterDelete cfg)) <$ deleteEvSuccess
     , actionRouteEv
+    , fmapMaybe unMaybeLast rEv
     ]
  where
   getButton'    = getButton (_formConfig_getReq cfg)
