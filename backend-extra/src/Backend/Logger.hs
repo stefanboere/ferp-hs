@@ -9,11 +9,12 @@ module Backend.Logger
   ( AppInfo(..)
   , readDhallConfig
   , initRequestLogger
+  , skipLowerPrefixInterpretOptions
   -- * Logging
   , initLoggerStdout
   , logWithConfig
   , Environment(..)
-  -- # Re-exports
+  -- * Re-exports
   , TimedFastLogger
   , LogLevel(..)
   )
@@ -24,19 +25,20 @@ import           Data.Char                      ( isLower
                                                 , toLower
                                                 )
 import           Data.Default                   ( def )
+import           Data.Functor                   ( (<&>) )
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           Data.Version
 import           Dhall
-import           Network.Wai
+import           Network.Wai                    ( Middleware )
 import           Network.Wai.Middleware.RequestLogger
                                                 ( Destination(..)
                                                 , destination
                                                 , mkRequestLogger
                                                 )
 import           System.Log.FastLogger
-import           Text.ParserCombinators.ReadP
+import           Text.ParserCombinators.ReadP   ( readP_to_S )
 import           Text.Read                      ( readMaybe )
 
 initRequestLogger :: TimedFastLogger -> AppInfo -> IO Middleware
@@ -50,14 +52,13 @@ initLoggerStdout = do
   timeCache <- newTimeCache simpleTimeFormat
   newTimedFastLogger timeCache logStdout
 
-readDhallConfig :: Interpret a => String -> IO a
-readDhallConfig = inputFile
-  (autoWith
-    (defaultInterpretOptions
-      { fieldModifier = decapitalize . Text.dropWhile isLower
-      }
-    )
-  )
+readDhallConfig :: FromDhall a => String -> IO a
+readDhallConfig = inputFile auto
+
+skipLowerPrefixInterpretOptions :: InterpretOptions
+skipLowerPrefixInterpretOptions = defaultInterpretOptions
+  { fieldModifier = decapitalize . Text.dropWhile isLower
+  }
  where
   decapitalize x = case Text.uncons x of
     Just (z, zs) -> Text.cons (toLower z) zs
@@ -73,27 +74,31 @@ data AppInfo = AppInfo
   }
   deriving Generic
 
-instance Interpret AppInfo
+instance FromDhall AppInfo where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
-instance Interpret Version where
-  autoWith cfg = readVersion <$> autoWith cfg
+instance FromDhall Version where
+  autoWith cfg = either error id . readVersion <$> autoWith cfg
 
-readVersion :: String -> Version
+readVersion :: String -> Either String Version
 readVersion s = case [ x | (x, "") <- readP_to_S parseVersion s ] of
-  [x] -> x
-  _   -> error "Could not parse version"
+  [x] -> Right x
+  _   -> Left $ "Could not parse version " <> s
 
 -- | Either 'Test', 'Development' or 'Production'
 data Environment = Production | Development | Test deriving (Show, Eq, Read, Ord)
 
-instance Interpret Environment where
+instance FromDhall Environment where
   autoWith cfg =
     fromMaybe (error "Could not read Environment") . readMaybe <$> autoWith cfg
 
+readLogLevel :: String -> LogLevel
+readLogLevel str = case readMaybe str of
+  Just x  -> x
+  Nothing -> LevelOther (Text.pack str)
 
-instance Interpret LogLevel where
-  autoWith cfg =
-    fromMaybe (error "Could not read loglevel") . readMaybe <$> autoWith cfg
+instance FromDhall LogLevel where
+  autoWith cfg = autoWith cfg <&> readLogLevel
 
 logWithConfig
   :: TimedFastLogger

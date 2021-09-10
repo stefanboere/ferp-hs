@@ -62,7 +62,7 @@ import           Data.Time.Clock.POSIX          ( POSIXTime
                                                 , posixSecondsToUTCTime
                                                 )
 import           Dhall                          ( Generic
-                                                , Interpret(..)
+                                                , FromDhall(..)
                                                 )
 import           Jose.Internal.Parser           ( DecodableJwt(..)
                                                 , Payload(..)
@@ -104,17 +104,18 @@ data OIDCConfig = OIDCConfig
 -- | A newtype wrapper around 'BytesString' that does not have a Show instance
 newtype ClientSecret = ClientSecret { unClientSecret :: ByteString }
 
-instance Interpret ClientSecret where
+instance FromDhall ClientSecret where
   autoWith cfg = ClientSecret . Text.encodeUtf8 <$> autoWith cfg
 
 
-instance Interpret Network.URI where
+instance FromDhall Network.URI where
   autoWith cfg = go <$> autoWith cfg
    where
     go :: Text -> Network.URI
     go = fromMaybe (error "") . Network.parseURI . Text.unpack
 
-instance Interpret OIDCConfig
+instance FromDhall OIDCConfig where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
 data OIDCEnv = OIDCEnv
   { oidcCredentials    :: O.OIDC

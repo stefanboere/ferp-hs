@@ -1,8 +1,6 @@
-{ system ? builtins.currentSystem }:
+{ MathJax, ace-builds, reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc
+, reflex-platform, servant-subscriber }:
 let
-  unstable = import ./nix { };
-  sources = import ./nix/sources.nix { };
-  reflex-platform = import sources.reflex-platform { inherit system; };
   project = reflex-platform.project ({ pkgs, ... }: {
     useWarp = true;
     withHoogle = false;
@@ -38,8 +36,12 @@ let
     };
 
     shellToolOverrides = ghc: super: {
-      #    haskell-language-server = unstable.haskell-language-server;
-      xdotool = pkgs.xdotool;
+      xdotool = pkgs.xdotool; # TODO remove
+      haskell-language-server =
+        (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
+          supportedGhcVersions = [ "865" ];
+        };
+      brittany = ghc.brittany;
     };
 
     overrides = with pkgs.haskell.lib;
@@ -47,25 +49,27 @@ let
         # Prevents ghcjs build being stuck, see reflex-platform#717
         mmorph = self.callHackage "mmorph" "1.1.3" { };
         clay = self.callHackage "clay" "0.13.3" { };
-        reflex-dom-ace =
-          self.callCabal2nix "reflex-dom-ace" sources.reflex-dom-ace { };
+        reflex-dom-ace = self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { };
         reflex-dom-contrib = doJailbreak
-          (self.callCabal2nix "reflex-dom-contrib" sources.reflex-dom-contrib
-            { });
+          (self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
         oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
         servant-subscriber =
-          self.callCabal2nix "servant-subscriber" sources.servant-subscriber
-          { };
+          self.callCabal2nix "servant-subscriber" servant-subscriber { };
         reflex-dom-core = disableCabalFlag
           (disableCabalFlag super.reflex-dom-core "hydration-tests") "gc-tests";
 
         reflex-dom-pandoc =
-          self.callCabal2nix "reflex-dom-pandoc" sources.reflex-dom-pandoc { };
+          self.callCabal2nix "reflex-dom-pandoc" reflex-dom-pandoc { };
         servant-aeson-specs =
           dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
+        servant-docs = dontCheck super.servant-docs;
         servant-quickcheck =
-          doJailbreak (unmarkBroken (super.servant-quickcheck));
+          self.callHackage "servant-quickcheck" "0.0.7.4" { };
         dhall = doJailbreak (super.dhall);
+
+        generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
+        true-name = doJailbreak (unmarkBroken super.true-name);
+        servant-server = dontCheck super.servant-server;
       };
   });
 
@@ -104,7 +108,7 @@ let
     buildCommand = ''
       mkdir -p $out
 
-      cp ${sources.MathJax}/es5/tex-chtml.js $out/tex-chtml.js
+      cp ${MathJax}/es5/tex-chtml.js $out/tex-chtml.js
 
       ${pkgs.closurecompiler}/bin/closure-compiler \
         $out/tex-chtml.js \
@@ -112,7 +116,7 @@ let
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
 
       mkdir -p $out/ace
-      cp -r ${sources.ace-builds}/src-min-noconflict/* $out/ace
+      cp -r ${ace-builds}/src-min-noconflict/* $out/ace
 
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ace*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ext*
@@ -123,4 +127,13 @@ let
     '';
   };
 
-in project // { inherit frontend-min vendor-lib; }
+  keycloak-nordtheme = pkgs.keycloak.overrideAttrs (oldAttrs: {
+    installPhase = oldAttrs.installPhase + ''
+      cp -r ${./keycloak-nordtheme} $out/themes/nordtheme
+    '';
+  });
+
+in {
+  ferp-hs = project // { inherit frontend-min vendor-lib keycloak-nordtheme; };
+  brittany = pkgs.haskellPackages.brittany;
+}

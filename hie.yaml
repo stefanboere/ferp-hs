@@ -6,6 +6,21 @@ cradle:
     - path: "backend/app/Main.hs"
       component: "backend:exe:backend"
 
+    - path: "backend-api/src"
+      component: "lib:backend-api"
+
+    - path: "backend-api/test"
+      component: "backend-api:test:spec"
+
+    - path: "backend-api/app/Main.hs"
+      component: "backend-api:exe:backend-api"
+
+    - path: "backend-extra/src"
+      component: "lib:backend-extra"
+
+    - path: "beam-crud/src"
+      component: "lib:beam-crud"
+
     - path: "common/src"
       component: "lib:common"
 
@@ -14,3 +29,24 @@ cradle:
 
     - path: "frontend/app/Main.hs"
       component: "frontend:exe:frontend"
+
+    - path: "frontend/app/Css.hs"
+      component: "frontend:exe:frontend-css"
+
+    - path: "servant-ac/src"
+      component: "lib:servant-ac"
+
+    - path: "servant-ac-server/src"
+      component: "lib:servant-ac-server"
+
+    - path: "servant-crud/src"
+      component: "lib:servant-crud"
+
+    - path: "servant-crud/./"
+      component: "servant-crud:test:spec"
+
+    - path: "servant-crud-server/src"
+      component: "lib:servant-crud-server"
+
+    - path: "servant-subscriber-reflex/src"
+      component: "lib:servant-subscriber-reflex"

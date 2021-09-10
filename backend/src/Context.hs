@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-|
@@ -45,9 +44,10 @@ data Config = Config
   }
   deriving Generic
 
-instance Interpret Config
+instance FromDhall Config where
+  autoWith _ = genericAutoWith defaultInterpretOptions
 
-instance Interpret Int where
+instance FromDhall Int where
   autoWith cfg = fromInteger <$> autoWith cfg
 
 -- | Convenient type alias

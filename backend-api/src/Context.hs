@@ -80,28 +80,30 @@ data Config = Config
   }
   deriving Generic
 
-instance Interpret Config
+instance FromDhall Config where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
-instance Interpret ConnectInfo
+instance FromDhall ConnectInfo where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
-instance Interpret Network.URI where
+instance FromDhall Network.URI where
   autoWith cfg = go <$> autoWith cfg
    where
     go :: Text -> Network.URI
     go = fromMaybe (error "") . Network.parseURI . Text.unpack
 
-instance Interpret Word16 where
+instance FromDhall Word16 where
   autoWith cfg = fromInteger <$> autoWith cfg
 
-instance Interpret Int where
+instance FromDhall Int where
   autoWith cfg = fromInteger <$> autoWith cfg
 
 newtype CorsOrigins = CorsOrigins { unCorsOrigins :: [Origin] }
 
-instance Interpret CorsOrigins where
+instance FromDhall CorsOrigins where
   autoWith cfg = CorsOrigins <$> autoWith cfg
 
-instance Interpret Origin where
+instance FromDhall Origin where
   autoWith cfg = Text.encodeUtf8 <$> autoWith cfg
 
 
