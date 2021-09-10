@@ -129,8 +129,8 @@ import           Servant.Links
 import           Servant.Client.Core            ( HasClient(..)
                                                 , appendToQueryString
                                                 )
-import Unsafe.TrueName
-import Language.Haskell.TH.Syntax
+import           Unsafe.TrueName
+import           Language.Haskell.TH.Syntax
 
 -- | This type replaces 'QueryParam' or 'QueryFlag' or 'QueryParams'
 --
@@ -563,7 +563,7 @@ instance (HasLink api, ToQueryText v, KnownSymbol sym)
     -- Here is how, see the package true-name
     -- If addQueryParam is exported, then this can be removed, including
     -- the template-haskell and true-name packages
-    mkLink = $(fmap ConE $ summon "Link" =<< summon "Link" 'linkURI)
+    mkLink   = $(fmap ConE $ summon "Link" =<< summon "Link" 'linkURI)
     segments = $(fmap VarE $ summon "_segments" =<< summon "Link" 'linkURI)
 
 

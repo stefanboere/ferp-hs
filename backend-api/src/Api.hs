@@ -15,7 +15,8 @@ module Api
   , server
   , api
   , Api
-  ) where
+  )
+where
 
 import           Prelude                 hiding ( div )
 
@@ -68,8 +69,7 @@ type instance IsSubscribable' sa (PathInfo :> sb) = IsSubscribable sa sb
 type instance IsSubscribable' sa (QObj r :> sb) = IsSubscribable sa sb
 
 -- For us any GET endpoint is subscribable
-type instance IsSubscribable' sa (Get '[JSON , CSV] r)
-  = ()
+type instance IsSubscribable' sa (Get '[JSON, CSV] r) = ()
 
 instance ToParam (QueryParam "key" Text) where
   toParam _ = DocQueryParam "key" [] "An authorization key" Normal
@@ -91,7 +91,7 @@ api = Proxy
 server :: AppServer Api
 server = blogServer :<|> channelServer
 
-type GetListSimple t = Get '[JSON , CSV] (GetListHeaders (t Identity))
+type GetListSimple t = Get '[JSON, CSV] (GetListHeaders (t Identity))
 type GetSimple t = CaptureId t :> Get '[JSON] (t Identity)
 
 notifyModified

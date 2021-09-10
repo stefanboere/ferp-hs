@@ -120,10 +120,12 @@ prependHasField
   => Proxy s
   -> OrderBy c a
   -> OrderBy c r
-prependHasField p x@(OrderBy _ _ (HSelector f)) =
-  x { orderByPath = addSPrefix' (queryOptions (Proxy :: Proxy r)) (symbolVal p) (orderByPath x)
-    , orderBySelector = HSelector (f . getField @s)
-    }
+prependHasField p x@(OrderBy _ _ (HSelector f)) = x
+  { orderByPath     = addSPrefix' (queryOptions (Proxy :: Proxy r))
+                                  (symbolVal p)
+                                  (orderByPath x)
+  , orderBySelector = HSelector (f . getField @s)
+  }
 
 -- | Create a string for debugging purposes
 dump :: forall r . r -> OrderBy Show r -> String
