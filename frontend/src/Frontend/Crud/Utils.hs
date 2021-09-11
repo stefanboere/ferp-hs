@@ -41,7 +41,8 @@ module Frontend.Crud.Utils
   , orAlertF
   , showError
   , showClientError
-  ) where
+  )
+where
 
 import           Control.Exception.Base         ( displayException )
 import           Control.Lens                   ( Const
@@ -89,9 +90,7 @@ import qualified Servant.Links                 as L
                                                 , linkURI
                                                 )
 import qualified Servant.Subscriber.Reflex     as Sub
-import           Servant.Subscriber.Reflex      ( ApiWidget
-                                                , ClientError(..)
-                                                )
+import           Servant.Subscriber.Reflex      ( ClientError(..) )
 import           URI.ByteString                 ( URI )
 
 
@@ -101,6 +100,7 @@ import           Common.Api                     ( Be
                                                 )
 import           Common.Schema                  ( C )
 import           Components
+import           Frontend.Context               ( AppT )
 import           Reflex.Dom.Ace                 ( AceConfig )
 
 replaceLocation
@@ -421,23 +421,23 @@ showClientError (FailureResponse rq rsp) =
   let status  = Sub.responseStatusCode rsp
       statusI = statusCode status
       msg =
-        Text.unlines
-          . catMaybes
-          $ [ Just
-            $  "The request to "
-            <> showUrl (Sub.requestPath rq)
-            <> " failed. The server responded with "
-            <> (Text.pack . show $ statusI)
-            <> " "
-            <> (Text.decodeUtf8 . statusMessage $ status)
-            <> "."
-            , if BL.null (Sub.responseBody rsp)
-              then Nothing
-              else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
-            , if statusI == 403
-              then Just "Please try reloading this page."
-              else Nothing
-            ]
+          Text.unlines
+            . catMaybes
+            $ [ Just
+              $  "The request to "
+              <> showUrl (Sub.requestPath rq)
+              <> " failed. The server responded with "
+              <> (Text.pack . show $ statusI)
+              <> " "
+              <> (Text.decodeUtf8 . statusMessage $ status)
+              <> "."
+              , if BL.null (Sub.responseBody rsp)
+                then Nothing
+                else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
+              , if statusI == 403
+                then Just "Please try reloading this page."
+                else Nothing
+              ]
   in  (msg, Just statusI)
 
 showClientError (DecodeFailure x _) =
@@ -477,40 +477,31 @@ requestBtn
      , TriggerEvent t m
      , MonadIO (Performable m)
      )
-  => (Dynamic t ActionState -> ApiWidget t m (Event t ()))
+  => (Dynamic t ActionState -> AppT t m (Event t ()))
   -> (  Event t ()
-     -> ApiWidget
-          t
-          m
-          (Event t (Request (Prerender.Client (ApiWidget t m)) a))
+     -> AppT t m (Event t (Request (Prerender.Client (AppT t m)) a))
      )
   -> Dynamic t Bool
   -> Dynamic t Bool
   -> Event t ()
-  -> ApiWidget
+  -> AppT
        t
        m
-       ( Event
-           t
-           (Response (Prerender.Client (ApiWidget t m)) a)
-       )
+       (Event t (Response (Prerender.Client (AppT t m)) a))
 requestBtn mkBtn req dynDisabled dynError reqEvAuto = do
 
-  rec dynState <- holdDyn def $ leftmost
-        [ ActionLoading <$ reqEv
-        , responseState <$> resultEv
-        , def <$ resultEvDelay
-        ]
+  rec
+    dynState <- holdDyn def $ leftmost
+      [ActionLoading <$ reqEv, responseState <$> resultEv, def <$ resultEvDelay]
 
-      reqEvMan <- mkBtn
-        ((disabledState <$> dynDisabled <*> dynError) <> dynState)
-      let reqEv' = leftmost [reqEvAuto, reqEvMan]
+    reqEvMan <- mkBtn ((disabledState <$> dynDisabled <*> dynError) <> dynState)
+    let reqEv' = leftmost [reqEvAuto, reqEvMan]
 
-      reqEv         <- req reqEv'
+    reqEv         <- req reqEv'
 
-      resultEv      <- Sub.requestingJs reqEv
+    resultEv      <- Sub.requestingJs reqEv
 
-      resultEvDelay <- debounce 2 resultEv
+    resultEvDelay <- debounce 2 resultEv
 
   pure resultEv
  where

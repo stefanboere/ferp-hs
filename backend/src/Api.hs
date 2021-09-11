@@ -14,13 +14,16 @@ module Api
   ( Api
   , api
   , server
-  ) where
+  )
+where
 
 import           Prelude                 hiding ( div )
 
 import           Control.Monad.Reader           ( asks
                                                 , liftIO
+                                                , ReaderT(..)
                                                 )
+import           Data.Aeson                     ( encode )
 import           Data.ByteString                ( ByteString )
 import qualified Frontend
 import           Lucid
@@ -65,9 +68,15 @@ frontendServer = hoistRoute Frontend.api prerenderApp Frontend.handlerOffline
 
 -- | The transformation converting the frontend to the backend
 prerenderApp
-  :: StaticWidget x (Event (SpiderTimeline Global) URI) -> App (Html ())
-prerenderApp page = do
-  (_, body) <- liftIO $ renderStatic (Frontend.withHeader page')
+  :: ReaderT
+       Frontend.Config
+       (StaticWidget x)
+       (Event (SpiderTimeline Global) URI)
+  -> App (Html ())
+prerenderApp pageT = do
+  cfg <- asks getConfig
+  let page = runReaderT pageT (configFrontend cfg)
+  (_, body) <- liftIO $ renderStatic (Frontend.withHeader (page' page))
   pure $ do
     doctype_
     html_ [lang_ "en"] $ do
@@ -83,6 +92,7 @@ prerenderApp page = do
           , rel_ "preload"
           , makeAttribute "as" "script"
           ]
+        script_ [type_ "text/plain"] (encode (configFrontend cfg))
         mapM_ asyncScript
               ["/static/vendor/ace/ace.js", "/static/vendor/tex-chtml.min.js"]
       body_ $ do
@@ -95,7 +105,7 @@ prerenderApp page = do
   asyncScript src =
     script_ [src_ src, type_ "text/javascript"] ("" :: ByteString)
 
-  page' _ = do
+  page' page _ = do
     x <- page
     holdDyn
       (URI { uriScheme    = Scheme "http"

@@ -7,7 +7,8 @@ module Frontend.Crud
   ( crudHandler
   , crudLinks
   , CrudApi
-  ) where
+  )
+where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Monad.Fix              ( MonadFix )
@@ -81,7 +82,7 @@ crudLinks dynUri = safelinkGroup
   ]
 
 crudHandler
-  :: WidgetConstraint js t m => RouteT CrudApi (ApiWidget t m) (Event t URI)
+  :: WidgetConstraint js t m => RouteT CrudApi (AppT t m) (Event t URI)
 crudHandler =
   (blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just))
     :<|> (channelsHandler :<|> channelEdit Nothing :<|> (channelEdit . Just))
@@ -89,7 +90,7 @@ crudHandler =
 blogsHandler
   :: (WidgetConstraint js t m)
   => Api.View Api.Be BlogN
-  -> ApiWidget t m (Event t URI)
+  -> AppT t m (Event t URI)
 blogsHandler = browseForm BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection blogId
                                                               unBlogId
@@ -109,8 +110,7 @@ blogsHandler = browseForm BrowseFormConfig
   }
   where unBlogId (BlogId x) = x
 
-blogEdit
-  :: WidgetConstraint js t m => Maybe BlogNId -> ApiWidget t m (Event t URI)
+blogEdit :: WidgetConstraint js t m => Maybe BlogNId -> AppT t m (Event t URI)
 blogEdit = editForm cfg $ \modBlogEv ->
   el "form"
     $    getCompose
@@ -182,7 +182,7 @@ blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")
 channelsHandler
   :: (WidgetConstraint js t m)
   => Api.View Api.Be ChannelT
-  -> ApiWidget t m (Event t URI)
+  -> AppT t m (Event t URI)
 channelsHandler = browseForm BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection channelId
                                                               unChannelId
@@ -201,7 +201,7 @@ channelsHandler = browseForm BrowseFormConfig
   where unChannelId (ChannelId x) = x
 
 channelEdit
-  :: WidgetConstraint js t m => Maybe ChannelId -> ApiWidget t m (Event t URI)
+  :: WidgetConstraint js t m => Maybe ChannelId -> AppT t m (Event t URI)
 channelEdit = editForm cfg $ \modBlogEv ->
   el "form"
     $    getCompose

@@ -36,7 +36,6 @@ let
     };
 
     shellToolOverrides = ghc: super: {
-      xdotool = pkgs.xdotool; # TODO remove
       haskell-language-server =
         (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
           supportedGhcVersions = [ "865" ];

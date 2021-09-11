@@ -64,6 +64,7 @@ library
     DevelMain
     Frontend.Api
     Frontend.Container
+    Frontend.Context
     Frontend.Core
     Frontend.Crud
     Frontend.Crud.Datagrid
@@ -74,6 +75,7 @@ library
     Nordtheme
 
   build-depends:
+    , aeson
     , bytestring
     , clay
     , common
@@ -115,7 +117,7 @@ executable frontend
     , base
     , frontend
 
-  if impl(ghcjs -any)
+  if impl(ghcjs)
     ghc-options: -dedupe
     cpp-options: -DGHCJS_BROWSER
 

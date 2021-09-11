@@ -20,7 +20,6 @@
 
 module DevelMain
   ( update
-  , updateAndRefreshBrowser
   , shutdown
   )
 where
@@ -50,30 +49,8 @@ import           Foreign.Store                  ( Store(..)
                                                 , withStore
                                                 )
 import           GHC.Word                       ( Word32 )
-import           System.Process                 ( readProcess
-                                                , callProcess
-                                                )
+
 import           Frontend                       ( mainWithHead )
-
-updateAndRefreshBrowser :: IO ()
-updateAndRefreshBrowser = do
-  update
-  refreshBrowserPage
-
-refreshBrowserPage :: IO ()
-refreshBrowserPage = do
-  w <- readProcess "xdotool" ["getactivewindow"] ""
-  callProcess
-    "xdotool"
-    [ "search"
-    , "--classname"
-    , "qutebrowser"
-    , "windowactivate"
-    , "--sync"
-    , "key"
-    , "r"
-    ]
-  callProcess "xdotool" ["windowactivate", w]
 
 -- | Start or restart the server.
 -- newStore is from foreign-store.

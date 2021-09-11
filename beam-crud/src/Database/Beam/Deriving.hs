@@ -90,7 +90,8 @@ instance Read a => FromJSON (BeamEnum a) where
       . Text.unpack
 
 instance Show a => ToJSON (BeamEnum a) where
-  toJSON = toJSON . Text.pack . show . unBeamEnum
+  toJSON     = toJSON . Text.pack . show . unBeamEnum
+  toEncoding = toEncoding . Text.pack . show . unBeamEnum
 
 -- instance BeamMigrateSqlBackend be => HasDefaultSqlDataType be (BeamEnum a) where
 --  defaultSqlDataType _ _ _ = intType

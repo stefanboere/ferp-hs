@@ -43,7 +43,8 @@ module Frontend.Crud.Datagrid
   , browseForm
   , linkWithSelection
   , downloadButtonWithSelection
-  ) where
+  )
+where
 
 import           Control.Lens                   ( Lens'
                                                 , over
@@ -89,7 +90,6 @@ import qualified Servant.Crud.Headers          as API
                                                 )
 import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator
-import           Servant.Subscriber.Reflex      ( ApiWidget )
 import           URI.ByteString                 ( URI )
 
 import           Common.Api                     ( Be
@@ -101,6 +101,7 @@ import           Common.Schema
 import           Components.Class
 import           Components.Input.Basic
 import           Components.Table
+import           Frontend.Context               ( AppT )
 import           Frontend.Crud.Utils
 
 fromApiView :: View Be a -> DatagridView API.Path (a Filter)
@@ -457,14 +458,11 @@ deleteListButton
      )
   => (  API.ExceptLimited [c]
      -> a Filter
-     -> Request (Prerender.Client (ApiWidget t m)) b
+     -> Request (Prerender.Client (AppT t m)) b
      ) -- ^ The delete request
   -> Dynamic t (Selection c) -- ^ The current selected primary keys
   -> Dynamic t (a Filter) -- ^ The current filter
-  -> ApiWidget
-       t
-       m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+  -> AppT t m (Event t (Response (Prerender.Client (AppT t m)) b))
 deleteListButton req selection dynFilter = requestBtn
   deleteBtn
   deleteReq
@@ -489,12 +487,9 @@ getListButton
      , TriggerEvent t m
      , MonadIO (Performable m)
      )
-  => (a -> Request (Prerender.Client (ApiWidget t m)) b) -- ^ The get request
+  => (a -> Request (Prerender.Client (AppT t m)) b) -- ^ The get request
   -> Dynamic t a -- ^ The current specified view (filters, sort, page)
-  -> ApiWidget
-       t
-       m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+  -> AppT t m (Event t (Response (Prerender.Client (AppT t m)) b))
 getListButton req dynView = do
   pb <- getPostBuild
   requestBtn refreshBtn
@@ -544,17 +539,17 @@ data BrowseFormConfig t m a c = BrowseFormConfig
   { _browseConfig_actions
       :: Dynamic t (View Be a)
       -> Dynamic t (Selection (PrimaryKey a Identity))
-      -> ApiWidget t m c
-  , _browseConfig_alerts :: c -> ApiWidget t m (Event t URI)
+      -> AppT t m c
+  , _browseConfig_alerts :: c -> AppT t m (Event t URI)
   , _browseConfig_getListReq
       :: View Be a
       -> Request
-           (Prerender.Client (ApiWidget t m))
+           (Prerender.Client (AppT t m))
            (API.GetListHeaders (a Identity))
   , _browseConfig_deleteListReq
       :: API.ExceptLimited [PrimaryKey a Identity]
       -> a Filter
-      -> Request (Prerender.Client (ApiWidget t m)) [PrimaryKey a Identity]
+      -> Request (Prerender.Client (AppT t m)) [PrimaryKey a Identity]
   , _browseConfig_header      :: Text
   , _browseConfig_insertRoute :: Link
   , _browseConfig_editRoute   :: PrimaryKey a Identity -> Link
@@ -562,7 +557,7 @@ data BrowseFormConfig t m a c = BrowseFormConfig
   , _browseConfig_columns
       :: [ Column
           t
-          (ApiWidget t m)
+          (AppT t m)
           (ViewOrderBy Be a)
           (a Filter)
           API.Path
@@ -586,7 +581,7 @@ browseForm
      )
   => BrowseFormConfig t m a c
   -> View Be a
-  -> ApiWidget t m (Event t URI)
+  -> AppT t m (Event t URI)
 browseForm cfg vw = elClass "div" "flex-column" $ do
   el "h1" $ text (_browseConfig_header cfg)
 

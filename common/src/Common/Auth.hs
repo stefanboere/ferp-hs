@@ -89,7 +89,8 @@ instance FromJSON AuthUser where
   parseJSON = genericParseJSON aesonOpts
 
 instance ToJSON AuthUser where
-  toJSON = genericToJSON aesonOpts
+  toJSON     = genericToJSON aesonOpts
+  toEncoding = genericToEncoding aesonOpts
 
 newtype Roles = Roles { unRoles :: [ Role ] } deriving (Eq, Show)
 
@@ -100,6 +101,7 @@ instance FromJSON Roles where
 
 instance ToJSON Roles where
   toJSON (Roles xs) = object ["roles" .= toJSON xs]
+  toEncoding (Roles xs) = pairs ("roles" .= xs)
 
 
 data Role = Regular | Extra | Administrator

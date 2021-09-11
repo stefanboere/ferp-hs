@@ -14,6 +14,8 @@ module Frontend
   , api
   , handlerOffline
   , withHeader
+  , Config(..)
+  , getConfigFromFile
   )
 where
 
@@ -21,6 +23,7 @@ import           Clay                    hiding ( icon
                                                 , id
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.Reader           ( ReaderT(..) )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Either                    ( fromRight )
@@ -42,10 +45,8 @@ import           Servant.Router
 import           URI.ByteString
 
 import           Components
-import           Frontend.Api                   ( refreshAccessTokenEvery
-                                                , ApiWidget
-                                                , runApi
-                                                )
+import           Frontend.Api                   ( refreshAccessTokenEvery )
+import           Frontend.Context
 import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
@@ -53,13 +54,17 @@ import           Frontend.Crud
 
 
 main :: IO ()
-main = mainWidget $ runApi $ withHeader mainPage
+main = mainWidget $ do
+  cfg <- getConfig
+  runAppT cfg $ withHeader mainPage
 
 mainWithHead :: IO ()
-mainWithHead = mainWidgetWithHead headWidget $ runApi $ do
-  withHeader mainPage
-  _ <- codeInputScripts
-  pure ()
+mainWithHead = do
+  cfg <- getConfigFromFile "config.json"
+  mainWidgetWithHead headWidget $ runAppT cfg $ do
+    withHeader mainPage
+    _ <- codeInputScripts
+    pure ()
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do
@@ -119,7 +124,7 @@ mainPage
      , HasJSContext m
      )
   => Event t Link
-  -> ApiWidget t m (Dynamic t URI)
+  -> AppT t m (Dynamic t URI)
 mainPage setRouteExtEv = do
   let routeHandler =
         route' (\_ uri -> uri) (\uri -> (uri, routeURI api handler uri))
@@ -151,9 +156,11 @@ sideNav
 sideNav dynUri = leftmost <$> sequence
   [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri, crudLinks dynUri]
 
-handler :: WidgetConstraint js t m => RouteT Api (ApiWidget t m) (Event t URI)
+handler :: WidgetConstraint js t m => RouteT Api (AppT t m) (Event t URI)
 handler = inputHandler :<|> coreHandler :<|> containerHandler :<|> crudHandler
 
-handlerOffline :: WidgetConstraint js t m => RouteT Api m (Event t URI)
+handlerOffline
+  :: WidgetConstraint js t m => RouteT Api (ReaderT Config m) (Event t URI)
 handlerOffline = hoistRoute (Proxy :: Proxy Api) runApi handler
+  where runApi m = ReaderT $ \cfg -> runAppT cfg m
 

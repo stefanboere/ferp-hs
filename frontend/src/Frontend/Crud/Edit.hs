@@ -14,7 +14,8 @@ module Frontend.Crud.Edit
   , applyPkFromPostResponse
   , EditFormConfig(..)
   , editForm
-  ) where
+  )
+where
 
 import           Control.Lens
 import           Control.Monad.Fix              ( MonadFix )
@@ -28,11 +29,11 @@ import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( LocationHdr )
 import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
-import           Servant.Subscriber.Reflex
 import           URI.ByteString                 ( URI )
 
 import           Common.Schema
 import           Components
+import           Frontend.Context               ( AppT )
 import           Frontend.Crud.Utils
 
 
@@ -61,12 +62,9 @@ getButton
      , TriggerEvent t m
      , MonadIO (Performable m)
      )
-  => (c -> Request (Prerender.Client (ApiWidget t m)) b) -- ^ The get request
+  => (c -> Request (Prerender.Client (AppT t m)) b) -- ^ The get request
   -> Maybe c -- ^ The primary key
-  -> ApiWidget
-       t
-       m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+  -> AppT t m (Event t (Response (Prerender.Client (AppT t m)) b))
 getButton _   Nothing   = pure never
 getButton req (Just pk) = do
   autoEv <- getPostBuild
@@ -88,12 +86,9 @@ deleteButton
      , TriggerEvent t m
      , MonadIO (Performable m)
      )
-  => (c -> Request (Prerender.Client (ApiWidget t m)) b) -- ^ The delete request
+  => (c -> Request (Prerender.Client (AppT t m)) b) -- ^ The delete request
   -> Maybe c -- ^ The primary key
-  -> ApiWidget
-       t
-       m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+  -> AppT t m (Event t (Response (Prerender.Client (AppT t m)) b))
 deleteButton _   Nothing   = pure never
 deleteButton req (Just pk) = requestBtn deleteBtn
                                         deleteReq
@@ -118,13 +113,10 @@ postButton
      , MonadIO (Performable m)
      , Eq a
      )
-  => (a -> Request (Prerender.Client (ApiWidget t m)) b) -- ^ The insert request
+  => (a -> Request (Prerender.Client (AppT t m)) b) -- ^ The insert request
   -> Dynamic t (Maybe a) -- ^ The form value
   -> Maybe c -- ^ The primary key
-  -> ApiWidget
-       t
-       m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+  -> AppT t m (Event t (Response (Prerender.Client (AppT t m)) b))
 postButton _   _      (Just _) = pure never
 postButton req dynRec Nothing  = requestBtn saveBtn
                                             (pure . postReq)
@@ -148,14 +140,14 @@ patchButton
      , Eq a
      , Monoid a
      )
-  => (c -> a -> Request (Prerender.Client (ApiWidget t m)) b) -- ^ The patch request
+  => (c -> a -> Request (Prerender.Client (AppT t m)) b) -- ^ The patch request
   -> Dynamic t (Maybe a) -- ^ The form value
   -> Event t () -- ^ The auto save event
   -> Maybe c -- ^ The primary key
-  -> ApiWidget
+  -> AppT
        t
        m
-       (Event t (Response (Prerender.Client (ApiWidget t m)) b))
+       (Event t (Response (Prerender.Client (AppT t m)) b))
 patchButton _   _        _       Nothing   = pure never
 patchButton req dynPatch patchEv (Just pk) = requestBtn
   saveBtn
@@ -245,22 +237,22 @@ data EditFormConfig t m a = EditFormConfig
       -> Event t (Maybe (PrimaryKey a Identity))
       -> Dynamic t (Maybe (a Identity))
       -> Dynamic t (a MaybeLast)
-      -> ApiWidget t m (Event t URI)
+      -> AppT t m (Event t URI)
   , _formConfig_getReq
       :: PrimaryKey a Identity
-      -> Request (Prerender.Client (ApiWidget t m)) (a Identity)
+      -> Request (Prerender.Client (AppT t m)) (a Identity)
   , _formConfig_deleteReq
       :: PrimaryKey a Identity
-      -> Request (Prerender.Client (ApiWidget t m)) NoContent
+      -> Request (Prerender.Client (AppT t m)) NoContent
   , _formConfig_postReq
       :: a Identity
       -> Request
-           (Prerender.Client (ApiWidget t m))
+           (Prerender.Client (AppT t m))
            (Headers '[LocationHdr] (PrimaryKey a Identity))
   , _formConfig_patchReq
       :: PrimaryKey a Identity
       -> a MaybeLast
-      -> Request (Prerender.Client (ApiWidget t m)) NoContent
+      -> Request (Prerender.Client (AppT t m)) NoContent
   , _formConfig_setPrimaryKey
       :: Maybe (PrimaryKey a Identity) -> a MaybeLast -> a MaybeLast
   , _formConfig_header           :: a MaybeLast -> Text
@@ -289,11 +281,11 @@ editForm
      -> EventWriterT
           t
           (MaybeLast URI)
-          (ApiWidget t m)
+          (AppT t m)
           (Dynamic t (a MaybeLast))
      )
   -> Maybe (PrimaryKey a Identity)
-  -> ApiWidget t m (Event t URI)
+  -> AppT t m (Event t URI)
 editForm cfg editor initPk = do
   rec
     el "h1" $ dynText (_formConfig_header cfg <$> mDynRec)

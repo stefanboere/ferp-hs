@@ -4,10 +4,10 @@
 {-# LANGUAGE TypeOperators #-}
 module Frontend.Api
   ( module Frontend.Api
-  , ApiWidget
-  ) where
+  , AppT
+  )
+where
 
-import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Identity          ( Identity )
 import           Data.Proxy                     ( Proxy(..) )
@@ -23,10 +23,9 @@ import           Servant.Crud.API
 import           Servant.Crud.Headers           ( ExceptLimited(..) )
 import           Servant.Crud.QueryOperator     ( Filter )
 import qualified Servant.Subscriber.Reflex     as Sub
-import           Servant.Subscriber.Reflex      ( ApiWidget
-                                                , FreeClient
-                                                )
+import           Servant.Subscriber.Reflex      ( FreeClient )
 
+import           Frontend.Context               ( AppT )
 import           Common.Api
 import           Common.Schema
 
@@ -55,10 +54,6 @@ refreshAccessTokenXhr ev = ignore <$> getAndDecode ("/auth/refresh" <$ ev)
   ignore :: Event t (Maybe ()) -> ()
   ignore _ = ()
 
-runApi
-  :: (MonadHold t m, MonadFix m, Prerender js t m) => ApiWidget t m a -> m a
-runApi = Sub.runApiWidget "ws://localhost:3005/subscriber"
-
 getBlog :: BlogNId -> FreeClient BlogN1
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
@@ -83,8 +78,7 @@ deleteChannels
   -> ExceptLimited [ChannelId]
   -> ChannelT Filter
   -> FreeClient [ChannelId]
-postChannel
-  :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
+postChannel :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
 postChannels :: Token -> [Channel] -> FreeClient [ChannelId]
 getChannels :: View Be ChannelT -> FreeClient (GetListHeaders Channel)
 getChannelLabels

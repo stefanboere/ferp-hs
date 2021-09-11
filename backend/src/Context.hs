@@ -32,6 +32,7 @@ import           Network.Wai.Handler.Warp       ( Port )
 import           Servant
 import           Servant.Auth.Server            ( JWTSettings )
 import           Servant.Server                 ( ServerError )
+import qualified Frontend                       ( Config(..) )
 
 import           OIDC
 
@@ -41,11 +42,15 @@ data Config = Config
   , configPort        :: Port
   , configOidc        :: OIDCConfig
   , configStaticDirectory :: FilePath
+  , configFrontend    :: Frontend.Config
   }
   deriving Generic
 
+instance FromDhall Frontend.Config where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
+
 instance FromDhall Config where
-  autoWith _ = genericAutoWith defaultInterpretOptions
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
 instance FromDhall Int where
   autoWith cfg = fromInteger <$> autoWith cfg

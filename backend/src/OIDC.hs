@@ -26,6 +26,8 @@ module OIDC
   )
 where
 
+import           Backend.Logger                 ( skipLowerPrefixInterpretOptions
+                                                )
 import           Control.Applicative            ( (<|>) )
 import           Control.Monad.Except
 import qualified Crypto.JOSE                   as Jose
@@ -63,6 +65,7 @@ import           Data.Time.Clock.POSIX          ( POSIXTime
                                                 )
 import           Dhall                          ( Generic
                                                 , FromDhall(..)
+                                                , genericAutoWith
                                                 )
 import           Jose.Internal.Parser           ( DecodableJwt(..)
                                                 , Payload(..)
@@ -295,7 +298,8 @@ instance FromJSON AuthInfo where
   parseJSON = Aeson.genericParseJSON aesonCamel
 
 instance ToJSON AuthInfo where
-  toJSON = Aeson.genericToJSON aesonCamel
+  toJSON     = Aeson.genericToJSON aesonCamel
+  toEncoding = Aeson.genericToEncoding aesonCamel
 
 
 setCookieBs :: SetCookie -> ByteString
