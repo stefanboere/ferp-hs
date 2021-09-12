@@ -14,6 +14,11 @@ category:        Web
 extra-doc-files: CHANGELOG.md
 tested-with:     GHC ==8.6.5
 
+flag debug-prerender
+  description: Enable prerender develmain module
+  manual:      true
+  default:     false
+
 common common-options
   build-depends:    base ^>=4.12.0.0
   ghc-options:
@@ -107,6 +112,15 @@ library
     , text
     , time
     , uri-bytestring
+
+  if flag(debug-prerender)
+    other-modules: DevelMainPrerender
+    build-depends:
+      , http-media
+      , lucid
+      , servant-crud-server
+      , servant-server
+      , warp
 
 executable frontend
   import:         common-options
