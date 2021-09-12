@@ -1,5 +1,5 @@
 { MathJax, ace-builds, reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc
-, reflex-platform, servant-subscriber }:
+, reflex-platform, servant-subscriber, keycloak-config-cli-src }:
 let
   project = reflex-platform.project ({ pkgs, ... }: {
     useWarp = true;
@@ -41,6 +41,7 @@ let
           supportedGhcVersions = [ "865" ];
         };
       brittany = ghc.brittany;
+      inherit keycloak-config-cli;
     };
 
     overrides = with pkgs.haskell.lib;
@@ -132,7 +133,12 @@ let
     '';
   });
 
+  keycloak-config-cli = pkgs.callPackage ./nix/keycloak-config-cli {
+    inherit keycloak-config-cli-src;
+  };
+
 in {
   ferp-hs = project // { inherit frontend-min vendor-lib keycloak-nordtheme; };
   brittany = pkgs.haskellPackages.brittany;
+  inherit keycloak-config-cli;
 }

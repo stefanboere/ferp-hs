@@ -41,17 +41,26 @@
       flake = false;
     };
 
+    keycloak-config-cli-src = {
+      url = "github:adorsys/keycloak-config-cli";
+      flake = false;
+    };
+
+    mvn2nix.url = "github:fzakaria/mvn2nix";
   };
 
   outputs = inputs@{ self, MathJax, ace-builds, flake-utils, pre-commit-hooks
     , reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc, reflex-platform
-    , servant-subscriber }:
+    , servant-subscriber, keycloak-config-cli-src, mvn2nix }:
     flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
-        reflex-platform-derivation = import reflex-platform { inherit system; };
+        reflex-platform-derivation = import reflex-platform {
+          inherit system;
+          nixpkgsOverlays = [ mvn2nix.overlay ];
+        };
         pkgs = import ./overlay.nix {
           inherit MathJax ace-builds reflex-dom-ace reflex-dom-contrib
-            reflex-dom-pandoc servant-subscriber;
+            reflex-dom-pandoc servant-subscriber keycloak-config-cli-src;
           reflex-platform = reflex-platform-derivation;
         };
       in {
@@ -76,6 +85,7 @@
         packages = {
           inherit (pkgs.ferp-hs) frontend-min;
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
+          inherit (pkgs) keycloak-config-cli;
         };
       });
 }
