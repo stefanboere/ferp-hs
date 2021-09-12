@@ -141,7 +141,8 @@ mainPage setRouteExtEv = do
   return $ fst <$> dynamicRoute
 
 -- brittany-disable-next-binding
-type Api = InputApi
+type Api = View
+    :<|> InputApi
     :<|> CoreApi
     :<|> ContainerApi
     :<|> CrudApi
@@ -156,8 +157,16 @@ sideNav
 sideNav dynUri = leftmost <$> sequence
   [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri, crudLinks dynUri]
 
+homeHandler :: (DomBuilder t m) => m (Event t URI)
+homeHandler = pure never
+
 handler :: WidgetConstraint js t m => RouteT Api (AppT t m) (Event t URI)
-handler = inputHandler :<|> coreHandler :<|> containerHandler :<|> crudHandler
+handler =
+  homeHandler
+    :<|> inputHandler
+    :<|> coreHandler
+    :<|> containerHandler
+    :<|> crudHandler
 
 handlerOffline
   :: WidgetConstraint js t m => RouteT Api (ReaderT Config m) (Event t URI)

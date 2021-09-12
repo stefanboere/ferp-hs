@@ -74,9 +74,8 @@ getUserRoles = unRoles . authRealmAccess
 
 -- | User information stored in the access token
 data AuthUser = AuthUser
-  { authName              :: Text
-  , authPreferredUsername :: Text
-  , authEmail             :: Text
+  { authPreferredUsername :: Text
+  , authEmail             :: Maybe Text
   , authEmailVerified     :: Bool
   , authRealmAccess       :: Roles
   }

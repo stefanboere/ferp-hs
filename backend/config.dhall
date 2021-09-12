@@ -7,10 +7,10 @@
   }
 , port = +3007
 , oidc =
-  { providerUri = "https://id.dev.boerevlist.nl/realms/ferp/"
+  { providerUri = "https://id.dev.boerevlist.nl/realms/ferp-hs/"
   , redirectUri = "http://localhost:3007/auth/return"
-  , clientSecret = "9996e480-301f-4362-8581-a92d4a6a2626"
-  , clientId = "ferp-hs"
+  , clientSecret = "58a6dffb-6f7a-4faf-a2fe-53ea7ba16ca4"
+  , clientId = "ferp-hs-backend"
   }
 , staticDirectory = "../result-frontend-min"
 , frontend.websocketUrl = "ws://localhost:3005/subscriber"
