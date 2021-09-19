@@ -322,12 +322,13 @@ in {
       locations."/" = {
         proxyPass = "http://localhost:${
             toString config.services.ferp-hs.backend.httpPort
-          }";
+          }/";
       };
-      locations."/api" = {
+      locations."/api/" = {
+        priority = 1;
         proxyPass = "http://localhost:${
             toString config.services.ferp-hs.backend-api.httpPort
-          }";
+          }/";
       };
     };
   };
