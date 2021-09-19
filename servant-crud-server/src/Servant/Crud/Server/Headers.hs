@@ -26,7 +26,8 @@ module Servant.Crud.Server.Headers
   , hTotalLink'
   -- * Types
   , module Servant.Crud.Headers
-  ) where
+  )
+where
 
 import           Prelude
 
@@ -80,6 +81,11 @@ import           Servant.Crud.API               ( View'(..) )
 import           Servant.Crud.Headers
 import           Servant.Crud.QueryObject       ( ToQueryText
                                                 , toQueryText
+                                                )
+import           Test.QuickCheck                ( Arbitrary
+                                                , arbitrary
+                                                , oneof
+                                                , shrink
                                                 )
 
 instance ToSample PathInfo where
@@ -170,13 +176,13 @@ instance HasForeignType lang ftype Integer => ToParams lang ftype Page where
 instance ToSample t => ToSample (ExceptLimited t) where
   toSamples _ =
     [ ("When some values should be excluded. " <> m, Except t)
-    | (m, t) <- toSamples (Proxy :: Proxy t)
-    ]
-    ++ [ ( "When the result should be restricted to only these values. " <> m
-         , LimitedTo t
-         )
-       | (m, t) <- toSamples (Proxy :: Proxy t)
-       ]
+      | (m, t) <- toSamples (Proxy :: Proxy t)
+      ]
+      ++ [ ( "When the result should be restricted to only these values. " <> m
+           , LimitedTo t
+           )
+         | (m, t) <- toSamples (Proxy :: Proxy t)
+         ]
 
 instance ToSchema t => ToSchema (ExceptLimited t)
 
@@ -320,3 +326,9 @@ instance ToParamSchema Offset where
 
 instance ToCapture (Capture "id" id) where
   toCapture _ = DocCapture "id" "The primary key of the resource"
+
+
+instance Arbitrary a => Arbitrary (ExceptLimited a) where
+  arbitrary = oneof [Except <$> arbitrary, LimitedTo <$> arbitrary]
+  shrink (Except    x) = Except <$> shrink x
+  shrink (LimitedTo x) = LimitedTo <$> shrink x

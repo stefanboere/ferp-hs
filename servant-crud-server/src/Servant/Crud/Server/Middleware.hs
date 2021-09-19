@@ -44,7 +44,7 @@ allowHeaderMiddleware api = modifyResponse'
     else resp
   )
  where
-    -- | apply a function that modifies a response as a 'Middleware'
+    -- apply a function that modifies a response as a 'Middleware'
   modifyResponse'
     :: ([Text] -> Network.Wai.Response -> Network.Wai.Response) -> Middleware
   modifyResponse' f appl req respond = appl req $ respond . f (pathInfo req)

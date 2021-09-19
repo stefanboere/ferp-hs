@@ -8,7 +8,10 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Types
-  () where
+  (-- * Re-exports
+    SqlSerial(..)
+  )
+where
 
 import           Data.Csv
 import           Data.Swagger                   ( ToParamSchema

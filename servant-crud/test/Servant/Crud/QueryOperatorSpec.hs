@@ -35,6 +35,10 @@ instance Arbitrary Text.Text where
   arbitrary = Text.pack <$> arbitrary
   shrink xs = Text.pack <$> shrink (Text.unpack xs)
 
+instance Arbitrary a => Arbitrary (MaybeLast a) where
+  arbitrary = MaybeLast <$> arbitrary
+  shrink xs = MaybeLast <$> shrink (unMaybeLast xs)
+
 spec :: Spec
 spec = do
   describe "toQueryText" $ do
@@ -56,11 +60,17 @@ spec = do
       (not . null $ x)
         ==>        toQueryText
                      "id"
-                     (E (Just (fromString x)) :: OpEntry "ge" 'Normal String)
+                     (E (MaybeLast $ Just (fromString x)) :: OpEntry
+                         "ge"
+                         'Normal
+                         String
+                     )
         `shouldBe` [("id[ge]", Just (fromString x))]
 
     it "should hide brackets for empty symbols" $ property $ \x ->
-      toQueryText "id" (E (Just (fromString x)) :: OpEntry "" 'Normal String)
+      toQueryText
+          "id"
+          (E (MaybeLast $ Just (fromString x)) :: OpEntry "" 'Normal String)
         `shouldBe` [("id", Just (fromString x))]
 
   describe "fromQueryText" $ do
@@ -87,4 +97,4 @@ spec = do
 
     it "should work parse Entry types properly"
       $          fromQueryText "id" [("id[ge]", Just "1")]
-      `shouldBe` Found (E (Just 1) :: OpEntry "ge" 'Normal Int)
+      `shouldBe` Found (E (MaybeLast $ Just 1) :: OpEntry "ge" 'Normal Int)

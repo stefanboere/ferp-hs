@@ -13,7 +13,8 @@ module Frontend.Crud.Lookup
   , fkProp
   , editFk
   , gridFkProp
-  ) where
+  )
+where
 
 import           Control.Lens                   ( Lens'
                                                 , set
@@ -88,6 +89,7 @@ lookupInput
      , EventWriter t (MaybeLast URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
+     , Show (PrimaryKey a Identity)
      )
   => LookupInputConfig t m (PrimaryKey a Identity) (Maybe (Named a Identity))
   -> m (DomInputEl t m (Maybe (Named a Identity)))
@@ -253,6 +255,7 @@ editFk
      , EventWriter t (MaybeLast URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
+     , Show (PrimaryKey b Identity)
      )
   => FkProperty t m a b
   -> Event t (a MaybeLast)
@@ -261,13 +264,12 @@ editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
   (_fkProp_label prp)
   (respectFocus lookupInput)
   (inputConfig'
-      (labelEndpoint (_fkProp_searchField prp)
-                     (_fkProp_endpoint prp)
-                     (_fkProp_editLink prp)
-      )
-      Nothing
+    (labelEndpoint (_fkProp_searchField prp)
+                   (_fkProp_endpoint prp)
+                   (_fkProp_editLink prp)
     )
-    { _inputConfig_setValue = viewer <$> setEv
+    Nothing
+  ) { _inputConfig_setValue = viewer <$> setEv
     }
  where
   mksetter (Just x) = set (_fkProp_lens prp) (purePatch x)

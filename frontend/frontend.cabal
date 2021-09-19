@@ -16,8 +16,8 @@ tested-with:     GHC ==8.6.5
 
 flag debug-prerender
   description: Enable prerender develmain module
-  manual:      true
-  default:     false
+  manual:      True
+  default:     False
 
 common common-options
   build-depends:    base ^>=4.12.0.0
