@@ -52,7 +52,21 @@
   outputs = inputs@{ self, MathJax, ace-builds, flake-utils, pre-commit-hooks
     , reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc, reflex-platform
     , servant-subscriber, keycloak-config-cli-src, mvn2nix }:
-    flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    {
+      nixosModules = {
+        ferp-hs = ./nix/modules/ferp-hs.nix;
+        keycloak-config = ./nix/modules/keycloak-config.nix;
+      };
+
+      overlay = final: prev: {
+        inherit (self.packages.${final.system})
+          keycloak-config-cli keycloak-nordtheme;
+        ferp-hs = {
+          inherit (self.packages.${final.system})
+            frontend-min backend backend-api;
+        };
+      };
+    } // flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
         reflex-platform-derivation = import reflex-platform {
           inherit system;
@@ -85,7 +99,7 @@
         packages = {
           inherit (pkgs.ferp-hs) frontend-min;
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
-          inherit (pkgs) keycloak-config-cli;
+          inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
       });
 }

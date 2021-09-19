@@ -67,6 +67,8 @@ let
           self.callHackage "servant-quickcheck" "0.0.7.4" { };
         dhall = doJailbreak (super.dhall);
 
+        monoid-subclasses = self.callHackage "monoid-subclasses" "0.4.6.1" { };
+
         generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
         true-name = doJailbreak (unmarkBroken super.true-name);
         servant-server = dontCheck super.servant-server;
@@ -127,18 +129,14 @@ let
     '';
   };
 
-  keycloak-nordtheme = pkgs.keycloak.overrideAttrs (oldAttrs: {
-    installPhase = oldAttrs.installPhase + ''
-      cp -r ${./keycloak-nordtheme} $out/themes/nordtheme
-    '';
-  });
+  keycloak-nordtheme = ./keycloak-nordtheme;
 
   keycloak-config-cli = pkgs.callPackage ./nix/keycloak-config-cli {
     inherit keycloak-config-cli-src;
   };
 
 in {
-  ferp-hs = project // { inherit frontend-min vendor-lib keycloak-nordtheme; };
+  ferp-hs = project // { inherit frontend-min vendor-lib; };
   brittany = pkgs.haskellPackages.brittany;
-  inherit keycloak-config-cli;
+  inherit keycloak-config-cli keycloak-nordtheme;
 }
