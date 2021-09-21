@@ -32,7 +32,7 @@
     };
 
     reflex-platform = {
-      url = "path:/home/stefan/Projects/reflex-platform";
+      url = "github:reflex-frp/reflex-platform";
       flake = false;
     };
 

@@ -193,13 +193,17 @@
     "reflex-platform": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-Q4jaabsJDXVV8q4GJA4z7jOzXOwWDIUj7uMTtNShRis=",
-        "path": "/home/stefan/Projects/reflex-platform",
-        "type": "path"
+        "lastModified": 1631565478,
+        "narHash": "sha256-jBMaISXFhn1HEOybe2kGFpOGF9i8hd1sZpbTtThHXN4=",
+        "owner": "reflex-frp",
+        "repo": "reflex-platform",
+        "rev": "2df765f73e7e638a795508a2fb67b98e9f3bbf7d",
+        "type": "github"
       },
       "original": {
-        "path": "/home/stefan/Projects/reflex-platform",
-        "type": "path"
+        "owner": "reflex-frp",
+        "repo": "reflex-platform",
+        "type": "github"
       }
     },
     "root": {

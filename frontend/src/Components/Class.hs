@@ -18,7 +18,8 @@ module Components.Class
   , universe
   , totalCountOrSize
   , buffered
-  ) where
+  )
+where
 
 
 import           Clay
@@ -92,8 +93,8 @@ type WidgetConstraint js t m
 -- together with the total number of records in the dataset.
 -- Differs from a set in that each element is indexed by a key k, usually the offset position.
 data MapSubset k a = MapSubset
-  { _ms_data       :: Map k a
-  , _ms_totalCount :: Maybe Integer
+  { _ms_data       :: !(Map k a)
+  , _ms_totalCount :: !(Maybe Integer)
   }
 
 -- | An empty subset of a set of unknown size
@@ -145,22 +146,21 @@ buffered buffer vList = do
   pb       <- getPostBuild
   let extendWin o l =
         (Prelude.max 0 (o - l * (buffer - 1) `Prelude.div` 2), l * buffer)
-  rec
-    let winHitEdge = attachWithMaybe
-          (\(oldOffset, oldLimit) (winOffset, winLimit) ->
-            if winOffset
-               >  oldOffset
-               && winOffset
-               +  winLimit
-               <  oldOffset
-               +  oldLimit
-            then
-              Nothing
-            else
-              Just (extendWin winOffset winLimit)
-          )
-          (current winBuffered)
-          (updated win)
-    winBuffered <- holdDyn (0, 0) $ leftmost
-      [winHitEdge, attachPromptlyDynWith (\(x, y) _ -> extendWin x y) win pb]
+  rec let winHitEdge = attachWithMaybe
+            (\(oldOffset, oldLimit) (winOffset, winLimit) ->
+              if winOffset
+                 >  oldOffset
+                 && winOffset
+                 +  winLimit
+                 <  oldOffset
+                 +  oldLimit
+              then
+                Nothing
+              else
+                Just (extendWin winOffset winLimit)
+            )
+            (current winBuffered)
+            (updated win)
+      winBuffered <- holdDyn (0, 0) $ leftmost
+        [winHitEdge, attachPromptlyDynWith (\(x, y) _ -> extendWin x y) win pb]
   return (winBuffered, m)

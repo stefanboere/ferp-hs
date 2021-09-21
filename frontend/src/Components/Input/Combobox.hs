@@ -13,7 +13,8 @@ module Components.Input.Combobox
   , altSelectInput
   , altSelectInput'
   , OptionsRequest(..)
-  ) where
+  )
+where
 
 import           Prelude                 hiding ( (**)
                                                 , rem
@@ -101,8 +102,8 @@ comboboxStyle = do
 
 
 data ComboboxValue k = ComboboxValue
-  { _cb_selection :: k
-  , _cb_text      :: Text
+  { _cb_selection :: !k
+  , _cb_text      :: !Text
   }
   deriving (Show, Eq)
 
@@ -406,18 +407,8 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
                                (totalCountOrSize <$> setOptsEv)
 
 -- Clear the selection if the text is null
-    let clearEv = ffilter Text.null $ updated (_inputEl_value searchStrInput)
-    let clearNoOptionEv = ffilter (== Just 0) $ updated dynCount
-    let autofillEv =
-          gate (Prelude.not . Text.null <$> current searchText)
-            $ ffilter (== Just 1)
-            $ updated dynCount
-    let autofillExact = fmapMaybe Prelude.id $ leftmost
-          [ attachWith (flip findExactMatch) (current dynOptions) searchEv
-          , attachWith findExactMatch
-                       (current searchText)
-                       (_ms_data <$> setOptsEv)
-          ]
+    let autofillExact =
+          attachWithMaybe (flip findExactMatch) (current dynOptions) searchEv
 
 -- Update the text on lose focus if a value has been selected
     let
@@ -426,11 +417,18 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
             (current (Prelude.not . Text.null <$> _inputEl_value searchStrInput)
             )
           $ ffilter Prelude.not (updated hasFocusDyn)
-    let setTextEv = fmapMaybe (fmap snd) $ tagPromptlyDyn
-          dynSelection
-          (leftmost
-            [() <$ lostFocusEv, () <$ arrowUpDownEv, () <$ selectedIndexEv]
-          )
+    let selectedIndexWithValEv =
+          attachWith (Map.!?) (current dynOptions) selectedIndexEv
+    let arrowUpDownWithValEv = attachWithMaybe
+          selectNext
+          ((,) <$> current dynOptions <*> current selectedIndex)
+          arrowUpDownEv
+    let setTextEv = fmapMaybe (fmap snd) $ leftmost
+          [ tag (current dynSelection) lostFocusEv
+          , arrowUpDownWithValEv
+          , selectedIndexWithValEv
+          ]
+
 
     selectedIndex' <- holdDyn (findIndex initialKey initOpts) $ leftmost
       [ attachWithMaybe findNewIndex
@@ -446,13 +444,10 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
 
     dynSelection <- holdDyn (toPair $ _inputConfig_initialValue cfg) $ leftmost
       [ toPair <$> setDynSelection
-      , fmap snd . Map.lookupMin <$> tagPromptlyDyn dynOptions autofillEv
-      , Nothing <$ clearEv
-      , Nothing <$ clearNoOptionEv
-      , attachWith (Map.!?) (current dynOptions) selectedIndexEv
-      , attachWithMaybe selectNext
-                        ((,) <$> current dynOptions <*> current selectedIndex)
-                        arrowUpDownEv
+      , attachWithMaybe fillOnSetOpts (current searchText) setOptsEv
+      , Nothing <$ ffilter Text.null (updated (_inputEl_value searchStrInput))
+      , selectedIndexWithValEv
+      , arrowUpDownWithValEv
       , Just <$> autofillExact
       ]
 
@@ -473,6 +468,16 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
 
   pure (InputEl comboValUniq hasFocusDyn inputEls, dynStatusFull)
  where
+  fillOnSetOpts curSearchText setOpts
+    | _ms_totalCount setOpts == Just 0
+    = Just Nothing
+    | -- Clear if no options present
+      _ms_totalCount setOpts == Just 1 && Prelude.not (Text.null curSearchText)
+    = fmap (Just . snd) . Map.lookupMin $ _ms_data setOpts
+    |  -- Try to autofill if there is only one option
+      otherwise
+    = Just <$> findExactMatch curSearchText (_ms_data setOpts)
+
   needsNewPage m pg@(o, l) =
     case (fst <$> Map.lookupMin m, fst <$> Map.lookupMax m) of
       (Just o', Just ol') ->
@@ -623,9 +628,9 @@ multiComboboxInput showOpt allOptions cfg = do
 
       let selectionDyn = _cb_selection <$> _inputEl_value r
 
-      let addOnChange = attachPromptlyDynWithMaybe
+      let addOnChange = attachWithMaybe
             const
-            selectionDyn
+            (current selectionDyn)
             (ffilter Prelude.not (updated (_inputEl_hasFocus r)))
 
       let enabledDyn = current ((/= InputDisabled) <$> _inputConfig_status cfg)
