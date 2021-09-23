@@ -77,7 +77,7 @@
             reflex-dom-pandoc servant-subscriber keycloak-config-cli-src;
           reflex-platform = reflex-platform-derivation;
         };
-      in {
+      in rec {
         checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
             src = ./.;
@@ -101,5 +101,7 @@
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
+
+        apps = { inherit (packages) backend backend-api; };
       });
 }

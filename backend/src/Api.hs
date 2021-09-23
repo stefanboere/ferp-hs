@@ -92,7 +92,7 @@ prerenderApp pageT = do
           , rel_ "preload"
           , makeAttribute "as" "script"
           ]
-        script_ [type_ "text/plain"] (encode (configFrontend cfg))
+        script_ [type_ "text/plain", id_ "config"] (encode (configFrontend cfg))
         mapM_ asyncScript
               ["/static/vendor/ace/ace.js", "/static/vendor/tex-chtml.min.js"]
       body_ $ do

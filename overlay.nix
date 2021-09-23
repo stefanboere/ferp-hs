@@ -72,6 +72,9 @@ let
         generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
         true-name = doJailbreak (unmarkBroken super.true-name);
         servant-server = dontCheck super.servant-server;
+
+        backend = justStaticExecutables super.backend;
+        backend-api = justStaticExecutables super.backend-api;
       };
   });
 

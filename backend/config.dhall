@@ -1,3 +1,5 @@
+let clientSecret = /run/secrets/oidc-client-secret as Text
+in
 { info =
   { title = "Ferp-hs"
   , description = "A Functional web api framework."
@@ -9,7 +11,7 @@
 , oidc =
   { providerUri = "https://id.dev.boerevlist.nl/realms/ferp-hs/"
   , redirectUri = "http://localhost:3007/auth/return"
-  , clientSecret = "58a6dffb-6f7a-4faf-a2fe-53ea7ba16ca4"
+  , clientSecret = clientSecret
   , clientId = "ferp-hs-backend"
   }
 , staticDirectory = "../result-frontend-min"

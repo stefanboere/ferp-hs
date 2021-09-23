@@ -89,7 +89,6 @@ lookupInput
      , EventWriter t (MaybeLast URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
-     , Show (PrimaryKey a Identity)
      )
   => LookupInputConfig t m (PrimaryKey a Identity) (Maybe (Named a Identity))
   -> m (DomInputEl t m (Maybe (Named a Identity)))
@@ -255,7 +254,6 @@ editFk
      , EventWriter t (MaybeLast URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
-     , Show (PrimaryKey b Identity)
      )
   => FkProperty t m a b
   -> Event t (a MaybeLast)
