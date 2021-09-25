@@ -334,7 +334,7 @@ in {
         priority = 1;
         proxyPass = "http://localhost:${
             toString config.services.ferp-hs.backend-api.httpPort
-          }/";
+          }";
         proxyWebsockets = true;
       };
     };
