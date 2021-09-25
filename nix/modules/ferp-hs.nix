@@ -61,7 +61,7 @@ let
       redirectUri = "${frontendUrl}/auth/return";
     };
     staticDirectory = "${cfg.frontendPackage}";
-    frontend.websocketUrl = "${frontendUrlWs}/api/subscriber";
+    frontend.websocketUrl = "${frontendUrlWs}/subscriber";
   };
 
   backendApiConfig = let
@@ -329,6 +329,13 @@ in {
         proxyPass = "http://localhost:${
             toString config.services.ferp-hs.backend-api.httpPort
           }/";
+      };
+      locations."/subscriber" = {
+        priority = 1;
+        proxyPass = "http://localhost:${
+            toString config.services.ferp-hs.backend-api.httpPort
+          }/";
+        proxyWebsockets = true;
       };
     };
   };

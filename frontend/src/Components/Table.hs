@@ -31,7 +31,8 @@ module Components.Table
   , ViewWindow(..)
   , SortOrder(..)
   , FilterCondition(..)
-  ) where
+  )
+where
 
 import           Clay                    hiding ( icon )
 import           Control.Lens                   ( (^.) )
@@ -90,6 +91,7 @@ tableStyle = do
     overflow auto
     display flex
     height (pct 100)
+    minHeight (rem 15)
 
   ".full-row-select" ? do
     cursor pointer
