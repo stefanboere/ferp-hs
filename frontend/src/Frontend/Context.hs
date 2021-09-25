@@ -11,11 +11,14 @@ where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( ReaderT(..) )
-import           Control.Lens                   ( (^.) )
 import           Data.Aeson
 import           Data.Text                      ( Text )
 import qualified Data.Text.Encoding            as Text
 import           GHC.Generics                   ( Generic )
+import           GHCJS.DOM
+import           GHCJS.DOM.Document             ( getHead )
+import           GHCJS.DOM.Element              ( getInnerHTML )
+import           GHCJS.DOM.ParentNode           ( querySelector )
 import           Reflex.Dom                     ( Prerender
                                                 , MonadHold
                                                 )
@@ -42,12 +45,16 @@ instance ToJSON Config where
 
 getConfig :: MonadJSM m => m Config
 getConfig = liftJSM $ do
-  doc       <- jsg ("document" :: Text)
-  m         <- doc ^. js1 ("getElementById" :: Text) ("config" :: Text)
-  htmlJs    <- m ^. js ("innerHtml" :: Text)
-  Just html <- fromJSVal htmlJs
-  either fail pure . eitherDecodeStrict' $ Text.encodeUtf8 html
-
+  Just doc <- currentDocument
+  Just hd  <- getHead doc
+  node     <- maybe (fail "Config element not found") pure
+    =<< querySelector hd ("#config" :: Text)
+  fmap (decodeAesonOrFail . Text.encodeUtf8) (getInnerHTML node)
+ where
+  decodeAesonOrFail x = case eitherDecodeStrict' x of
+    Left e ->
+      error ("Frontend.Context.getConfig: error when decoding json: " ++ e)
+    Right x' -> x'
 
 getConfigFromFile :: FilePath -> IO Config
 getConfigFromFile file = eitherDecodeFileStrict' file >>= either fail pure
