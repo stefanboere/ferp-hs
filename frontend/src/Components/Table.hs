@@ -91,7 +91,7 @@ tableStyle = do
     overflow auto
     display flex
     height (pct 100)
-    minHeight (rem 15)
+    minHeight (px 180)
 
   ".full-row-select" ? do
     cursor pointer
@@ -322,13 +322,13 @@ datagrid i' cnt = elClass "div" "datagrid-wrapper" $ do
       -- resizeDetector is meant to contain the content you want to know the size of
       -- However, we'd need to put the entire datagrid in the prerender.
       -- To avoid this, since we only need the height anyway, we put it on the left
-  dynHeight <- prerender (pure (constDyn Nothing)) $ do
+  dynHeight <- prerender (pure (constDyn (Just 180))) $ do
     (resizeEv, _) <- resizeDetectorWithStyle "margin-right:-1px;"
       $ elAttr "div" (Map.singleton "style" "width:1px") blank
     holdDyn Nothing (snd <$> resizeEv)
 
   elClass "table" ("datagrid datagrid-" <> pack (show i'))
-    $ cnt (join dynHeight)
+    $ cnt (fmap (Prelude.max 180) <$> join dynHeight)
 
 linkCell :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
 linkCell dynHref = elClass "td" "center link" . elDynAttr
