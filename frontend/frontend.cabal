@@ -97,6 +97,7 @@ library
     , jsaddle
     , lens
     , mtl
+    , network-uri
     , pandoc-types
     , process
     , random

@@ -126,8 +126,7 @@ mainPage
   => Event t Link
   -> AppT t m (Dynamic t URI)
 mainPage setRouteExtEv = do
-  let routeHandler =
-        route' (\_ uri -> uri) (\uri -> (uri, routeURI api handler uri))
+  let routeHandler = route' encode (\uri -> (uri, routeURI api handler uri))
 
   rec
     dynamicRoute <- routeHandler changeRoute
@@ -139,6 +138,12 @@ mainPage setRouteExtEv = do
   refreshAccessTokenEvery 300
 
   return $ fst <$> dynamicRoute
+ where
+  encode :: URI -> URI -> URI
+  encode uri0 uri1 = uri0 { uriPath     = uriPath uri1
+                          , uriQuery    = uriQuery uri1
+                          , uriFragment = uriFragment uri1
+                          }
 
 -- brittany-disable-next-binding
 type Api = View

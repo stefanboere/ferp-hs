@@ -70,6 +70,7 @@ import           GHCJS.DOM.Types                ( SerializedScriptValue(..)
                                                 , pToJSVal
                                                 )
 import           Network.HTTP.Types
+import qualified Network.URI                   as L
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
@@ -86,7 +87,6 @@ import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import qualified Servant.Links                 as L
                                                 ( Link
-                                                , URI(..)
                                                 , linkURI
                                                 )
 import qualified Servant.Subscriber.Reflex     as Sub
@@ -114,14 +114,22 @@ replaceLocationUri
   => Event t L.URI
   -> m ()
 replaceLocationUri lEv = prerender_ (pure ()) $ do
-  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem <$> lEv)
+  host  <- getLocationHost
+  proto <- getLocationProtocol
+  _     <- manageHistory
+    (HistoryCommand_ReplaceState . historyItem host proto <$> lEv)
   pure ()
  where
-  historyItem :: L.URI -> HistoryStateUpdate
-  historyItem uri = HistoryStateUpdate
+  historyItem :: Text -> Text -> L.URI -> HistoryStateUpdate
+  historyItem proto host uri = HistoryStateUpdate
     { _historyStateUpdate_state = SerializedScriptValue (pToJSVal False)
     , _historyStateUpdate_title = ""
-    , _historyStateUpdate_uri   = Just uri { L.uriPath = "/" <> L.uriPath uri }
+    , _historyStateUpdate_uri   = Just uri
+      { L.uriPath      = "/" <> L.uriPath uri
+      , L.uriScheme    = Text.unpack proto
+      , L.uriAuthority = Just
+                           $ L.nullURIAuth { L.uriRegName = Text.unpack host }
+      }
     }
 
 
