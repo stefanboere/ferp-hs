@@ -22,11 +22,13 @@ where
 import           Clay                    hiding ( icon
                                                 , id
                                                 )
+import           Control.Monad                  ( unless )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( ReaderT(..) )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Either                    ( fromRight )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
 import           Data.Text.Lazy                 ( toStrict )
 import qualified Data.Text.Lazy.IO             as LText
@@ -56,13 +58,13 @@ import           Frontend.Crud
 main :: IO ()
 main = mainWidget $ do
   cfg <- getConfig
-  runAppT cfg $ withHeader mainPage
+  runAppT cfg $ withHeader (mainPage False)
 
 mainWithHead :: IO ()
 mainWithHead = do
   cfg <- getConfigFromFile "config.json"
   mainWidgetWithHead headWidget $ runAppT cfg $ do
-    withHeader mainPage
+    withHeader (mainPage True)
     _ <- codeInputScripts
     pure ()
 
@@ -123,10 +125,12 @@ mainPage
      , HasJSContext (Performable m)
      , HasJSContext m
      )
-  => Event t Link
+  => Bool
+  -> Event t Link
   -> AppT t m (Dynamic t URI)
-mainPage setRouteExtEv = do
-  let routeHandler = route' encode (\uri -> (uri, routeURI api handler uri))
+mainPage useFragment setRouteExtEv = do
+  let routeHandler =
+        route' encode (\uri -> (decode uri, routeURI api handler (decode uri)))
 
   rec
     dynamicRoute <- routeHandler changeRoute
@@ -135,15 +139,22 @@ mainPage setRouteExtEv = do
     let changeRoute =
           leftmost [coerceUri . linkURI <$> setRouteExtEv, routeSetEv]
 
-  refreshAccessTokenEvery 300
+  unless useFragment $ refreshAccessTokenEvery 300
 
   return $ fst <$> dynamicRoute
  where
+  decode :: URI -> URI
+  decode uri = if useFragment
+    then uri { uriPath = fromMaybe "" $ uriFragment uri, uriFragment = Nothing }
+    else uri
+
   encode :: URI -> URI -> URI
-  encode uri0 uri1 = uri0 { uriPath     = uriPath uri1
-                          , uriQuery    = uriQuery uri1
-                          , uriFragment = uriFragment uri1
-                          }
+  encode uri0 uri1 = if useFragment
+    then uri0 { uriQuery = uriQuery uri1, uriFragment = Just $ uriPath uri1 }
+    else uri0 { uriQuery    = uriQuery uri1
+              , uriFragment = uriFragment uri1
+              , uriPath     = uriPath uri1
+              }
 
 -- brittany-disable-next-binding
 type Api = View

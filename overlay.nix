@@ -1,82 +1,88 @@
 { MathJax, ace-builds, reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc
 , reflex-platform, servant-subscriber, keycloak-config-cli-src }:
 let
-  project = reflex-platform.project ({ pkgs, ... }: {
-    useWarp = true;
-    withHoogle = false;
-    packages = {
-      backend = ./backend;
-      backend-api = ./backend-api;
-      backend-extra = ./backend-extra;
-      beam-crud = ./beam-crud;
-      common = ./common;
-      frontend = ./frontend;
-      servant-ac = ./servant-ac;
-      servant-ac-server = ./servant-ac-server;
-      servant-crud = ./servant-crud;
-      servant-crud-server = ./servant-crud-server;
-      servant-subscriber-reflex = ./servant-subscriber-reflex;
-    };
-
-    shells = {
-      ghc = [
-        "backend"
-        "backend-api"
-        "backend-extra"
-        "beam-crud"
-        "common"
-        "frontend"
-        "servant-ac"
-        "servant-ac-server"
-        "servant-crud"
-        "servant-crud-server"
-        "servant-subscriber-reflex"
-      ];
-      ghcjs = [ "common" "frontend" "servant-subscriber-reflex" ];
-    };
-
-    shellToolOverrides = ghc: super: {
-      haskell-language-server =
-        (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
-          supportedGhcVersions = [ "865" ];
-        };
-      brittany = ghc.brittany;
-      inherit keycloak-config-cli;
-    };
-
-    overrides = with pkgs.haskell.lib;
-      self: super: {
-        # Prevents ghcjs build being stuck, see reflex-platform#717
-        mmorph = self.callHackage "mmorph" "1.1.3" { };
-        clay = self.callHackage "clay" "0.13.3" { };
-        reflex-dom-ace = self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { };
-        reflex-dom-contrib = doJailbreak
-          (self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
-        oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
-        servant-subscriber =
-          self.callCabal2nix "servant-subscriber" servant-subscriber { };
-        reflex-dom-core = disableCabalFlag
-          (disableCabalFlag super.reflex-dom-core "hydration-tests") "gc-tests";
-
-        reflex-dom-pandoc =
-          self.callCabal2nix "reflex-dom-pandoc" reflex-dom-pandoc { };
-        servant-aeson-specs =
-          dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
-        servant-docs = dontCheck super.servant-docs;
-        servant-quickcheck =
-          self.callHackage "servant-quickcheck" "0.0.7.4" { };
-        dhall = doJailbreak (super.dhall);
-
-        monoid-subclasses = self.callHackage "monoid-subclasses" "0.4.6.1" { };
-
-        generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
-        true-name = doJailbreak (unmarkBroken super.true-name);
-        servant-server = dontCheck super.servant-server;
-
-        backend = justStaticExecutables super.backend;
-        backend-api = justStaticExecutables super.backend-api;
+  project = useWarp:
+    reflex-platform.project ({ pkgs, ... }: {
+      #      inherit useWarp; TODO put this back
+      useWarp = false;
+      withHoogle = false;
+      packages = {
+        backend = ./backend;
+        backend-api = ./backend-api;
+        backend-extra = ./backend-extra;
+        beam-crud = ./beam-crud;
+        common = ./common;
+        frontend = ./frontend;
+        servant-ac = ./servant-ac;
+        servant-ac-server = ./servant-ac-server;
+        servant-crud = ./servant-crud;
+        servant-crud-server = ./servant-crud-server;
+        servant-subscriber-reflex = ./servant-subscriber-reflex;
       };
-  });
+
+      shells = {
+        ghc = [
+          "backend"
+          "backend-api"
+          "backend-extra"
+          "beam-crud"
+          "common"
+          "frontend"
+          "servant-ac"
+          "servant-ac-server"
+          "servant-crud"
+          "servant-crud-server"
+          "servant-subscriber-reflex"
+        ];
+        ghcjs = [ "common" "frontend" "servant-subscriber-reflex" ];
+      };
+
+      shellToolOverrides = ghc: super: {
+        haskell-language-server =
+          (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
+            supportedGhcVersions = [ "865" ];
+          };
+        brittany = ghc.brittany;
+        inherit keycloak-config-cli;
+      };
+
+      overrides = with pkgs.haskell.lib;
+        self: super: {
+          # Prevents ghcjs build being stuck, see reflex-platform#717
+          mmorph = self.callHackage "mmorph" "1.1.3" { };
+          clay = self.callHackage "clay" "0.13.3" { };
+          reflex-dom-ace =
+            self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { };
+          reflex-dom-contrib = doJailbreak
+            (self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
+          oidc-client =
+            dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
+          servant-subscriber =
+            self.callCabal2nix "servant-subscriber" servant-subscriber { };
+          reflex-dom-core = disableCabalFlag
+            (disableCabalFlag super.reflex-dom-core "hydration-tests")
+            "gc-tests";
+
+          reflex-dom-pandoc =
+            self.callCabal2nix "reflex-dom-pandoc" reflex-dom-pandoc { };
+          servant-aeson-specs =
+            dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
+          servant-docs = dontCheck super.servant-docs;
+          servant-quickcheck =
+            self.callHackage "servant-quickcheck" "0.0.7.4" { };
+          dhall = doJailbreak (super.dhall);
+
+          monoid-subclasses =
+            self.callHackage "monoid-subclasses" "0.4.6.1" { };
+
+          generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
+          true-name = doJailbreak (unmarkBroken super.true-name);
+          servant-server = dontCheck super.servant-server;
+
+          backend = justStaticExecutables super.backend;
+          backend-api = justStaticExecutables super.backend-api;
+        };
+    });
 
   pkgs = reflex-platform.nixpkgs;
   haskellLib = pkgs.haskell.lib;
@@ -138,8 +144,38 @@ let
     inherit keycloak-config-cli-src;
   };
 
+  project-gtk = project false;
+
+  frontend-gtk =
+    let frontend = haskellLib.justStaticExecutables project-gtk.ghc.frontend;
+    in pkgs.stdenv.mkDerivation rec {
+      inherit (frontend) name version;
+
+      nativeBuildInputs = [ pkgs.wrapGAppsHook ];
+
+      buildInputs = [ pkgs.glib ];
+
+      unpackPhase = "true";
+
+      installPhase = ''
+        mkdir -p $out/bin
+        cp ${frontend}/bin/frontend $out/bin/frontend-gtk
+      '';
+
+      dontWrapGApps = true;
+
+      postFixup = ''
+        wrapProgram $out/bin/frontend-gtk \
+          --set WEBKIT_DISABLE_COMPOSITING_MODE 1 \
+          "''${gappsWrapperArgs[@]}"
+      '';
+    };
+
 in {
-  ferp-hs = project // { inherit frontend-min vendor-lib; };
+  ferp-hs = project true // {
+    inherit frontend-min vendor-lib;
+    inherit frontend-gtk;
+  };
   brittany = pkgs.haskellPackages.brittany;
   inherit keycloak-config-cli keycloak-nordtheme;
 }

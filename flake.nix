@@ -94,10 +94,12 @@
 
         devShell = pkgs.ferp-hs.shells.ghc.overrideAttrs (old: {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
+          # Fixes crashes of webkitgtk for spinner icon
+          WEBKIT_DISABLE_COMPOSITING_MODE = "1";
         });
 
         packages = {
-          inherit (pkgs.ferp-hs) frontend-min;
+          inherit (pkgs.ferp-hs) frontend-min frontend-gtk;
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
