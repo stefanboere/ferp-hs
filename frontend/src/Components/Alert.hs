@@ -44,14 +44,15 @@ alertStyle = do
   (".alert" <> ".alert-app-level") ? do
     display flex
     flexDirection row
-    alignItems baseline
+    alignItems center
     padding (rem (1 / 4)) (rem (1 / 2)) (rem (1 / 4)) (rem (1 / 2))
 
     Clay.span ? paddingAll (rem (1 / 4))
 
     ".icon" ? do
       position relative
-      top (rem 0.2)
+      alignSelf flexStart
+      top (rem (1 / 4))
 
     a ? do
       textOverflow overflowEllipsis
@@ -67,12 +68,12 @@ alertStyle = do
         important $ backgroundColor inherit
 
     ".button-close" ? do
+      alignSelf flexStart
       paddingAll nil
       textOverflow overflowClip
       width (rem 1)
       minWidth (rem 1)
-      position relative
-      top (rem 0.2)
+      "fill" -: "inherit"
       ".icon" ? top nil
 
   ".alert-app-level" ? do
@@ -130,7 +131,6 @@ alertStyle = do
       textTransform none
       paddingRight (rem (2 / 4))
       paddingLeft (rem (2 / 4))
-      height (rem 1)
 
     ".compactsize" & do
       paddingAll (rem (1 / 4))

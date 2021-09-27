@@ -135,9 +135,10 @@ stepperStyle = ".stepper" ? do
   ".stepnum" ? do
     display inlineFlex
     flexDirection column
-    justifyContent center
+    justifyContent flexStart
     width (rem (3 / 2))
     minWidth (rem (3 / 2))
+    ".icon" ? paddingTop (rem (1 / 4))
 
 stepper'
   :: (MonadIO m, DomBuilder t m, PostBuild t m)

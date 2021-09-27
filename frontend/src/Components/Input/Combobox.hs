@@ -88,8 +88,8 @@ comboboxStyle = do
       hover Clay.& backgroundColor inherit
 
     ".tag" ? do
-      marginTop (rem (1 / 8))
-      marginBottom (rem (1 / 8))
+      marginTop (rem (1 / 4))
+      marginBottom (rem (1 / 4))
       paddingRight (rem (1 / 4))
 
     ":focus-within" Clay.& do
@@ -99,6 +99,7 @@ comboboxStyle = do
 
     ".combobox" ? do
       borderBottomWidth nil
+      focus Clay.& marginBottom nil
 
 
 data ComboboxValue k = ComboboxValue

@@ -19,7 +19,8 @@ module Components.Button
   , signpost'
   , TooltipPosition(..)
   , tooltip
-  ) where
+  )
+where
 
 import           Prelude                 hiding ( rem )
 
@@ -125,6 +126,9 @@ buttonStyle' =
         verticalAlign middle
         color nord1'
         "fill" -: showColor nord1'
+        outlineStyle none
+        outlineWidth nil
+        "min-width" -: "min-content"
 
         star # firstChild <? marginLeft nil
         star # lastChild <? marginRight nil
@@ -424,8 +428,8 @@ signpostStyle = do
 
     ".button-close" ? do
       position absolute
-      right (rem (1 / 4))
-      top (rem (1 / 4))
+      right (rem (1 / 2))
+      top (rem (1 / 2))
 
     ".button-close" |+ star ? marginTop nil
 

@@ -113,6 +113,7 @@ modalStyle = do
     ".button-close" ? do
       float floatRight
       marginRight nil
+      marginTop nil
       paddingRight nil
       paddingLeft nil
 

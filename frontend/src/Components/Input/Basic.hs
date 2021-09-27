@@ -64,7 +64,8 @@ module Components.Input.Basic
   , statusMessageIcon
   , statusMessageElement
   , colorCls
-  ) where
+  )
+where
 
 import           Prelude                 hiding ( rem )
 
@@ -389,6 +390,7 @@ checkboxStyle = do
     <> ".selected-count"
     )
     ? do
+        "-moz-appearance" -: "initial"  -- Hack to use checkbox pseudo in firefox
         position relative
         cursor pointer
         marginRight (rem 0.8)
@@ -461,12 +463,17 @@ inputElementStyle =
     background transparent
     borderWidth 0
     borderBottomWidth 1
+    borderBottomStyle solid
     paddingAll (rem 0.25)
     borderColor grey0'
     outlineWidth 0
+    outlineStyle none
     flexGrow 1
     fontColor inherit
     "font" -: "inherit"
+    boxSizing contentBox
+    borderRadiusAll nil
+    marginAll nil
 
     focus Clay.& do
       borderBottomWidth 2
@@ -508,7 +515,6 @@ textAreaElementStyle = (".dropzone" <> textarea) ? do
   background white
   borderWidth 1
   borderRadiusAll (px 3)
-  minWidth (rem 20)
   minHeight (rem 6)
 
   disabled Clay.& do
@@ -525,6 +531,7 @@ rangeElementStyle = input # ("type" @= "range") ? do
   background nord10'
   disabledStyle
   marginTop (rem (2 / 3))
+  borderColor nord10'
 
   "::-webkit-slider-thumb" Clay.& do
     "-webkit-appearance" -: "none"
@@ -849,9 +856,9 @@ integralInput
   -> m (DomInputEl t m (Maybe a))
 integralInput cfg = conv <$> numberInput
   (fromIntegral <$> cfg
-    { _inputConfig_extra = (_inputConfig_extra cfg)
-                             { _numberRange_precision = Just 0
-                             }
+    { _inputConfig_extra = (_inputConfig_extra cfg) { _numberRange_precision = Just
+                                                      0
+                                                    }
     }
   )
  where

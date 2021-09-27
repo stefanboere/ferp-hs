@@ -31,6 +31,7 @@ timelineStyle :: Css
 timelineStyle = do
   timelineVerticalStyle
   query Clay.all [Media.minWidth 768] timelineHorizontalStyle
+  query Clay.all [Media.maxWidth 480] timelineHeaderInBodyStyle
   ".timeline" ? do
     paddingAll (rem 1)
     display grid
@@ -57,6 +58,11 @@ timelineStyle = do
       backgroundColor (lighten 0.5 grey0')
 
     lastChild & before & display none
+
+timelineHeaderInBodyStyle :: Css
+timelineHeaderInBodyStyle = ".timeline" ? do
+  ".timeline-header" ? display none
+  ".timeline-inline-header" ? display block
 
 timelineHorizontalStyle :: Css
 timelineHorizontalStyle = do
@@ -91,6 +97,8 @@ timelineVerticalStyle = do
     "grid-template-columns" -: "max-content 2rem 1fr"
     "grid-template-rows" -: "auto"
 
+  ".timeline-inline-header" ? display none
+
   ".timeline-header" ? do
     "grid-column" -: "1"
     marginTop (rem (9 / 16))
@@ -99,6 +107,7 @@ timelineVerticalStyle = do
     "grid-column" -: "2"
 
   ".timeline-body" ? do
+    maxWidth (rem 30)
     "grid-column" -: "3"
     paddingTop (rem (1 / 2))
 
@@ -137,6 +146,7 @@ timelineStep hdr state' titl cnt = do
       dynText v >> el "br" (pure ())
   _ <- elClass "div" "timeline-icon" $ dyn (stateEl <$> state')
   elClass "div" "timeline-body" $ do
+    elClass "div" "timeline-inline-header" $ dynText hdr
     elClass "div" "timeline-title p2" $ dynText titl
     cnt
  where

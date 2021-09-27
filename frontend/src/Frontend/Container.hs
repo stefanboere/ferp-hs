@@ -9,7 +9,8 @@ module Frontend.Container
   ( containerHandler
   , containerLinks
   , ContainerApi
-  ) where
+  )
+where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -375,7 +376,7 @@ containerTimeline = do
   timelineVertical timelineSteps
 
   el "h2" $ text "Example"
-  el "form" $ timelineVertical $ do
+  timelineVertical $ do
     _ <- timelineStep
       (constDyn "")
       (constDyn TimelineCurrent)

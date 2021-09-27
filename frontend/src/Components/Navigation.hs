@@ -18,7 +18,8 @@ module Components.Navigation
   , safelink
   , safelinkGroup
   , ahrefPreventDefault
-  ) where
+  )
+where
 
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
@@ -107,7 +108,7 @@ typographyStyle = do
     marginBottom nil
 
   h1 ? do
-    fontWeight (weight 300)
+    fontWeight (weight 250)
     fontSize (rem 2.2)
     marginBottom (rem (2 / 3))
 
