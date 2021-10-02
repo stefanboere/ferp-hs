@@ -335,7 +335,7 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
   marginRight (rem 1.5)
 
   before Clay.& do
-    left (rem (-0.25))
+    left (rem (-0.3))
     width (rem 2.2)
     height (rem 1.1)
     backgroundColor nord3'
@@ -355,17 +355,17 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
 
   after Clay.& do
     absoluteBlock
-    width (rem 0.9)
-    height (rem 0.9)
-    left (rem (-0.15))
-    top (rem 0.1)
+    width (rem 0.825)
+    height (rem 0.825)
+    left (rem (-0.20))
+    top (rem 0.15)
     borderRadiusAll (pct 50)
     background white0'
     transitionDuration 0.1
     transitionTimingFunction easeIn
 
     checked Clay.& do
-      left (rem 0.9)
+      left (rem 0.925)
       borderWidth nil
       transitionDuration 0.1
       transitionTimingFunction easeIn
@@ -394,6 +394,9 @@ checkboxStyle = do
         position relative
         cursor pointer
         marginRight (rem 0.8)
+        width (rem (13 / 16))
+        height (rem (13 / 16))
+        paddingAll nil
 
         disabled Clay.& cursor notAllowed
 
@@ -404,6 +407,8 @@ checkboxStyle = do
           borderRadiusAll (px 3)
           border solid 1 grey0'
           backgroundColor white0'
+          top nil
+          left nil
           ".has-error" Clay.& borderColor nord11'
           focus Clay.& do
             borderColor nord10'
@@ -522,26 +527,30 @@ textAreaElementStyle = (".dropzone" <> textarea) ? do
     cursor notAllowed
 
 rangeElementStyle :: Css
-rangeElementStyle = input # ("type" @= "range") ? do
-  "-webkit-appearance" -: "none"
-  paddingAll nil
-  height (Clay.rem 0.2)
-  borderRadiusAll (px 3)
-  cursor pointer
-  background nord10'
-  disabledStyle
-  marginTop (rem (2 / 3))
-  borderColor nord10'
+rangeElementStyle = do
 
-  "::-webkit-slider-thumb" Clay.& do
+  input # ("type" @= "range") ? do
     "-webkit-appearance" -: "none"
-    thumb
+    paddingAll nil
+    height (Clay.rem 0.2)
+    borderRadiusAll (px 3)
+    cursor pointer
+    background nord10'
+    disabledStyle
+    marginTop (rem (2 / 3))
+    borderColor nord10'
 
-  "::-moz-range-thumb" Clay.& thumb
+    "::-webkit-slider-thumb" Clay.& do
+      "-webkit-appearance" -: "none"
+      thumb
 
-  focus Clay.& do
-    borderBottomWidth nil
-    marginBottom (px 2)
+    "::-moz-range-thumb" Clay.& do
+      borderWidth nil
+      backgroundColor inherit
+
+    focus Clay.& do
+      borderBottomWidth nil
+      marginBottom (px 2)
 
  where
   disabledStyle :: Css
@@ -1317,7 +1326,7 @@ fileInput cfg = do
     <> if x == InputDisabled then " disabled" else mempty
 
 datalistInput
-  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k, Show k)
+  :: (PostBuild t m, DomBuilder t m, MonadFix m, MonadHold t m, Ord k)
   => Dynamic t (Map k Text)
   -> InputConfig t m Text
   -> m (DomInputEl t m Text)
@@ -1347,7 +1356,7 @@ datalistInput options cfg = textInputWithIco
 
     pure (never, never)
 
-  mkOption k v = elAttr "option" ("value" =: pack (show k)) (dynText v)
+  mkOption _ v = elDynAttr "option" (Map.singleton "value" <$> v) (dynText v)
 
 inputGroup
   :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)

@@ -250,7 +250,7 @@ btnGroupStyle = ".button-group" ? do
     borderBottomRightRadius (px 3) (px 3)
 
   (star <> star |> button) <? do
-    marginRight nil
+    Clay.not ".tertiary" Clay.& marginRight nil
     borderRadiusAll nil
 
   ".primary" <? marginRight (px 1)

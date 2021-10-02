@@ -264,22 +264,19 @@ containerTab
   => m (Event t URI)
 containerTab = do
   el "h1" $ text "Tab"
-  tabs
-    (  1
-    =: ("Tab 1", text "Tab 1 content")
-    <> (2 :: Int)
-    =: ("Tab 2", text "Tab 2 content")
-    )
+  tabs tabContent
 
   el "h2" $ text "Vertical tab"
-  tabsVertical
-    (  1
-    =: ("Tab 1", text "Tab 1 content")
-    <> (2 :: Int)
-    =: ("Tab 2", text "Tab 2 content")
-    )
+  tabsVertical tabContent
 
   pure never
+ where
+  tabContent = Map.fromList $ map
+    (\i ->
+      let istr = pack (show i)
+      in  (i :: Int, ("Tab " <> istr, text $ "Tab " <> istr <> " content"))
+    )
+    [0 .. 10]
 
 containerTable
   :: ( MonadIO m

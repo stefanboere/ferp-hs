@@ -23,6 +23,7 @@ where
 
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
+import qualified Clay.Flexbox                  as Flexbox
 import           Control.Monad                  ( when )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -62,12 +63,11 @@ appStyle = do
   commonAppHeaderStyle
   commonNavStyle
   tabsStyle
-  verticalTabsStyle
   treeviewStyle
   query Clay.all [Media.maxWidth 768]
-    $ mconcat [mobileNavStyle, mobileHeaderStyle]
+    $ mconcat [mobileNavStyle, mobileHeaderStyle, verticalTabsStyleMobile]
   query Clay.all [Media.minWidth 768]
-    $ mconcat [subNavStyle, sideNavStyle, appHeaderStyle]
+    $ mconcat [subNavStyle, sideNavStyle, appHeaderStyle, verticalTabsStyle]
 
   (html <> body) ? do
     marginAll nil
@@ -587,18 +587,24 @@ subNav :: (DomBuilder t m) => m a -> m a
 subNav = elClass "nav" "subnav"
 
 tabsStyle :: Css
-tabsStyle = ".tabs" ? do
+tabsStyle = ".tabs" ? tabsStyle'
+
+tabsStyle' :: Css
+tabsStyle' = do
   flexRowLeft
   borderBottom solid 1 grey0'
   paddingLeft (rem 0)
   lineHeight (rem 2)
   marginTop (rem (1 / 2))
   marginBottom (rem (1 / 2))
+  flexWrap Flexbox.wrap
 
   li ? do
     display block
-    marginLeft (rem 1)
-    marginRight (rem 1)
+    height (rem 2)
+    marginLeft (rem (1 / 2))
+    marginRight (rem (1 / 2))
+    boxSizing borderBox
     firstOfType Clay.& marginLeft (rem 0)
     lastOfType Clay.& marginRight (rem 0)
     tabLinkStyle
@@ -613,6 +619,9 @@ tabs
   => Map k (Text, m ())
   -> m ()
 tabs = tabDisplay "tabs" "active"
+
+verticalTabsStyleMobile :: Css
+verticalTabsStyleMobile = ".tabs-vertical" ? tabsStyle'
 
 verticalTabsStyle :: Css
 verticalTabsStyle = do
@@ -692,6 +701,8 @@ mobileNavStyle = do
       important $ borderColor nord0'
       opacity 0.5
       borderWidth nil
+      height (vh 100)
+      width (vw 100)
 
   "#nav-secondary" # checked |+ nav ? right nil
 
@@ -702,7 +713,7 @@ mobileNavStyle = do
     zIndex 20
     paddingTop (rem 1)
     minWidth (rem 15)
-    bottom nil
+    height (vh 100 @-@ rem 4)
 
   nav ? do
     display none

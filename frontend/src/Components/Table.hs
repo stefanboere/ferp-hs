@@ -267,6 +267,11 @@ tableStyle = do
 
     tr # lastChild ** td ? borderTopColor grey0'
 
+    Clay.button ? do
+      height (rem 1)
+      marginTop nil
+      marginBottom nil
+
 
 
 tableDyn

@@ -84,6 +84,9 @@ cardStyle' = ".card" ? do
       marginTop (rem (3 / 4))
       marginBottom (rem (3 / 4))
 
+    Clay.button # firstChild ? do
+      marginLeft (rem (3 / 4))
+
   ".card-img" |+ star ? borderTopWidth nil
 
   ".card-img" Clay.** img ? do
@@ -289,8 +292,8 @@ pageT cls cnt = ReaderT $ \d -> WriterT $ StateT $ \k -> do
 -- | Hide the wizard table of content on mobile layouts
 wizardStyleMobile :: Css
 wizardStyleMobile = do
-  query Clay.all [Media.maxWidth 480] $ ".wizard-side" ? display none
-  query Clay.all [Media.minWidth 480] $ ".wizard-back" ? display none
+  query Clay.all [Media.maxWidth 768] $ ".wizard-side" ? display none
+  query Clay.all [Media.minWidth 768] $ ".wizard-back" ? display none
 
 wizardStyle :: Css
 wizardStyle = ".wizard" ? do
