@@ -218,17 +218,17 @@ containerModal = do
       cardContent $ el "p" $ text "This is the content of the first page"
 
       (cancelEv, btnEv) <- modalFooter (btn def (text "Next"))
-      pure (constDyn (), StepperSuccess <$ btnEv, cancelEv)
+      pure (constDyn (), StepperSuccess <$ btnEv, never, cancelEv)
 
     step2 <- wizardPage "Contact information long title" $ do
       cardContent $ el "p" $ text "This is the content of the second page"
 
-      (cancelEv, btnEv) <- modalFooter (btn def (text "Submit"))
-      pure (constDyn (), StepperError <$ btnEv, cancelEv)
+      (cancelEv, backEv, btnEv) <- wizardFooter (btn def (text "Submit"))
+      pure (constDyn (), StepperError <$ btnEv, backEv, cancelEv)
     pure $ (,) <$> step1 <*> step2
 
   modalContent = card $ do
-    x <- cardHeader (text "Header" >> modalCloseBtn)
+    x <- modalHeader (text "Header")
 
     cardContent $ el "p" $ text "This is the content of the modal"
 

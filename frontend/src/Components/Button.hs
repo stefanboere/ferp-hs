@@ -168,6 +168,8 @@ buttonStyle' =
         ".tertiary" Clay.& do
           borderWidth nil
           hoverSecondary
+          paddingLeft nil
+          paddingRight nil
 
         ".spinner" ? width (rem 1)
 

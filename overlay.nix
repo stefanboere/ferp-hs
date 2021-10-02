@@ -88,7 +88,7 @@ let
   haskellLib = pkgs.haskell.lib;
 
   frontend-min = let
-    frontend = haskellLib.justStaticExecutables project.ghcjs.frontend;
+    frontend = haskellLib.justStaticExecutables (project true).ghcjs.frontend;
     pname = "frontend";
   in pkgs.stdenv.mkDerivation rec {
     inherit (frontend) name version;

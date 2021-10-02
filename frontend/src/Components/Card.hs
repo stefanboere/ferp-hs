@@ -17,12 +17,14 @@ module Components.Card
   , wizardPage
   , modalHeader
   , modalFooter
+  , wizardFooter
   )
 where
 
 import           Prelude                 hiding ( rem )
 
 import           Clay                    hiding ( icon )
+import qualified Clay.Media                    as Media
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader
 import           Control.Monad.State
@@ -46,7 +48,12 @@ import           Nordtheme
 
 cardStyle :: Css
 cardStyle =
-  cardStyle' <> clickableCardStyle <> gridStyle <> modalStyle <> wizardStyle
+  cardStyle'
+    <> clickableCardStyle
+    <> gridStyle
+    <> modalStyle
+    <> wizardStyle
+    <> wizardStyleMobile
 
 gridStyle :: Css
 gridStyle = ".grid" ? do
@@ -111,7 +118,6 @@ modalStyle = do
     flexDirection column
 
     ".button-close" ? do
-      float floatRight
       marginRight nil
       marginTop nil
       paddingRight nil
@@ -128,6 +134,12 @@ modalStyle = do
 
     ".card-content" ? do
       borderTopWidth nil
+
+  ".modal-header" ? do
+    star ? marginTop nil
+    display flex
+    justifyContent spaceBetween
+    flexDirection row
 
   ".modal" |> star ? do
     paddingAll (rem (3 / 4))
@@ -233,8 +245,8 @@ popup wrapper openEv = do
 
 
 modalHeader
-  :: (MonadIO m, DomBuilder t m, PostBuild t m) => Text -> m (Event t ())
-modalHeader titl = cardHeader (text titl >> modalCloseBtn)
+  :: (MonadIO m, DomBuilder t m, PostBuild t m) => m () -> m (Event t ())
+modalHeader titl = elClass "div" "modal-header" $ el "h3" titl >> modalCloseBtn
 
 modalFooter
   :: (MonadIO m, DomBuilder t m, PostBuild t m)
@@ -244,6 +256,20 @@ modalFooter okBtn = cardFooter $ do
   cancelEv <- cardAction "Cancel"
   okEv     <- okBtn
   pure (cancelEv, okEv)
+
+wizardFooter
+  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  => m (Event t b)
+  -> m (Event t (), Event t (), Event t b)
+wizardFooter okBtn = cardFooter $ do
+  cancelEv <- cardAction "Cancel"
+  backEv   <- btn
+    def { _buttonConfig_priority = ButtonTertiary
+        , _buttonConfig_class    = "wizard-back"
+        }
+    (text "Back")
+  okEv <- okBtn
+  pure (cancelEv, backEv, okEv)
 
 type PageT t m k w a = ReaderT (Demux t k) (WriterT (Map k w) (StateT k m)) a
 
@@ -260,6 +286,12 @@ pageT cls cnt = ReaderT $ \d -> WriterT $ StateT $ \k -> do
   (x, w) <- elDynAttr "div" attrs cnt
   pure ((x, k =: w), k + 1)
 
+-- | Hide the wizard table of content on mobile layouts
+wizardStyleMobile :: Css
+wizardStyleMobile = do
+  query Clay.all [Media.maxWidth 480] $ ".wizard-side" ? display none
+  query Clay.all [Media.minWidth 480] $ ".wizard-back" ? display none
+
 wizardStyle :: Css
 wizardStyle = ".wizard" ? do
   display flex
@@ -273,6 +305,8 @@ wizardStyle = ".wizard" ? do
     backgroundColor (lighten 0.5 nord6')
     width (rem 12)
     paddingRight nil
+
+    ".stepper" ? ".icon" ? paddingTop nil
 
   ".wizard-title" ? do
     marginTop nil
@@ -297,17 +331,17 @@ wizardStyle = ".wizard" ? do
     flexGrow 1
 
 type WizardPage t m a
-  = PageT t m Integer (Text, Event t StepperState, Event t ()) a
+  = PageT t m Integer (Text, Event t StepperState, Event t (), Event t ()) a
 
 wizardPage
   :: (MonadIO m, DomBuilder t m, PostBuild t m)
   => Text
-  -> m (a, Event t StepperState, Event t ())
+  -> m (a, Event t StepperState, Event t (), Event t ())
   -> WizardPage t m a
 wizardPage titl cnt = pageT "wizard-page" $ do
-  xEv                <- modalHeader titl
-  (x, nextEv, clsEv) <- cnt
-  pure (x, (titl, nextEv, leftmost [clsEv, xEv]))
+  xEv                        <- modalHeader (text titl)
+  (x, nextEv, backEv, clsEv) <- cnt
+  pure (x, (titl, nextEv, backEv, leftmost [clsEv, xEv]))
 
 wizard
   :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
@@ -328,19 +362,21 @@ wizard titl xs = elClass "div" "card wizard" $ do
   pure (leftmost [Nothing <$ clsEv, Just <$> tagPromptlyDyn a okEv])
 
  where
-  foldEv (_, clsEv0, setPage0) k (_, okEv, clsEv) =
+  foldEv (_, clsEv0, setPage0) k (_, okEv, backEv, clsEv) =
     let filteredOkEv = ffilter (== StepperSuccess) okEv
-    in  ( () <$ filteredOkEv
-        , leftmost [clsEv0, clsEv]
-        , leftmost [setPage0, k + 1 <$ filteredOkEv]
-        )
+    in
+      ( () <$ filteredOkEv
+      , leftmost [clsEv0, clsEv]
+      , leftmost
+        [setPage0, k + 1 <$ filteredOkEv, ffilter (>= 0) (k - 1 <$ backEv)]
+      )
 
   mkLinks dynLinks demuxPage =
     fmap (fst . Map.findMin) <$> listViewWithKey dynLinks (mkLink demuxPage)
 
   mkLink demuxPage k dynVal = do
     stateDyn <- holdDyn StepperNeutral
-                        (switchDyn $ (\(_, x, _) -> x) <$> dynVal)
+                        (switchDyn $ (\(_, x, _, _) -> x) <$> dynVal)
 
     let dynActive = demuxed demuxPage k
     curActive        <- sample (current dynActive)
@@ -353,7 +389,7 @@ wizard titl xs = elClass "div" "card wizard" $ do
     clickEv <- elDynClass "li" activeClsDyn $ do
       (l, _) <- elDynClass' "a" stateClsDyn $ do
         _ <- elClass "span" "stepnum" $ dyn (numOrIcon k <$> stateDyn)
-        el "span" $ dynText ((\(x, _, _) -> x) <$> dynVal)
+        el "span" $ dynText ((\(x, _, _, _) -> x) <$> dynVal)
       pure $ domEvent Click l
 
     pure (gate (current historyActiveDyn) $ k <$ clickEv)

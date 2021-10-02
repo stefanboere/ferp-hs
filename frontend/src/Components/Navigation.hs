@@ -73,8 +73,6 @@ appStyle = do
     marginAll nil
     maxHeight (vh 100)
     height (vh 100)
-    overflowX hidden
-    overflowY hidden
 
   ".nav-opener" ? display none
 
@@ -170,7 +168,7 @@ typographyStyle = do
     background white0'
     fontColor nord3'
     "fill" -: showColor nord3'
-    fontFamily ["Fira Sans", "Helvetica"] [sansSerif]
+    fontFamily ["Fira Sans", "Segoe UI"] [sansSerif]
 
   ul ? do
     marginLeft nil
@@ -197,20 +195,23 @@ navGroup
   -> m ()
   -> m a
   -> m a
-navGroup = navGroup' 0.7 "nav-group"
+navGroup = navGroup' True 0.7 "nav-group"
 
 navGroup'
   :: (MonadIO m, PostBuild t m, DomBuilder t m)
-  => Double
+  => Bool
+  -> Double
   -> Text
   -> Event t Bool
   -> m ()
   -> m a
   -> m a
-navGroup' iconSize cls setOpen titl cnt = elClass "section" cls $ do
+navGroup' initC iconSize cls setOpen titl cnt = elClass "section" cls $ do
   idStr <- randomId
   _     <-
-    checkboxInputSimple False setOpen
+    checkboxInputSimple
+      initC
+      ((if initC then Prelude.not else Prelude.id) <$> setOpen)
     $  "id"
     =: idStr
     <> "style"
@@ -681,12 +682,15 @@ mobileNavStyle = do
 
     before Clay.& do
       zIndex 10
-      absoluteBlock
+      content (stringContent "")
+      position fixed
+      top nil
+      right nil
+      bottom nil
+      left nil
       important $ backgroundColor nord0'
       important $ borderColor nord0'
       opacity 0.5
-      height (vh 110)
-      width (vw 110)
       borderWidth nil
 
   "#nav-secondary" # checked |+ nav ? right nil
@@ -698,7 +702,7 @@ mobileNavStyle = do
     zIndex 20
     paddingTop (rem 1)
     minWidth (rem 15)
-    height (pct 100 @-@ rem 4)
+    bottom nil
 
   nav ? do
     display none
@@ -770,7 +774,7 @@ commonNavStyle = do
 
     label ? paddingRight (rem 0.6)
 
-    input # checked |+ star ? do
+    input # Clay.not ":checked" |+ star ? do
       ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
       ul ? display flex
 
@@ -855,7 +859,7 @@ treeview
   -> m ()
   -> m a
   -> m a
-treeview = navGroup' 1 "treeview"
+treeview = navGroup' False 1 "treeview"
 
 leaf :: (DomBuilder t m) => m a -> m a
 leaf = el "li"
