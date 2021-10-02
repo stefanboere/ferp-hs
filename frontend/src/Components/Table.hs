@@ -130,6 +130,7 @@ tableStyle = do
     tbody ** tr # lastChild ** td ? borderBottomWidth 1
     th # before ? backgroundColor (lighten 0.5 grey0')
     th # lastChild # before ? display none
+    thead <> tfoot ? height (pct 1)
 
   table ? do
     borderCollapse separate
@@ -252,7 +253,7 @@ tableStyle = do
       height (px 36)
       (td <> th) ? do
         overflow hidden
-        textOverflow overflowEllipsis
+        Clay.not ".row-select" Clay.& textOverflow overflowEllipsis
 
   (tbody <> thead) ** td ? borderBottom solid (px 1) nord4'
 
