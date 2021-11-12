@@ -12,6 +12,11 @@
       flake = false;
     };
 
+    fira = {
+      url = "github:mozilla/Fira";
+      flake = false;
+    };
+
     flake-utils.url = "github:numtide/flake-utils";
 
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
@@ -51,7 +56,7 @@
 
   outputs = inputs@{ self, MathJax, ace-builds, flake-utils, pre-commit-hooks
     , reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc, reflex-platform
-    , servant-subscriber, keycloak-config-cli-src, mvn2nix }:
+    , servant-subscriber, keycloak-config-cli-src, mvn2nix, fira }:
     {
       nixosModules = {
         ferp-hs = ./nix/modules/ferp-hs.nix;
@@ -74,7 +79,7 @@
         };
         pkgs = import ./overlay.nix {
           inherit MathJax ace-builds reflex-dom-ace reflex-dom-contrib
-            reflex-dom-pandoc servant-subscriber keycloak-config-cli-src;
+            reflex-dom-pandoc servant-subscriber keycloak-config-cli-src fira;
           reflex-platform = reflex-platform-derivation;
         };
       in rec {
@@ -99,7 +104,7 @@
         });
 
         packages = {
-          inherit (pkgs.ferp-hs) frontend-min frontend-gtk;
+          inherit (pkgs.ferp-hs) frontend-min frontend-gtk vendor-lib;
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };

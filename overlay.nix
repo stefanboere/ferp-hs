@@ -1,5 +1,5 @@
 { MathJax, ace-builds, reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc
-, reflex-platform, servant-subscriber, keycloak-config-cli-src }:
+, reflex-platform, servant-subscriber, keycloak-config-cli-src, fira }:
 let
   project = useWarp:
     reflex-platform.project ({ pkgs, ... }: {
@@ -38,10 +38,10 @@ let
       };
 
       shellToolOverrides = ghc: super: {
-        haskell-language-server =
-          (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
-            supportedGhcVersions = [ "865" ];
-          };
+        # haskell-language-server =
+        #  (pkgs.callPackage ./nix/haskell-language-server.nix { }).override {
+        #    supportedGhcVersions = [ "865" ];
+        #  };
         brittany = ghc.brittany;
         inherit keycloak-config-cli;
       };
@@ -117,24 +117,36 @@ let
     name = "frontend-vendor";
     version = "0.1.0.0";
     buildCommand = ''
-      mkdir -p $out
+      mkdir -p $out/mathjax
 
-      cp ${MathJax}/es5/tex-chtml.js $out/tex-chtml.js
+      cp -r ${MathJax}/es5/* $out/mathjax
+      cp ${./assets/mathjax-config.js} $out/mathjax/mathjax-config.js
+      chmod +w -R $out/mathjax
+      rm -r $out/mathjax/output/chtml*
+      rm -r $out/mathjax/input/asciimath*
+      rm -r $out/mathjax/input/mml*
+      rm -r $out/mathjax/*chtml*
+      rm -r $out/mathjax/*mml*
 
-      ${pkgs.closurecompiler}/bin/closure-compiler \
-        $out/tex-chtml.js \
-        > $out/tex-chtml.min.js
-      ${pkgs.zopfli}/bin/zopfli -i1000 $out/tex-chtml.min.js
-
-      mkdir -p $out/ace
+      mkdir $out/ace
       cp -r ${ace-builds}/src-min-noconflict/* $out/ace
-
+      chmod +w -R $out/ace
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ace*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/ext*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/keybinding*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/mode*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/theme*
       ${pkgs.zopfli}/bin/zopfli -i1000 $out/ace/worker*
+
+      mkdir -p $out/fira/woff2
+      cp -r ${fira}/woff2/* $out/fira/woff2
+      cp ${./assets/fira.css} $out/fira/fira.css
+
+      for file in $(find $out/{mathjax,fira} -type f)
+      do
+        echo "$file"
+        ${pkgs.zopfli}/bin/zopfli -i1000 "$file"
+      done
     '';
   };
 

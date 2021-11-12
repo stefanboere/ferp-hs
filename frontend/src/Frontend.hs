@@ -65,8 +65,22 @@ mainWithHead = do
   cfg <- getConfigFromFile "config.json"
   mainWidgetWithHead headWidget $ runAppT cfg $ do
     withHeader (mainPage True)
-    _ <- codeInputScripts
-    pure ()
+    elAttr
+      "link"
+      (  "href"
+      =: configFiraUrl cfg
+      <> "rel"
+      =: "stylesheet"
+      <> "type"
+      =: "text/css"
+      )
+      blank
+    script' (configAceUrl cfg)
+    deferScript (configMathjaxConfigUrl cfg)
+    deferScript (configMathjaxUrl cfg)
+ where
+  script' uri = elAttr "script" ("src" =: uri <> "async" =: "") blank
+  deferScript uri = elAttr "script" ("src" =: uri <> "defer" =: "") blank
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do

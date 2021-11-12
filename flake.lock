@@ -32,6 +32,22 @@
         "type": "github"
       }
     },
+    "fira": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1557509817,
+        "narHash": "sha256-NZnOUvLsWaVbr1eNSI31rqDRRIEWFkW4EhzImU5VlQU=",
+        "owner": "mozilla",
+        "repo": "Fira",
+        "rev": "fd8c8c0a3d353cd99e8ca1662942d165e6961407",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mozilla",
+        "repo": "Fira",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "locked": {
         "lastModified": 1629481132,
@@ -210,6 +226,7 @@
       "inputs": {
         "MathJax": "MathJax",
         "ace-builds": "ace-builds",
+        "fira": "fira",
         "flake-utils": "flake-utils",
         "keycloak-config-cli-src": "keycloak-config-cli-src",
         "mvn2nix": "mvn2nix",

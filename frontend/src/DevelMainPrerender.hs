@@ -69,15 +69,17 @@ prerenderApp pageT = do
           , makeAttribute "as" "script"
           ]
         script_ [type_ "text/plain"] (encode cfg)
-        mapM_ asyncScript
-              ["/static/vendor/ace/ace.js", "/static/vendor/tex-chtml.min.js"]
+        asyncScript "/static/vendor/ace/ace.js"
+        deferScript "/static/vendor/mathjax/mathjax-config.js"
+        deferScript "/static/vendor/mathjax/tex-svg.js"
       body_ $ do
         toHtmlRaw body
-        script_
-          [src_ "/static/all.min.js", type_ "text/javascript", defer_ "defer"]
-          ("" :: ByteString)
+        deferScript "/static/all.min.js"
 
  where
+  deferScript src = script_
+    [src_ src, type_ "text/javascript", defer_ "defer"]
+    ("" :: ByteString)
   asyncScript src =
     script_ [src_ src, type_ "text/javascript"] ("" :: ByteString)
 

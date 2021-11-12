@@ -28,8 +28,12 @@ import           Servant.Subscriber.Reflex      ( ApiWidget
                                                 , runApiWidget
                                                 )
 
-newtype Config = Config
+data Config = Config
   { configWebsocketUrl :: Text
+  , configAceUrl :: Text
+  , configMathjaxUrl :: Text
+  , configMathjaxConfigUrl :: Text
+  , configFiraUrl :: Text
   }
   deriving Generic
 

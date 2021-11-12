@@ -1,1 +1,7 @@
-{ "websocket_url": "ws://localhost:3005/subscriber" }
+{
+  "websocket_url": "ws://localhost:3005/subscriber",
+  "mathjax_config_url": "../result-vendor/mathjax/mathjax-config.js",
+  "mathjax_url": "../result-vendor/mathjax/tex-svg.js",
+  "ace_url": "../result-vendor/ace/ace.js",
+  "fira_url": "../result-vendor/fira/fira.css"
+}

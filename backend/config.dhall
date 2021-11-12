@@ -9,11 +9,17 @@ in
   }
 , port = +3007
 , oidc =
-  { providerUri = "https://id.dev.boerevlist.nl/realms/ferp-hs/"
+  { providerUri = "https://id.boerevlist.nl/realms/ferp-hs/"
   , redirectUri = "http://localhost:3007/auth/return"
   , clientSecret = clientSecret
   , clientId = "ferp-hs-backend"
   }
 , staticDirectory = "../result-frontend-min"
-, frontend.websocketUrl = "ws://localhost:3005/subscriber"
+, frontend =
+  { websocketUrl = "ws://localhost:3005/subscriber"
+  , mathjaxUrl = "/static/vendor/mathjax/tex-svg.js"
+  , mathjaxConfigUrl = "/static/vendor/mathjax/mathjax-config.js"
+  , aceUrl = "/static/vendor/ace/ace.js"
+  , firaUrl = "/static/vendor/fira/fira.css"
+  }
 }

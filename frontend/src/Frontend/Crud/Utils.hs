@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -109,19 +110,31 @@ replaceLocation
   -> m ()
 replaceLocation lEv = replaceLocationUri $ L.linkURI <$> lEv
 
+
+encodeUri :: Text -> L.URI -> L.URI
+encodeUri _path0 uri0 =
+  let path = "/" <> L.uriPath uri0
+  in
+#if defined(ghcjs_HOST_OS)
+     uri0 { L.uriPath = path }
+#else
+     uri0 { L.uriFragment = "#" <> path, L.uriPath = Text.unpack _path0 }
+#endif
+
 replaceLocationUri
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
   => Event t L.URI
   -> m ()
 replaceLocationUri lEv = prerender_ (pure ()) $ do
-  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem <$> lEv)
+  path0 <- getLocationPath
+  _ <- manageHistory (HistoryCommand_ReplaceState . historyItem path0 <$> lEv)
   pure ()
  where
-  historyItem :: L.URI -> HistoryStateUpdate
-  historyItem uri = HistoryStateUpdate
+  historyItem :: Text -> L.URI -> HistoryStateUpdate
+  historyItem path0 uri = HistoryStateUpdate
     { _historyStateUpdate_state = SerializedScriptValue (pToJSVal False)
     , _historyStateUpdate_title = ""
-    , _historyStateUpdate_uri   = Just uri { L.uriPath = "/" <> L.uriPath uri }
+    , _historyStateUpdate_uri   = Just $ encodeUri path0 uri
     }
 
 
@@ -370,7 +383,7 @@ markdownEditor
   => Editor (Const AceConfig) t m (Maybe Text)
 markdownEditor = nullIfMempty $ Editor { _edit_editor      = markdownInput
                                        , _edit_viewer      = dynText
-                                       , _edit_extraConfig = cdnAceConfig
+                                       , _edit_extraConfig = aceConfig
                                        }
 
 noEditor

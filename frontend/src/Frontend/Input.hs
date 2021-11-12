@@ -9,7 +9,8 @@ module Frontend.Input
   ( inputHandler
   , inputLinks
   , InputApi
-  ) where
+  )
+where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
@@ -153,8 +154,7 @@ basicHandler = do
   pure never
 
 
-checkboxHandler
-  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+checkboxHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 checkboxHandler = do
   el "h1" $ text "Checkbox"
 
@@ -437,7 +437,7 @@ markdownHandler :: WidgetConstraint js t m => m (Event t URI)
 markdownHandler = do
   _ <- markdownInput
     (inputConfig'
-      cdnAceConfig
+      aceConfig
       "# Markdown editor\n\n```haskell\nmain :: IO ()\nmain = pure ()\n```\n\nWith LaTeX: `$x^2$`"
     )
   signpost def markdownCheatSheet
@@ -546,9 +546,9 @@ rangeHandler = do
     _ <- labeled
       "Disabled"
       rangeInput
-      (inputConfig (50 :: Double))
-        { _inputConfig_status = constDyn InputDisabled
-        }
+      (inputConfig (50 :: Double)) { _inputConfig_status = constDyn
+                                     InputDisabled
+                                   }
 
     _ <- labeled
       "Success"
@@ -593,8 +593,7 @@ selectHandler = do
   pure never
   where materialExample = materialExample' Just
 
-textareaHandler
-  :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
+textareaHandler :: (MonadIO m, PostBuild t m, DomBuilder t m) => m (Event t URI)
 textareaHandler = do
   el "h1" $ text "Textarea"
 

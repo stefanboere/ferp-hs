@@ -5,12 +5,13 @@ module Components.Input.Markdown
   ( codeInputScripts
   , codeInputStyle
   , codeInput
-  , cdnAceConfig
+  , aceConfig
   , markdownCheatSheet
   , markdownInputStyle
   , markdownInput
   , markdownInputWithPreview
-  ) where
+  )
+where
 
 import           Clay                    hiding ( button
                                                 , id
@@ -55,13 +56,11 @@ codeInputScripts = do
   script "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"
   where script uri = elAttr "script" ("src" =: uri) blank
 
-cdnAceConfig :: Const AceConfig a
-cdnAceConfig = Const $ def
-  { _aceConfigBasePath        = Just
-                                  "https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/"
-  , _aceConfigShowPrintMargin = True
-  , _aceConfigWordWrap        = True
-  }
+aceConfig :: Const AceConfig a
+aceConfig = Const $ def { _aceConfigBasePath        = Nothing
+                        , _aceConfigShowPrintMargin = True
+                        , _aceConfigWordWrap        = True
+                        }
 
 codeInputStyle :: Css
 codeInputStyle = do

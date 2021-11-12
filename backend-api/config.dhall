@@ -10,5 +10,5 @@
 , port = +3005
 , corsOrigins =
   [ "http://localhost:3003", "http://localhost:3007", "http://localhost:3008" ]
-, oidcProviderUri = "https://id.dev.boerevlist.nl/realms/ferp-hs/"
+, oidcProviderUri = "https://id.boerevlist.nl/realms/ferp-hs/"
 }
