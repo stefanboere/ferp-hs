@@ -358,7 +358,7 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
     width (rem 0.825)
     height (rem 0.825)
     left (rem (-0.20))
-    top (rem 0.15)
+    top (rem 0.06)
     borderRadiusAll (pct 50)
     background white0'
     transitionDuration 0.1
@@ -407,7 +407,7 @@ checkboxStyle = do
           borderRadiusAll (px 3)
           border solid 1 grey0'
           backgroundColor white0'
-          top nil
+          top (rem (-3 / 32))
           left nil
           ".has-error" Clay.& borderColor nord11'
           focus Clay.& do

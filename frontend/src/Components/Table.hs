@@ -521,6 +521,8 @@ selectedCountStyle = do
     important $ display none
 
   ".selected-count" ? do
+    "min-width" -: "min-content"
+    display flex
     marginLeft (rem (1 / 4))
     cursor cursorDefault
     before Clay.& do
