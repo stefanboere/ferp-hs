@@ -455,7 +455,7 @@ radioStyle = input # ("type" @= "radio") ? do
     width (rem 0.25)
     height (rem 0.25)
     left (rem 0.25)
-    top (rem 0.35)
+    top (rem 0.3)
     background white0'
     borderRadiusAll (pct 50)
 
@@ -1551,13 +1551,12 @@ datetimeInput formatTime' parseTime' typeStr ico cfg = do
   mFormatTime' = maybe mempty formatTime'
 
   after'       = do
-    _ <- inputIcon ico
+    _ <- inputIcon (icon def ico)
     pure (never, never)
 
 
-inputIcon :: (PostBuild t m, DomBuilder t m) => m () -> m ()
-inputIcon ico = elClass "div" "input-icon nopointer" arrowElement
-  where arrowElement = icon def ico
+inputIcon :: DomBuilder t m => m () -> m ()
+inputIcon = elClass "div" "input-icon nopointer"
 
 
 dateInput

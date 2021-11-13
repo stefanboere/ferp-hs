@@ -785,12 +785,12 @@ commonNavStyle = do
     ".angle-icon" ? do
       marginLeft (rem (-0.8))
       marginRight (rem 0.2)
-      transforms [translate (rem 0.7) (rem 0.7), rotate (deg 90)]
+      transforms [translate (rem 0.35) (rem 0.7), rotate (deg 90)]
 
     label ? paddingRight (rem 0.6)
 
     input # Clay.not ":checked" |+ star ? do
-      ".angle-icon" ? transforms [translateY (rem 0.7), rotate (deg 180)]
+      ".angle-icon" ? transforms [translateY (rem 0.35), rotate (deg 180)]
       ul ? display flex
 
 sideNavStyle :: Css

@@ -188,6 +188,7 @@ tableStyle = do
         width (rem (3 / 2))
         display inlineBlock
         paddingAll (rem (1 / 2))
+        outlineStyle none
 
     paddingAll (rem (1 / 2))
     textAlign start
@@ -226,6 +227,7 @@ tableStyle = do
   tfoot ** ".signpost" ? do
     marginTop (rem (-1 / 4))
     marginBottom (rem (-1 / 4))
+    alignItems center
 
   (thead <> tbody <> tfoot) ** tr ? do
     "display" -: "table"
@@ -272,6 +274,7 @@ tableStyle = do
       height (rem 1)
       marginTop nil
       marginBottom nil
+      paddingTop nil
 
 
 
