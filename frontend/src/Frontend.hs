@@ -64,7 +64,7 @@ mainWithHead :: IO ()
 mainWithHead = do
   cfg <- getConfigFromFile "config.json"
   mainWidgetWithHead headWidget $ runAppT cfg $ do
-    withHeader (mainPage True)
+    withHeader' True (mainPage True)
     elAttr
       "link"
       (  "href"
@@ -111,7 +111,14 @@ withHeader
   :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
   => (Event t Link -> m (Dynamic t URI))
   -> m ()
-withHeader x = do
+withHeader = withHeader' False
+
+withHeader'
+  :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
+  => Bool
+  -> (Event t Link -> m (Dynamic t URI))
+  -> m ()
+withHeader' useFragment x = do
   rec (clickEv, dynUri) <- app cfg
                                (sideNav dynUri)
                                (pure never)
@@ -121,9 +128,11 @@ withHeader x = do
   pure ()
 
  where
-  cfg = HeaderConfig { _headerConfig_appname           = constDyn "Ferp-hs"
-                     , _headerConfig_navigationPattern = Sidenav
-                     }
+  cfg = HeaderConfig
+    { _headerConfig_appname           = constDyn "Ferp-hs"
+    , _headerConfig_navigationPattern = Sidenav
+    , _headerConfig_homePageUrl       = if useFragment then "#/" else "/"
+    }
   actions = do
     _ <- btnDropdown def (icon def cogIcon) $ do
       accountEv <- elAttrClick_ "a" ("href" =: "/auth/account") (text "Account")

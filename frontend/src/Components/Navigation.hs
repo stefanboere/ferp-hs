@@ -396,11 +396,13 @@ instance Default NavigationPattern where
 data HeaderConfig t = HeaderConfig
   { _headerConfig_appname           :: Dynamic t Text
   , _headerConfig_navigationPattern :: NavigationPattern
+  , _headerConfig_homePageUrl       :: Text
   }
 
 instance Reflex t => Default (HeaderConfig t) where
   def = HeaderConfig { _headerConfig_appname           = constDyn ""
                      , _headerConfig_navigationPattern = def
+                     , _headerConfig_homePageUrl       = "/"
                      }
 
 mobileHeaderStyle :: Css
@@ -526,9 +528,11 @@ appHeader HeaderConfig {..} primary actions =
   elClass "header" "app-header" $ do
     elAttr "label" ("for" =: "nav-primary" <> "class" =: "hamburger")
       $ icon def { _iconConfig_size = 1.5 } barsIcon
-    elClass "div" "app-logo" $ elAttr "a" ("href" =: "/") $ do
-      icon def { _iconConfig_size = 2 } ferpIcon
-      dynText _headerConfig_appname
+    elClass "div" "app-logo"
+      $ elAttr "a" ("href" =: _headerConfig_homePageUrl)
+      $ do
+          icon def { _iconConfig_size = 2 } ferpIcon
+          dynText _headerConfig_appname
 
     lnkEv <-
       if _headerConfig_navigationPattern
