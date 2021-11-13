@@ -69,9 +69,10 @@ alertStyle = do
 
     ".button-close" ? do
       alignSelf flexStart
-      paddingAll nil
+      padding (rem (1 / 4)) nil nil nil
       textOverflow overflowClip
       width (rem 1)
+      height (rem 1)
       minWidth (rem 1)
       "fill" -: "inherit"
       ".icon" ? top nil
@@ -138,6 +139,8 @@ alertStyle = do
       ".alert-message" ? do
         paddingTop nil
         paddingBottom nil
+      ".button-close" ? paddingAll nil
+      ".icon" ? top nil
 
     ".alert-message" ? do
       flexGrow 1

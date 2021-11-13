@@ -304,6 +304,7 @@ inputStyle = do
   input # ("type" @= "submit") ? do
     important $ background nord7'
     justifyContent center
+    important $ marginRight nil
     hover Clay.& enabled Clay.& do
       important $ background (rgb 121 184 202)
 
@@ -533,7 +534,7 @@ rangeElementStyle = do
     "-webkit-appearance" -: "none"
     paddingAll nil
     height (Clay.rem 0.2)
-    borderRadiusAll (px 3)
+    borderBottomWidth nil
     cursor pointer
     background nord10'
     disabledStyle
@@ -547,10 +548,6 @@ rangeElementStyle = do
     "::-moz-range-thumb" Clay.& do
       borderWidth nil
       backgroundColor inherit
-
-    focus Clay.& do
-      borderBottomWidth nil
-      marginBottom (px 2)
 
  where
   disabledStyle :: Css

@@ -1,6 +1,8 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeFamilies #-}
 module Components.Table
   ( tableDyn
   , tableStyle
@@ -34,11 +36,14 @@ module Components.Table
   )
 where
 
-import           Clay                    hiding ( icon )
+import           Clay                    hiding ( icon
+                                                , call
+                                                , (!)
+                                                )
 import           Control.Lens                   ( (^.) )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
+import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Fixed
 import           Data.Map                       ( Map )
@@ -53,10 +58,16 @@ import           Data.Text                      ( Text
                                                 )
 import qualified Data.Text                     as Text
                                                 ( unwords )
-import           Language.Javascript.JSaddle    ( js1
-                                                , jsg
-                                                , jss
-                                                , liftJSM
+import           Language.Javascript.JSaddle
+                                         hiding ( (#) )
+import qualified Language.Javascript.JSaddle   as JSaddle
+                                                ( (!!) )
+import qualified GHCJS.DOM.Types               as DOM
+import           GHCJS.DOM.Types                ( uncheckedCastTo
+                                                , HTMLElement(..)
+                                                )
+import           GHCJS.DOM.HTMLElement          ( getOffsetWidth
+                                                , getOffsetHeight
                                                 )
 import           Prelude                 hiding ( (**)
                                                 , rem
@@ -189,6 +200,9 @@ tableStyle = do
         display inlineBlock
         paddingAll (rem (1 / 2))
         outlineStyle none
+      ".icon" ? do
+        position relative
+        top (px 2)
 
     paddingAll (rem (1 / 2))
     textAlign start
@@ -196,7 +210,7 @@ tableStyle = do
       marginTop (rem (-1 / 4))
       marginBottom (rem (-1 / 2))
 
-    input # ("type" @= "checkbox") ? marginTop (rem (-1 / 8))
+    input # ("type" @= "checkbox") ? top (rem (-1 / 8))
 
     (Clay.select <> ".select") ? do
       borderBottomColor nord4'
@@ -332,8 +346,9 @@ datagrid i' cnt = elClass "div" "datagrid-wrapper" $ do
       -- However, we'd need to put the entire datagrid in the prerender.
       -- To avoid this, since we only need the height anyway, we put it on the left
   dynHeight <- prerender (pure (constDyn (Just 180))) $ do
-    (resizeEv, _) <- resizeDetectorWithStyle "margin-right:-1px;"
-      $ elAttr "div" (Map.singleton "style" "width:1px") blank
+    (resizeEv, _) <-
+      resizeDetectorWithAttrs' (Map.singleton "style" "margin-right:-1px;")
+        $ elAttr "div" (Map.singleton "style" "width:1px") blank
     holdDyn Nothing (snd <$> resizeEv)
 
   elClass "table" ("datagrid datagrid-" <> pack (show i'))
@@ -843,7 +858,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
               *             fromIntegral (_win_limit $ initialWindow cfg)
               `Prelude.div` bufferSize
               )
-              (\x -> Prelude.round x - 107)
+              (\x -> Prelude.round x - 110)
             <$> dynHeight
 
     (dynWindow, dynR) <-
@@ -952,7 +967,7 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
   mkHeightAttr (Just x) = Map.singleton
     "style"
     (  "position:relative;height:"
-    <> pack (show (Prelude.round x - (107 :: Int)))
+    <> pack (show (Prelude.round x - (110 :: Int)))
     <> "px"
     )
   colsIndexed = Map.fromList $ zip [0 ..] $ _gridConfig_columns cfg
@@ -1103,3 +1118,50 @@ virtualListBuffered' buffer heightPx rowPx maxIndex i0 setI keyToIndex items0 it
                                    items0
                                    itemsUpdate
                                    itemBuilder
+
+-- | Version of resizeDetectorWithAttrs which uses the ResizeObserver api instead of the polyfill
+resizeDetectorWithAttrs'
+  :: ( MonadJSM m
+     , DomBuilder t m
+     , PostBuild t m
+     , TriggerEvent t m
+     , PerformEvent t m
+     , DomBuilderSpace m ~ GhcjsDomSpace
+     , MonadJSM (Performable m)
+     )
+  => Map Text Text -- ^ A map of attributes. Warning: It should not modify the "position" style attribute.
+  -> m a -- ^ The embedded widget
+  -> m (Event t (Maybe Double, Maybe Double), a) -- ^ An 'Event' that fires on resize, and the result of the embedded widget
+resizeDetectorWithAttrs' attrs w = do
+  (parent, w') <- elAttr'
+    "div"
+    (Map.unionWith (<>) attrs ("style" =: "position: relative;"))
+    w
+
+  let phtml = uncheckedCastTo HTMLElement $ _element_raw parent
+
+  (resizeEv, callResizeEv) <- newTriggerEvent
+  _                        <- liftJSM $ do
+    ro <- new (jsg ("ResizeObserver" :: Text)) $ fun $ \_ _ args -> case args of
+      (xs : _) -> do
+        x   <- xs JSaddle.!! 0
+        rct <- x ! ("contentRect" :: Text)
+        hjs <- rct ! ("height" :: Text)
+        wjs <- rct ! ("width" :: Text)
+        hd  <- fromJSVal hjs
+        wd  <- fromJSVal wjs
+        liftIO $ callResizeEv (wd, hd)
+      [] -> pure ()
+    ro ^. js1 ("observe" :: Text) phtml
+
+  pb    <- delay 0 =<< getPostBuild
+
+  size0 <- performEvent $ fmap
+    (const $ liftJSM $ do
+      eow <- getOffsetWidth phtml
+      eoh <- getOffsetHeight phtml
+      pure (Just eow, Just eoh)
+    )
+    pb
+
+  return (leftmost [resizeEv, size0], w')
