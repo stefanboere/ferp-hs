@@ -205,8 +205,10 @@ withLocalUndoRedo
 withLocalUndoRedo remoteEv dynRec = do
   uniqDynRec       <- holdUniqDyn dynRec
   debounceDynRecEv <- debounce 1 (difference (updated uniqDynRec) remoteEv)
-  undoEv           <- undoRedo mempty debounceDynRecEv
-  pure $ leftmost [remoteEv, undoEv]
+  let debounceDynRecEvValid = ffilter (/= mempty) debounceDynRecEv
+  (hEv, tEv) <- headTailE debounceDynRecEvValid
+  dynUndoEv  <- widgetHold (pure never) ((`undoRedo` tEv) <$> hEv)
+  pure $ leftmost [remoteEv, switchDyn dynUndoEv]
 
 -- | Creates an editor which forces the primary key to the specified value
 editPrimaryKey
