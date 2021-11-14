@@ -29,7 +29,6 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Writer
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
@@ -247,12 +246,11 @@ popup wrapper openEv = do
   pure x
 
 
-modalHeader
-  :: (MonadIO m, DomBuilder t m, PostBuild t m) => m () -> m (Event t ())
+modalHeader :: (DomBuilder t m, PostBuild t m) => m () -> m (Event t ())
 modalHeader titl = elClass "div" "modal-header" $ el "h3" titl >> modalCloseBtn
 
 modalFooter
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (DomBuilder t m, PostBuild t m)
   => m (Event t b)
   -> m (Event t (), Event t b)
 modalFooter okBtn = cardFooter $ do
@@ -261,7 +259,7 @@ modalFooter okBtn = cardFooter $ do
   pure (cancelEv, okEv)
 
 wizardFooter
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (DomBuilder t m, PostBuild t m)
   => m (Event t b)
   -> m (Event t (), Event t (), Event t b)
 wizardFooter okBtn = cardFooter $ do
@@ -337,7 +335,7 @@ type WizardPage t m a
   = PageT t m Integer (Text, Event t StepperState, Event t (), Event t ()) a
 
 wizardPage
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (DomBuilder t m, PostBuild t m)
   => Text
   -> m (a, Event t StepperState, Event t (), Event t ())
   -> WizardPage t m a

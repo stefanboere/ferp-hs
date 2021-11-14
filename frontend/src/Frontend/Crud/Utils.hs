@@ -233,14 +233,13 @@ messageBox titl msg okBtn openEv = fmapMaybe id
   <$> modal ModalMedium (modalContent <$> openEv)
  where
   modalContent y = card $ do
-    x <- cardHeader (text titl >> modalCloseBtn)
+    x <- modalHeader (text titl)
 
     cardContent $ el "p" $ text (msg y)
 
-    cardFooter $ do
-      cancelEv <- cardAction "Cancel"
-      okEv     <- okBtn
-      pure $ leftmost [Nothing <$ x, Nothing <$ cancelEv, Just y <$ okEv]
+    (cancelEv, okEv) <- modalFooter okBtn
+
+    pure $ leftmost [Nothing <$ x, Nothing <$ cancelEv, Just y <$ okEv]
 
 
 data Property a b = Property
@@ -426,7 +425,7 @@ orAlertF getResultEv = do
 
 showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
 showError =
-  fmap (\statusI -> if statusI == Just 403 then reloadAction else pure ())
+  fmap (\statusI -> if statusI == Just 401 then reloadAction else pure ())
     . showClientError
 
 showClientError :: ClientError -> (Text, Maybe Int)
@@ -447,7 +446,7 @@ showClientError (FailureResponse rq rsp) =
               , if BL.null (Sub.responseBody rsp)
                 then Nothing
                 else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
-              , if statusI == 403
+              , if statusI == 401
                 then Just "Please try reloading this page."
                 else Nothing
               ]

@@ -30,7 +30,7 @@ import           Network.Wai.Handler.WebSockets ( websocketsOr )
 import           Network.WebSockets.Connection  ( acceptRequest
                                                 , connectionOnPong
                                                 , defaultConnectionOptions
-                                                , forkPingThread
+                                                , withPingThread
                                                 , sendClose
                                                 , Connection
                                                 )
@@ -60,8 +60,8 @@ serveSubscriber' subscriber app' req sendResponse = do
   let runLog = runLogging subscriber
   let handleWSConnection pending = do
         connection <- acceptRequest pending
-        forkPingThread connection 28
-        runLog
+        withPingThread connection 28 (pure ())
+          $   runLog
           .   Client.run app'
           <=< atomically
           .   fmap (addCookies req connection)
@@ -91,10 +91,13 @@ serveSubscriber' subscriber app' req sendResponse = do
   isDenied _                       = False
 
   addCookie r httpReq = httpReq
-    { S.httpHeaders = S.httpHeaders httpReq <> cookieHeaders (requestHeaders r)
+    { S.httpHeaders = exceptCookieHeaders (S.httpHeaders httpReq)
+                        <> cookieHeaders (requestHeaders r)
     }
 
-  cookieHeaders = map coerceHeader . filter ((== hCookie) . fst)
+  exceptCookieHeaders = filter ((/= hCookie) . CI.mk . Text.encodeUtf8 . fst)
+
+  cookieHeaders       = map coerceHeader . filter ((== hCookie) . fst)
 
   coerceHeader (x, y) = (Text.decodeUtf8 (CI.original x), Text.decodeUtf8 y)
 

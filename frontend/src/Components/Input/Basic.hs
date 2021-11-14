@@ -442,7 +442,7 @@ checkboxStyle = do
           borderColor white0'
           borderWidth4 nil 2 2 nil
           transform (rotate (deg 45))
-          top (rem 0.15)
+          top (rem 0.1)
           left (rem 0.4)
 
 radioStyle :: Css
