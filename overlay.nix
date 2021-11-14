@@ -3,8 +3,7 @@
 let
   project = useWarp:
     reflex-platform.project ({ pkgs, ... }: {
-      #      inherit useWarp; TODO put this back
-      useWarp = false;
+      inherit useWarp;
       withHoogle = false;
       packages = {
         backend = ./backend;

@@ -61,7 +61,13 @@ let
       redirectUri = "${frontendUrl}/auth/return";
     };
     staticDirectory = "${cfg.frontendPackage}";
-    frontend.websocketUrl = "${frontendUrlWs}/subscriber";
+    frontend = {
+      websocketUrl = "${frontendUrlWs}/subscriber";
+      mathjaxUrl = "/static/vendor/mathjax/tex-svg.js";
+      mathjaxConfigUrl = "/static/vendor/mathjax/mathjax-config.js";
+      aceUrl = "/static/vendor/ace/ace.js";
+      firaUrl = "/static/vendor/fira/fira.css";
+    };
   };
 
   backendApiConfig = let
