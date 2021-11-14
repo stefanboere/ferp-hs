@@ -93,7 +93,7 @@ codeInput
 codeInput cfg = do
 
   dynAttrs <- holdDynAttributes
-    (_inputConfig_attributes cfg <> "id" =: "editor")
+    (_inputConfig_attributes cfg <> "id" =: "editor") -- FIXME hardcoded id
     (_inputConfig_modifyAttributes cfg)
 
   (e, ())     <- elDynAttr' "div" dynAttrs (text initText)
@@ -149,7 +149,7 @@ aceEditor aceCfg readonlyDyn initText setTextEv = do
   (ace, focusDyn) <- aceWidget' aceCfg
                                 (AceDynConfig Nothing)
                                 never
-                                "editor"
+                                "editor" -- FIXME hardcoded id
                                 initText
                                 setTextEv
   postBuild <- getPostBuild

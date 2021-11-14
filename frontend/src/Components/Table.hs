@@ -1019,7 +1019,7 @@ virtualList'
   -> m (Dynamic t (Int, Int), Dynamic t (Map k a)) -- ^ A tuple containing: a 'Dynamic' of the index (based on the current scroll position) and number of items currently being rendered, and the 'Dynamic' list result
 virtualList' heightPx rowPx maxIndex i0 setI keyToIndex items0 itemsUpdate itemBuilder
   = do
-    let id'           = "datagrid-viewport" -- Should be unique per virtuallist
+    let id'           = "datagrid-viewport" -- FIXME Should be unique per virtuallist
         virtualH      = mkVirtualHeight <$> maxIndex
         viewportStyle = fmap (mkViewport id') heightPx
     pb <- getPostBuild
