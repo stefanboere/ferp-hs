@@ -60,6 +60,7 @@ module Components.Icon
   , startsWithIcon
   , endsWithIcon
   , containsIcon
+  , loginIcon
   )
 where
 
@@ -493,3 +494,9 @@ endsWithIcon = svgText 6 22 "__c"
 containsIcon :: (PostBuild t m, DomBuilder t m) => m ()
 containsIcon = svgText 6 22 "_b_"
 
+loginIcon :: (PostBuild t m, DomBuilder t m) => m ()
+loginIcon = do
+  path
+    "M28,4H12a2,2,0,0,0-2,2H28V30H12V20.2H10V30a2,2,0,0,0,2,2H28a2,2,0,0,0,2-2V6A2,2,0,0,0,28,4Z"
+  path
+    "M15.12,18.46a1,1,0,1,0,1.41,1.41l5.79-5.79L16.54,8.29a1,1,0,0,0-1.41,1.41L18.5,13H4a1,1,0,0,0-1,1,1,1,0,0,0,1,1H18.5Z"

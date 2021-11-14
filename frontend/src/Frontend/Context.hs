@@ -2,8 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Frontend.Context
   ( Config(..)
+  , AppConfig(..)
+  , AuthUser(..)
   , AppT
-  , getConfig
+  , getConfigFromPage
   , getConfigFromFile
   , runAppT
   )
@@ -12,6 +14,7 @@ where
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( ReaderT(..) )
 import           Data.Aeson
+import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text.Encoding            as Text
 import           GHC.Generics                   ( Generic )
@@ -19,14 +22,18 @@ import           GHCJS.DOM
 import           GHCJS.DOM.Document             ( getHead )
 import           GHCJS.DOM.Element              ( getInnerHTML )
 import           GHCJS.DOM.ParentNode           ( querySelector )
-import           Reflex.Dom                     ( Prerender
-                                                , MonadHold
-                                                )
+import           Reflex.Dom
 import           Language.Javascript.JSaddle
 
+import           Servant.AccessControl          ( Token(..) )
 import           Servant.Subscriber.Reflex      ( ApiWidget
+                                                , client
+                                                , requestingJs
                                                 , runApiWidget
+                                                , FreeClient
                                                 )
+
+import           Common.Auth
 
 data Config = Config
   { configWebsocketUrl :: Text
@@ -47,8 +54,8 @@ instance ToJSON Config where
   toJSON     = genericToJSON aesonOptions
   toEncoding = genericToEncoding aesonOptions
 
-getConfig :: MonadJSM m => m Config
-getConfig = liftJSM $ do
+getConfigFromPage :: MonadJSM m => m Config
+getConfigFromPage = liftJSM $ do
   Just doc <- currentDocument
   Just hd  <- getHead doc
   node     <- maybe (fail "Config element not found") pure
@@ -63,13 +70,24 @@ getConfig = liftJSM $ do
 getConfigFromFile :: FilePath -> IO Config
 getConfigFromFile file = eitherDecodeFileStrict' file >>= either fail pure
 
+getSelf :: Token -> FreeClient AuthUser
+getSelf = client (Proxy :: Proxy AuthApi)
 
-type AppT t m = ReaderT Config (ApiWidget t m)
+data AppConfig t = AppConfig
+  { getConfig :: Config
+  , getUser :: Dynamic t (Maybe AuthUser)
+  }
+
+type AppT t m = ReaderT (AppConfig t) (ApiWidget t m)
 
 runAppT
-  :: (MonadHold t m, MonadFix m, Prerender js t m)
+  :: (PostBuild t m, MonadHold t m, MonadFix m, Prerender js t m)
   => Config
   -> AppT t m a
   -> m a
-runAppT cfg m = runApiWidget (configWebsocketUrl cfg) (runReaderT m cfg)
+runAppT cfg m = runApiWidget (configWebsocketUrl cfg) $ do
+  pb      <- getPostBuild
+  usrEv   <- requestingJs (getSelf (Token "") <$ pb)
+  dynUser <- holdDyn Nothing (either (const Nothing) Just <$> usrEv)
+  runReaderT m $ AppConfig { getConfig = cfg, getUser = dynUser }
 

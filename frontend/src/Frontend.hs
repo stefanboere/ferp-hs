@@ -22,9 +22,13 @@ where
 import           Clay                    hiding ( icon
                                                 , id
                                                 )
-import           Control.Monad                  ( unless )
+import           Control.Monad                  ( unless
+                                                , void
+                                                )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.Reader           ( ReaderT(..) )
+import           Control.Monad.Reader           ( ReaderT(..)
+                                                , asks
+                                                )
 import           Data.Default
 import           Data.Either                    ( fromRight )
 import           Data.Maybe                     ( fromMaybe )
@@ -56,14 +60,17 @@ import           Frontend.Crud
 
 main :: IO ()
 main = mainWidget $ do
-  cfg <- getConfig
-  runAppT cfg $ withHeader (mainPage False)
+  cfg <- getConfigFromPage
+  runAppT cfg $ do
+    dynUser <- asks getUser
+    withHeader' False dynUser (mainPage False)
 
 mainWithHead :: IO ()
 mainWithHead = do
   cfg <- getConfigFromFile "config.json"
   mainWidgetWithHead headWidget $ runAppT cfg $ do
-    withHeader' True (mainPage True)
+    dynUser <- asks getUser
+    withHeader' True dynUser (mainPage True)
     elAttr
       "link"
       (  "href"
@@ -110,14 +117,15 @@ withHeader
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => (Event t Link -> m (Dynamic t URI))
   -> m ()
-withHeader = withHeader' False
+withHeader = withHeader' False (constDyn Nothing)
 
 withHeader'
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => Bool
+  -> Dynamic t (Maybe AuthUser)
   -> (Event t Link -> m (Dynamic t URI))
   -> m ()
-withHeader' useFragment x = do
+withHeader' useFragment dynUser x = do
   rec (clickEv, dynUri) <- app cfg
                                (sideNav dynUri)
                                (pure never)
@@ -132,7 +140,13 @@ withHeader' useFragment x = do
     , _headerConfig_navigationPattern = Sidenav
     , _headerConfig_homePageUrl       = if useFragment then "#/" else "/"
     }
-  actions = do
+
+  actions = void $ dyn $ maybe actionsUnAuth (const actionsAuth) <$> dynUser
+
+  actionsUnAuth =
+    void $ elAttrClick_ "a" ("href" =: "/auth/login") (icon def loginIcon)
+
+  actionsAuth = do
     _ <- btnDropdown def (icon def cogIcon) $ do
       accountEv <- elAttrClick_ "a" ("href" =: "/auth/account") (text "Account")
       logoutEv  <- elAttrClick_ "a" ("href" =: "/auth/logout") (text "Logout")
@@ -161,7 +175,9 @@ mainPage useFragment setRouteExtEv = do
     let changeRoute =
           leftmost [coerceUri . linkURI <$> setRouteExtEv, routeSetEv]
 
-  unless useFragment $ refreshAccessTokenEvery 300
+  dynUser <- asks getUser
+  unless useFragment
+    $ dyn_ (maybe (pure ()) (const (refreshAccessTokenEvery 300)) <$> dynUser)
 
   return $ fst <$> dynamicRoute
  where
