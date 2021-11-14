@@ -39,7 +39,6 @@ module Components.Input.Basic
   , InputEl(..)
   , labeled
   , labeledDyn
-  , randomId
   , holdDynAttributes
   , NumberRange(..)
   , selectInput
@@ -64,6 +63,8 @@ module Components.Input.Basic
   , statusMessageIcon
   , statusMessageElement
   , colorCls
+  , idAttr
+  , idAttrs
   )
 where
 
@@ -85,7 +86,6 @@ import           Control.Applicative            ( (<|>)
 import           Control.Lens                   ( (%~) )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
@@ -111,12 +111,6 @@ import           Reflex.Dom              hiding ( fileInput
                                                 , rangeInput
                                                 , textInput
                                                 )
-import           System.Random                  ( StdGen
-                                                , getStdGen
-                                                , random
-                                                , setStdGen
-                                                )
-import           Text.Printf                    ( printf )
 import           Text.Read                      ( readMaybe )
 
 import           Components.Class
@@ -153,7 +147,7 @@ type DomInputEl t m = InputEl (DomBuilderSpace m) t
 data InputConfig' extraConfig t m a = InputConfig
   { _inputConfig_initialValue     :: a
   , _inputConfig_setValue         :: Event t a
-  , _inputConfig_id               :: Maybe Text
+  , _inputConfig_id               :: Text
   , _inputConfig_status           :: Dynamic t InputStatus
   , _inputConfig_attributes       :: Map AttributeName Text
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
@@ -222,12 +216,13 @@ noInput cfg = hiddenInput
 inputConfig'
   :: (Reflex t, DomSpace (DomBuilderSpace m))
   => c a
+  -> Text
   -> a
   -> InputConfig' c t m a
-inputConfig' extra initval = InputConfig
+inputConfig' extra idStr initval = InputConfig
   { _inputConfig_initialValue     = initval
   , _inputConfig_setValue         = never
-  , _inputConfig_id               = def
+  , _inputConfig_id               = idStr
   , _inputConfig_status           = def
   , _inputConfig_attributes       = def
   , _inputConfig_modifyAttributes = never
@@ -237,15 +232,13 @@ inputConfig' extra initval = InputConfig
 
 inputConfig
   :: (Default (c a), Reflex t, DomSpace (DomBuilderSpace m))
-  => a
+  => Text
+  -> a
   -> InputConfig' c t m a
 inputConfig = inputConfig' def
 
 instance Default (Const () a) where
   def = Const ()
-
-instance (Default a, Default (c a), Reflex t, DomSpace (DomBuilderSpace m)) => Default (InputConfig' c t m a) where
-  def = inputConfig' def def
 
 instance (Functor c, Reflex t) => Functor (InputConfig' c t m) where
   fmap f cfg = cfg
@@ -646,14 +639,6 @@ colorCls (InputSuccess _) = "has-success"
 colorCls (InputError   _) = "has-error"
 colorCls _                = ""
 
--- | Generate a random id string
-randomId :: MonadIO m => m Text
-randomId = do
-  stdGen <- liftIO getStdGen
-  let (idInt, stdGen') = random stdGen :: (Int, StdGen)
-  liftIO $ setStdGen stdGen'
-  pure $ pack (printf "%x" idInt)
-
 statusModAttrEv'
   :: (PostBuild t m)
   => InputConfig' c t m a
@@ -714,16 +699,13 @@ statusMessageElement status = do
   message _                       = ""
 
 -- | Creates a label with a random for string, which is returned
-labelFor
-  :: (PostBuild t m, DomBuilder t m, MonadIO m) => Dynamic t Text -> m Text
-labelFor dynLabel = do
-  idStr <- randomId
+labelFor :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Text -> m ()
+labelFor idStr dynLabel = do
   elAttr "label" ("for" =: idStr) $ dynText dynLabel
-  pure idStr
 
 -- | An editor with a label. Creates a random id and adds it to the editor
 labeled
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: (PostBuild t m, DomBuilder t m)
   => Text
   -> (InputConfig' c t m a -> m b)
   -> InputConfig' c t m a
@@ -731,14 +713,14 @@ labeled
 labeled lbl = labeledDyn (constDyn lbl)
 
 labeledDyn
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: (PostBuild t m, DomBuilder t m)
   => Dynamic t Text
   -> (InputConfig' c t m a -> m b)
   -> InputConfig' c t m a
   -> m b
 labeledDyn lbl editor cfg = do
-  idStr <- labelFor lbl
-  editor cfg { _inputConfig_id = Just idStr }
+  labelFor (_inputConfig_id cfg) lbl
+  editor cfg
 
 textInput
   :: forall t m
@@ -967,7 +949,7 @@ showFloat (Just precision) x
   = pack (show (Prelude.round x :: Integer))
 
 toggleInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: (PostBuild t m, DomBuilder t m)
   => Text
   -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
@@ -979,7 +961,7 @@ toggleInput lbl cfg = do
     cfg { _inputConfig_attributes = _inputConfig_attributes cfg <> initAttrs }
 
 togglesInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  :: (PostBuild t m, DomBuilder t m, Ord a, Enum a, Bounded a)
   => EnumInputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
 togglesInput cfg = do
@@ -990,7 +972,7 @@ togglesInput cfg = do
     }
 
 checkboxesInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  :: (PostBuild t m, DomBuilder t m, Ord a, Enum a, Bounded a)
   => EnumInputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
 checkboxesInput cfg = checkboxesInputMap
@@ -1002,12 +984,16 @@ allPossibleMap :: (Bounded a, Enum a, Ord a) => (a -> b) -> Map a b
 allPossibleMap toLabel =
   Map.fromList . fmap (\x -> (x, toLabel x)) $ allPossible (Proxy :: Proxy a)
 
-idAttr :: (Ord a, IsString a) => Maybe Text -> Map a Text
-idAttr = maybe mempty (Map.singleton "id")
+idAttr :: (Ord a, IsString a) => Text -> Map a Text
+idAttr = idAttrs "id"
+
+idAttrs :: Ord a => a -> Text -> Map a Text
+idAttrs idName idStr | Text.null idStr = mempty
+                     | otherwise       = Map.singleton idName idStr
 
 -- | Same as 'checkboxesInput' but with a map containing all options
 checkboxesInputMap
-  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a)
+  :: (PostBuild t m, DomBuilder t m, Ord a)
   => Map a (m ())
   -> InputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
@@ -1040,17 +1026,15 @@ checkboxesInputMap opts cfg =
                                                 , _inputConfig_modifyAttributes
                                                   cfg'
                                                 ]
+            , _inputConfig_id = _inputConfig_id cfg' <> "." <> maybe
+                                  ""
+                                  (pack . show)
+                                  (Map.lookupIndex k opts)
             }
 
 -- | Same as 'checkboxesInput' but with a map containing all options
 checkboxesInputDynMap
-  :: ( PostBuild t m
-     , DomBuilder t m
-     , MonadIO m
-     , MonadHold t m
-     , MonadFix m
-     , Ord a
-     )
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m, Ord a, Show a)
   => Dynamic t (Map a (m ()))
   -> InputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))
@@ -1084,6 +1068,7 @@ checkboxesInputDynMap opts cfg =
                                                 , _inputConfig_modifyAttributes
                                                   cfg'
                                                 ]
+            , _inputConfig_id = _inputConfig_id cfg' <> "." <> pack (show k)
             }
 
 statusMessageDiv
@@ -1093,7 +1078,7 @@ statusMessageDiv status = elClass "div" "statusmessage" $ do
   statusMessageElement status
 
 checkboxInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m)
+  :: (PostBuild t m, DomBuilder t m)
   => Text
   -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
@@ -1103,13 +1088,13 @@ checkboxInput lbl cfg = fmap (Prelude.not . Set.null) <$> checkboxesInputMap
 
 checkboxInput'
   :: forall t m
-   . (PostBuild t m, DomBuilder t m, MonadIO m)
+   . (PostBuild t m, DomBuilder t m)
   => m ()
   -> InputConfig t m Bool
   -> m (DomInputEl t m Bool)
 checkboxInput' lbl cfg = el "div" $ do
-  idStr <- randomId
-  n     <-
+  let idStr = _inputConfig_id cfg
+  n <-
     inputElement
     $  (def :: InputElementConfig EventResult t (DomBuilderSpace m))
     &  inputElementConfig_initialChecked
@@ -1219,7 +1204,7 @@ parseEnum :: Enum a => Text -> Maybe a
 parseEnum = fmap toEnum . readMaybe . unpack
 
 radioInput
-  :: (PostBuild t m, DomBuilder t m, MonadIO m, Ord a, Enum a, Bounded a)
+  :: (PostBuild t m, DomBuilder t m, Ord a, Enum a, Bounded a)
   => EnumInputConfig t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
@@ -1228,9 +1213,9 @@ radioInput cfg = fmap Set.lookupMin <$> checkboxesInput
     , _inputConfig_extra      = OpElem (getOpElem (_inputConfig_extra cfg))
     }
  where
-  initAttrs = "type" =: "radio" <> maybe mempty
-                                         (Map.singleton "name")
-                                         (_inputConfig_id cfg)
+  initAttrs = "type" =: "radio" <> if Text.null (_inputConfig_id cfg)
+    then mempty
+    else Map.singleton "name" (_inputConfig_id cfg)
 
 textAreaInput
   :: forall t m
@@ -1331,10 +1316,9 @@ datalistInput options cfg = textInputWithIco
   after'
   cfg
     { _inputConfig_attributes = _inputConfig_attributes cfg
-                                <> maybe
-                                     mempty
-                                     (Map.singleton "list" . (<> "-datalist"))
-                                     (_inputConfig_id cfg)
+                                <> idAttrs
+                                     "list"
+                                     (_inputConfig_id cfg <> "-datalist")
                                 <> "class"
                                 =: "datalist"
     }
@@ -1343,12 +1327,7 @@ datalistInput options cfg = textInputWithIco
     selectIcon
 
     _ <-
-      elAttr
-          "datalist"
-          (maybe mempty
-                 (Map.singleton "id" . (<> "-datalist"))
-                 (_inputConfig_id cfg)
-          )
+      elAttr "datalist" (idAttr (_inputConfig_id cfg <> "-datalist"))
         $ listWithKey options mkOption
 
     pure (never, never)

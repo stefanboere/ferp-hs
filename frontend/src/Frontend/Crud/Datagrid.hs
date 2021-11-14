@@ -60,7 +60,9 @@ import           Data.Maybe                     ( fromMaybe
                                                 , maybeToList
                                                 )
 import qualified Data.Set                      as Set
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , intercalate
+                                                )
 import           Data.Time                      ( NominalDiffTime )
 import           Data.Typeable                  ( Proxy
                                                 , Typeable
@@ -367,12 +369,13 @@ gridProp e' il prp = Column
   , _column_orderBy  = (_prop_key prp, _prop_orderBy prp)
   , _column_filterBy = ( _ilens_domain il'
                        , initFilterCondition il'
-                       , filterEditor e il'
+                       , filterEditor e idStr il'
                        )
   }
  where
-  il' = filterWith (_prop_lens prp) il
-  e   = coerceEditor MaybeLast unMaybeLast e'
+  il'   = filterWith (_prop_lens prp) il
+  e     = coerceEditor MaybeLast unMaybeLast e'
+  idStr = intercalate "." ("filter" : _prop_key prp)
 
 -- | Returns the first filter which is nonzero
 initFilterCondition
@@ -388,15 +391,16 @@ initFilterCondition il f
 filterEditor
   :: (DomBuilder t m, MonadFix m, MonadHold t m)
   => Editor c t m (MaybeLast b)
+  -> Text
   -> IndexLens FilterCondition f (MaybeLast b)
   -> f
   -> FilterCondition
   -> Event t FilterCondition
   -> m (Dynamic t (f -> f))
-filterEditor e l initF initVal updateC = do
+filterEditor e idStr l initF initVal updateC = do
   edtr <- respectFocus
     (_edit_editor e)
-    (inputConfig' (_edit_extraConfig e) (_ilens_get l initF initVal))
+    (inputConfig' (_edit_extraConfig e) idStr (_ilens_get l initF initVal))
   dynC <- holdDyn initVal updateC
   pure $ _ilens_set l <$> dynC <*> _inputEl_value edtr
 
@@ -571,7 +575,6 @@ browseForm
      , MonadHold t m
      , Prerender js t m
      , MonadFix m
-     , MonadIO m
      , MonadIO (Performable m)
      , TriggerEvent t m
      , PerformEvent t m

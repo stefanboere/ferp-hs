@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RecursiveDo #-}
 module Components.Accordion
   ( accordion
@@ -17,9 +18,9 @@ import           Prelude                 hiding ( rem )
 
 import           Clay                    hiding ( icon )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Control.Monad.State
 import           Data.Default
+import qualified Data.Map                      as Map
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -27,8 +28,8 @@ import           Reflex.Dom              hiding ( display
                                                 , (&)
                                                 )
 
+import           Components.Navigation          ( elDynAttrEventSpec' )
 import           Components.Class
-import           Components.Input
 import           Components.Icon
 import           Nordtheme
 
@@ -45,7 +46,6 @@ accordionStyle = mconcat [accordionStyle', stackviewStyle, stepperStyle]
 
 accordionStyle' :: Css
 accordionStyle' = ".accordion" ? do
-  input # ("type" @= "checkbox") ? display none
   border solid (px 1) grey0'
   borderBottomWidth nil
 
@@ -53,29 +53,36 @@ accordionStyle' = ".accordion" ? do
     marginRight (rem 0.5)
     transforms [translateY (rem 0.25), rotate (deg 90)]
 
-  label ? do
+  summary ? do
     display flex
     padding (rem (1 / 4)) (rem (1 / 2)) (rem (1 / 4)) (rem (1 / 2))
 
     cursor pointer
     hover & backgroundColor nord6'
 
+    "::marker" Clay.& display none
+    "::-webkit-details-marker" Clay.& display none
+    ":first-of-type" Clay.& listStyleType none
+    outlineStyle none
+    outlineWidth nil
+    fontWeight bold
+    lineHeight (rem (3 / 2))
+
   ".content" ? do
-    display none
+    display block
     backgroundColor white
     borderTop solid (px 1) grey0'
     padding (rem (3 / 2)) (rem 2) (rem (3 / 2)) (rem 2)
 
-  input # checked |+ star ? do
+  open & do
     ".angle-icon" ? transforms [translateY (rem 0.25), rotate (deg 180)]
-    ".content" ? display block
-    label ? backgroundColor nord4'
+    summary ? backgroundColor nord4'
 
   firstOfType & do
     borderTopLeftRadius (px 3) (px 3)
     borderTopRightRadius (px 3) (px 3)
 
-    label & do
+    "summary" & do
       borderTopLeftRadius (px 3) (px 3)
       borderTopRightRadius (px 3) (px 3)
 
@@ -91,7 +98,7 @@ accordionStyle' = ".accordion" ? do
 
   ".disabled" & do
     ".angle-icon" ? visibility hidden
-    label ? do
+    summary ? do
       cursor cursorDefault
       hover & backgroundColor inherit
 
@@ -116,21 +123,21 @@ stackviewStyle = do
     marginBottom (rem (-3 / 2))
     borderBottomWidth nil
 
-  ".stack-view" Clay.** input # checked |+ star Clay.** ".content" ? do
+  ".stack-view" Clay.** ".content" ? do
     display flex
     flexDirection column
 
 stepperStyle :: Css
 stepperStyle = ".stepper" ? do
-  label Clay.? do
+  summary Clay.? do
     borderLeft solid (rem (1 / 4)) (lighten 0.5 grey0')
     paddingLeft (rem (1 / 4))
     paddingTop (rem (3 / 4))
     paddingBottom (rem (3 / 4))
 
-  ".error" Clay.& label ? borderLeftColor nord11'
+  ".error" Clay.& summary ? borderLeftColor nord11'
 
-  ".success" Clay.& label ? borderLeftColor green1'
+  ".success" Clay.& summary ? borderLeftColor green1'
 
   ".stepnum" ? do
     display inlineFlex
@@ -141,7 +148,8 @@ stepperStyle = ".stepper" ? do
     ".icon" ? paddingTop (rem (1 / 4))
 
 stepper'
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: forall t m a b
+   . (MonadHold t m, DomBuilder t m, PostBuild t m, MonadFix m)
   => Text
   -> Dynamic t Bool
   -> Dynamic t StepperState
@@ -150,22 +158,38 @@ stepper'
   -> m b
   -> m a
   -> m (b, a)
-stepper' cls disabledDyn state' initOpen setOpen titl cnt =
-  elDynClass "section" (stateCls <$> state' <*> disabledDyn) $ do
-    idStr <- randomId
-    _     <- dyn (mkCheckbox idStr <$> disabledDyn)
-    el "div" $ do
-      l <- elAttr "label" ("class" =: "p3" <> "for" =: idStr) $ do
-        icon def { _iconConfig_class = constDyn $ Just "angle-icon" } angleIcon
-        titl
+stepper' cls disabledDyn state' initOpen setOpen titl cnt = do
+  rec dynOpen <- foldDyn ($)
+                         initOpen
+                         (leftmost [const <$> setOpen, Prelude.not <$ e])
+      let dynOpen' =
+            (\opn dis -> opn && Prelude.not dis) <$> dynOpen <*> disabledDyn
 
-      c <- elClass "div" "content" cnt
-      pure (l, c)
+      (e, l, c) <- elDynAttr "details" (mkAttrs <$> dynOpen' <*> dynCls) $ do
+
+        (e', l') <-
+          elDynAttrEventSpec'
+              (addEventSpecFlags (Nothing :: Maybe (DomBuilderSpace m))
+                                 Click
+                                 (const preventDefault)
+              )
+              "summary"
+              (constDyn $ Map.singleton "class" "p3")
+            $ do
+                icon def { _iconConfig_class = constDyn $ Just "angle-icon" }
+                     angleIcon
+                titl
+
+        c' <- elClass "div" "content" cnt
+        pure (domEvent Click e', l', c')
+
+  pure (l, c)
 
  where
-  mkCheckbox _ True = pure ()
-  mkCheckbox idStr False =
-    checkboxInputSimple initOpen setOpen ("id" =: idStr) >> pure ()
+  mkAttrs opn dcls = Map.singleton "class" dcls
+    <> if opn then Map.singleton "open" "" else mempty
+
+  dynCls = stateCls <$> state' <*> disabledDyn
 
   stateCls _              True = "accordion disabled" <> cls
   stateCls StepperNeutral _    = "accordion" <> cls
@@ -173,7 +197,7 @@ stepper' cls disabledDyn state' initOpen setOpen titl cnt =
   stateCls StepperSuccess _    = "accordion success" <> cls
 
 accordion'
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadHold t m, DomBuilder t m, PostBuild t m, MonadFix m)
   => Text
   -> Event t Bool
   -> m b
@@ -182,14 +206,15 @@ accordion'
 accordion' cls = stepper' cls (constDyn False) (constDyn def) False
 
 accordion
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadHold t m, DomBuilder t m, PostBuild t m, MonadFix m)
   => Event t Bool
   -> Dynamic t Text
   -> m a
   -> m a
 accordion setOpen titl = fmap snd . accordion' mempty setOpen (dynText titl)
 
-accordionEmpty :: (DomBuilder t m, MonadIO m, PostBuild t m) => m b -> m b
+accordionEmpty
+  :: (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m) => m b -> m b
 accordionEmpty titl = fst <$> stepper' mempty
                                        (constDyn True)
                                        (constDyn def)
@@ -199,11 +224,14 @@ accordionEmpty titl = fst <$> stepper' mempty
                                        (pure ())
 
 stackviewEmpty
-  :: (DomBuilder t m, MonadIO m, PostBuild t m) => Dynamic t Text -> m a -> m a
+  :: (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m)
+  => Dynamic t Text
+  -> m a
+  -> m a
 stackviewEmpty titl = accordionEmpty . stackviewRow titl
 
 stackview
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadHold t m, DomBuilder t m, PostBuild t m, MonadFix m)
   => Event t Bool
   -> m b
   -> m a
@@ -219,7 +247,7 @@ stackviewRow titl cnt = elClass "div" "stack-row" $ do
 type StepperPage t m a = StateT (Integer, Event t ()) m a
 
 stepper
-  :: (MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadHold t m, DomBuilder t m, PostBuild t m)
   => StepperPage t m (Dynamic t a)
   -> m (Event t a)
 stepper cnt = do
@@ -228,7 +256,7 @@ stepper cnt = do
   pure $ tagPromptlyDyn dynA submitEv
 
 stepperPage
-  :: (MonadIO m, DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
   => Text
   -> Text
   -> m (a, Event t StepperState)

@@ -284,10 +284,9 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
       { _inputConfig_setValue         = leftmost
         [_inputConfig_setValue (_cb_text <$> cfg), setTextEv]
       , _inputConfig_attributes       = _inputConfig_attributes cfg
-                                        <> maybe
-                                             mempty
-                                             (Map.singleton "list" . (<> "-datalist"))
-                                             (_inputConfig_id cfg)
+                                        <> idAttrs
+                                             "list"
+                                             (_inputConfig_id cfg <> "-datalist")
                                         <> "class"
                                         =: "combobox"
       , _inputConfig_modifyAttributes = mergeWith
@@ -554,7 +553,7 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
 
   mkDatalistAttr isOpen =
     Map.singleton "class" ("combobox-menu" <> if isOpen then " open" else "")
-      <> maybe mempty (Map.singleton "id") (_inputConfig_id cfg)
+      <> idAttr (_inputConfig_id cfg <> "-datalist")
 
   arrowKeys = [13, 38, 40]
   preventArrowDef Nothing = preventDefault

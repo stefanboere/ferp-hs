@@ -25,7 +25,6 @@ import           Clay                    hiding ( icon
 import           Control.Monad                  ( unless )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( ReaderT(..) )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Either                    ( fromRight )
 import           Data.Maybe                     ( fromMaybe )
@@ -108,13 +107,13 @@ css = do
   markdownInputStyle
 
 withHeader
-  :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
+  :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => (Event t Link -> m (Dynamic t URI))
   -> m ()
 withHeader = withHeader' False
 
 withHeader'
-  :: (MonadHold t m, MonadIO m, MonadFix m, PostBuild t m, DomBuilder t m)
+  :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => Bool
   -> (Event t Link -> m (Dynamic t URI))
   -> m ()
@@ -190,7 +189,7 @@ api :: Proxy Api
 api = Proxy
 
 sideNav
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
 sideNav dynUri = leftmost <$> sequence

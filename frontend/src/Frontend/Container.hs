@@ -13,7 +13,6 @@ module Frontend.Container
 where
 
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import qualified Data.Map                      as Map
 import           Data.Proxy
@@ -50,7 +49,7 @@ containerAccordionLink :<|> containerCardLink :<|> containerModalLink :<|> conta
   = allLinks containerApi
 
 containerLinks
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
 containerLinks dynUri = safelinkGroup
@@ -78,7 +77,7 @@ containerHandler =
     :<|> containerTreeview
 
 containerAccordion
-  :: (MonadIO m, MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
+  :: (MonadFix m, MonadHold t m, PostBuild t m, DomBuilder t m)
   => m (Event t URI)
 containerAccordion = do
   el "h1" $ text "Accordion"
@@ -94,9 +93,10 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- stackviewEmpty "Label 1" (textInput (inputConfig "Content 1"))
+    _ <- stackviewEmpty "Label 1" (textInput (inputConfig "cnt_1" "Content 1"))
     _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
-      _ <- stackviewRow "Sub-label 1" (textInput (inputConfig "Sub-content 1"))
+      _ <- stackviewRow "Sub-label 1"
+                        (textInput (inputConfig "sub_1" "Sub-content 1"))
       stackviewRow "Sub-label 2" (text "Sub-content 2")
       stackviewRow "Sub-label 3" (text "Sub-content 3")
     _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do
@@ -174,7 +174,7 @@ containerCard = do
   pure never
 
 containerModal
-  :: (MonadIO m, MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
+  :: (MonadHold t m, PostBuild t m, DomBuilder t m, MonadFix m)
   => m (Event t URI)
 containerModal = do
   el "h1" $ text "Modal"
@@ -279,8 +279,7 @@ containerTab = do
     [0 .. 10]
 
 containerTable
-  :: ( MonadIO m
-     , MonadFix m
+  :: ( MonadFix m
      , PostBuild t m
      , MonadHold t m
      , DomBuilder t m
@@ -323,9 +322,10 @@ containerTable = do
       (s1, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
         el "td" $ text "42"
-        _ <- el "td" $ textInput (inputConfig "John Doe")
-        _ <- el "td" $ dateInput (inputConfig (Just (fromGregorian 1970 01 01)))
-        _ <- el "td" $ numberInput (inputConfig (10 :: Double))
+        _ <- el "td" $ textInput (inputConfig "txt_1" "John Doe")
+        _ <- el "td"
+          $ dateInput (inputConfig "date_1" (Just (fromGregorian 1970 01 01)))
+        _ <- el "td" $ numberInput (inputConfig "num_1" (10 :: Double))
         pure ()
       (s2, _) <- rms $ do
         linkCell "#" angleDoubleRightIcon
@@ -364,7 +364,7 @@ containerTable = do
   pure never
  where
   quickFilter = withFilterCondition [minBound .. maxBound] def
-    $ \_ _ -> textInput (inputConfig "")
+    $ \_ _ -> textInput (inputConfig "" "")
 
 containerTimeline :: WidgetConstraint js t m => m (Event t URI)
 containerTimeline = do
@@ -378,7 +378,7 @@ containerTimeline = do
       (constDyn "")
       (constDyn TimelineCurrent)
       ""
-      (textAreaInput (inputConfig "") >> btnSecondary (text "Comment"))
+      (textAreaInput (inputConfig "tltb" "") >> btnSecondary (text "Comment"))
     _ <- timelineStep
       "2021-06-05\n22:19"
       (constDyn TimelineNotStarted)
@@ -430,7 +430,7 @@ containerTimeline = do
                  (pure ())
 
 containerTreeview
-  :: (PostBuild t m, DomBuilder t m, MonadIO m) => m (Event t URI)
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m) => m (Event t URI)
 containerTreeview = do
   el "h1" $ text "Treeview"
   treeview never (item "ferp-hs") $ do

@@ -5,7 +5,8 @@ module Components.Input.File
   ( fileDropzone
   , fileDropzoneStyle
   , fileDropzoneScript
-  ) where
+  )
+where
 
 
 import           Prelude                 hiding ( rem )
@@ -20,7 +21,6 @@ import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( fromMaybe )
 import           GHCJS.DOM.File                 ( getName )
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
@@ -70,7 +70,7 @@ fileDropzone cfg = do
                 &  inputElementConfig_elementConfig
                 .  elementConfig_initialAttributes
                 .~ (_inputConfig_attributes cfg <> initAttrs)
-                <> maybe mempty (Map.singleton "id") (_inputConfig_id cfg)
+                <> idAttr (_inputConfig_id cfg)
                 &  inputElementConfig_elementConfig
                 .  elementConfig_modifyAttributes
                 .~ mergeWith (<>) [modAttrEv, _inputConfig_modifyAttributes cfg]
@@ -105,9 +105,7 @@ fileDropzone cfg = do
         else "" <> if x == InputDisabled then " disabled" else mempty
       )
     , ("ondragover", "dragOverHandler(event);")
-    , ( "ondrop"
-      , "dropHandler('" <> fromMaybe "" (_inputConfig_id cfg) <> "', event);"
-      )
+    , ("ondrop"    , "dropHandler('" <> _inputConfig_id cfg <> "', event);")
     ]
 
   initAttrs = "type" =: "file" <> "multiple" =: ""

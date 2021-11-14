@@ -18,6 +18,7 @@ module Components.Navigation
   , safelink
   , safelinkGroup
   , ahrefPreventDefault
+  , elDynAttrEventSpec'
   )
 where
 
@@ -26,11 +27,11 @@ import qualified Clay.Media                    as Media
 import qualified Clay.Flexbox                  as Flexbox
 import           Control.Monad                  ( when )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import qualified Data.ByteString.Char8         as B
                                                 ( pack )
 import           Data.Default
 import           Data.Map                       ( Map )
+import qualified Data.Map                      as Map
 import           Data.Monoid                    ( Any(..) )
 import           Data.Text                      ( Text
                                                 , pack
@@ -51,9 +52,7 @@ import           URI.ByteString
 
 import           Components.Class
 import           Components.Icon
-import           Components.Input.Basic         ( checkboxInputSimple
-                                                , randomId
-                                                )
+import           Components.Input.Basic         ( checkboxInputSimple )
 import           Nordtheme
 
 appStyle :: Css
@@ -190,34 +189,25 @@ elAttrClick_ elName attrs cnt = do
   pure $ domEvent Click e
 
 navGroup
-  :: (MonadIO m, PostBuild t m, DomBuilder t m)
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m)
   => Event t Bool
   -> m ()
   -> m a
   -> m a
-navGroup = navGroup' True 0.7 "nav-group"
+navGroup = navGroup' 0.7 "nav-group"
 
 navGroup'
-  :: (MonadIO m, PostBuild t m, DomBuilder t m)
-  => Bool
-  -> Double
+  :: (MonadHold t m, PostBuild t m, DomBuilder t m)
+  => Double
   -> Text
   -> Event t Bool
   -> m ()
   -> m a
   -> m a
-navGroup' initC iconSize cls setOpen titl cnt = elClass "section" cls $ do
-  idStr <- randomId
-  _     <-
-    checkboxInputSimple
-      initC
-      ((if initC then Prelude.not else Prelude.id) <$> setOpen)
-    $  "id"
-    =: idStr
-    <> "style"
-    =: "display:none"
-  el "div" $ do
-    elAttr "label" ("for" =: idStr) $ do
+navGroup' iconSize cls setOpen titl cnt = do
+  dynOpen <- holdDyn False setOpen
+  elDynAttr "details" (mkAttr <$> dynOpen) $ do
+    el "summary" $ do
       el "span" titl
       icon
         def { _iconConfig_size  = iconSize
@@ -226,6 +216,9 @@ navGroup' initC iconSize cls setOpen titl cnt = elClass "section" cls $ do
         angleIcon
 
     el "ul" cnt
+ where
+  mkAttr True  = Map.singleton "class" cls <> Map.singleton "open" ""
+  mkAttr False = Map.singleton "class" cls
 
 ahrefPreventDefault
   :: forall t m
@@ -321,7 +314,7 @@ coerceUri uri = URI { uriScheme    = scheme (L.uriScheme uri)
 
 -- | A group of links which automatically opens if one child is active
 safelinkGroup
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => m ()
   -> [m (Dynamic t Bool, Event t L.Link)]
   -> m (Event t L.Link)
@@ -582,6 +575,8 @@ subNavStyle = ".subnav" ? do
     marginLeft (rem 1)
     marginRight (rem 1)
     tabLinkStyle
+    height (rem 2)
+    boxSizing borderBox
 
   ".active" ? do
     fontColor nord0'
@@ -726,7 +721,7 @@ mobileNavStyle = do
 
     ".nav-group" ? do
       paddingLeft nil
-      label ? do
+      summary ? do
         paddingLeft (rem 0.6)
         hover Clay.& backgroundColor grey0'
 
@@ -772,7 +767,7 @@ commonNavStyle = do
       display block
       lineHeight (rem 2)
 
-    label ? do
+    (label <> summary) ? do
       display flex
       justifyContent spaceBetween
       cursor pointer
@@ -787,11 +782,21 @@ commonNavStyle = do
       marginRight (rem 0.2)
       transforms [translate (rem 0.35) (rem 0.7), rotate (deg 90)]
 
-    label ? paddingRight (rem 0.6)
+    summary ? do
+      paddingRight (rem 0.6)
+      listStyleType none
+      "::marker" Clay.& display none
+      "::-webkit-details-marker" Clay.& display none
+      ":first-of-type" Clay.& listStyleType none
+      outlineStyle none
+      outlineWidth nil
+      fontWeight bold
 
-    input # Clay.not ":checked" |+ star ? do
-      ".angle-icon" ? transforms [translateY (rem 0.35), rotate (deg 180)]
-      ul ? display flex
+    ul ? display flex
+
+    open Clay.& do
+      summary ? do
+        ".angle-icon" ? transforms [translateY (rem 0.35), rotate (deg 180)]
 
 sideNavStyle :: Css
 sideNavStyle = do
@@ -817,7 +822,7 @@ sideNavStyle = do
         fontWeight normal
         lineHeight (rem 1.5)
 
-      label ? do
+      summary ? do
         justifyContent flexStart
         lineHeight (rem 1.5)
         marginLeft (rem (-0.8))
@@ -828,53 +833,55 @@ sideNav :: DomBuilder t m => m a -> m a
 sideNav = elClass "nav" "sidenav"
 
 treeviewStyle :: Css
-treeviewStyle = ".treeview" ? do
-  fontSize (rem (13 / 16))
-  ".icon" # Clay.not ".angle-icon" ? paddingRight (rem (1 / 4))
+treeviewStyle = do
+  ".treeview" ? do
+    fontSize (rem (13 / 16))
+    ".icon" # Clay.not ".angle-icon" ? paddingRight (rem (1 / 4))
 
-  ul ? do
-    margin nil nil nil (rem (3 / 2))
-    flexDirection column
-    paddingAll nil
+    ul ? do
+      margin nil nil nil (rem (3 / 2))
+      flexDirection column
+      paddingAll nil
 
-  li ? do
-    display flex
-    alignItems center
-    lineHeight (rem 1.5)
-
-  label ? do
-    fontWeight (weight 500)
-    display flex
-    justifyContent flexStart
-    cursor pointer
-    lineHeight (rem 1.5)
-
-    Clay.span ? do
+    li ? do
       display flex
       alignItems center
+      lineHeight (rem 1.5)
 
-  ".angle-icon" ? do
-    order (-1)
-    marginLeft (rem (-3 / 2))
-    marginRight (rem (1 / 2))
+    summary ? do
+      fontWeight (weight 500)
+      display flex
+      justifyContent flexStart
+      cursor pointer
+      lineHeight (rem 1.5)
+      listStyleType none
+      "::marker" Clay.& display none
+      "::-webkit-details-marker" Clay.& display none
+      ":first-of-type" Clay.& listStyleType none
+      outlineStyle none
+      outlineWidth nil
 
-  input # checked |+ star ? do
-    ".angle-icon"
-      ? transforms [translate (rem 0.25) (rem 0.25), rotate (deg 180)]
-    ul ? display flex
+      Clay.span ? do
+        display flex
+        alignItems center
 
-  input # Clay.not (star # checked) |+ star ? do
-    ".angle-icon" ? transforms [translate (rem 0.5) (rem 0.25), rotate (deg 90)]
-    ul ? display none
+    ".angle-icon" ? do
+      order (-1)
+      marginLeft (rem (-3 / 2))
+      marginRight (rem (1 / 2))
+      transforms [translate (rem 0.5) (rem 0.25), rotate (deg 90)]
+
+  ".treeview" # open |> summary |> ".angle-icon" ? transforms
+    [translate (rem 0.25) (rem 0.25), rotate (deg 180)]
 
 
 treeview
-  :: (MonadIO m, PostBuild t m, DomBuilder t m)
+  :: (MonadHold t m, PostBuild t m, DomBuilder t m)
   => Event t Bool
   -> m ()
   -> m a
   -> m a
-treeview = navGroup' False 1 "treeview"
+treeview = navGroup' 1 "treeview"
 
 leaf :: (DomBuilder t m) => m a -> m a
 leaf = el "li"

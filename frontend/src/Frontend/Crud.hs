@@ -12,7 +12,6 @@ where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
@@ -72,7 +71,7 @@ channelLink :: ChannelId -> Link
   = allLinks crudApi
 
 crudLinks
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
 crudLinks dynUri = safelinkGroup

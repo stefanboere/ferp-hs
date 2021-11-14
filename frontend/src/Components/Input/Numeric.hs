@@ -6,10 +6,10 @@
 module Components.Input.Numeric
   ( Overridable(..)
   , overridableNumberInput
-  ) where
+  )
+where
 
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Maybe                     ( isJust )
 import           Reflex
@@ -44,7 +44,6 @@ overridableNumberInput
      , MonadFix m
      , Read a
      , RealFloat a
-     , MonadIO m
      )
   => Event t a
   -> InputConfig t m (Overridable a)

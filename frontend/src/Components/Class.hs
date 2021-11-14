@@ -78,7 +78,6 @@ spantext = el "span" . dynText
 
 type WidgetConstraint js t m
   = ( MonadFix m
-    , MonadIO m
     , DomBuilder t m
     , PostBuild t m
     , TriggerEvent t m

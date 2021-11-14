@@ -252,7 +252,6 @@ data Property a b = Property
 editWith
   :: ( DomBuilder t m
      , PostBuild t m
-     , MonadIO m
      , MonadFix m
      , Functor c
      , Monoid (a MaybeLast)
@@ -261,7 +260,11 @@ editWith
   -> Property a b
   -> Event t (a MaybeLast)
   -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
-editWith e' prp = formProp e (_prop_label prp) (_prop_lens prp) mempty
+editWith e' prp = formProp e
+                           (Text.intercalate "." (_prop_key prp))
+                           (_prop_label prp)
+                           (_prop_lens prp)
+                           mempty
   where e = coerceEditor MaybeLast unMaybeLast e'
 
 
@@ -304,28 +307,30 @@ respectFocus editor cfg = do
   pure r
 
 formProp
-  :: (DomBuilder t m, PostBuild t m, MonadIO m, MonadFix m)
+  :: (DomBuilder t m, PostBuild t m, MonadFix m)
   => Editor c t m b
+  -> Text
   -> Text
   -> Lens' a b
   -> a
   -> Event t a
   -> Compose m (Dynamic t) (a -> a)
-formProp prp lbl l initVal update =
+formProp prp idStr lbl l initVal update =
   Compose $ fmap (set l) . _inputEl_value <$> labeled
     lbl
     (respectFocus (_edit_editor prp))
-    (editorInputConfig prp l initVal update)
+    (editorInputConfig prp idStr l initVal update)
 
 editorInputConfig
   :: (DomBuilder t m)
   => Editor c t m b
+  -> Text
   -> Lens' a b
   -> a
   -> Event t a
   -> InputConfig' c t m b
-editorInputConfig prp l initVal update =
-  (inputConfig' (_edit_extraConfig prp) (view l initVal))
+editorInputConfig prp idStr l initVal update =
+  (inputConfig' (_edit_extraConfig prp) idStr (view l initVal))
     { _inputConfig_setValue = view l <$> update
     }
 
@@ -354,7 +359,7 @@ textEditor = nullIfMempty $ Editor { _edit_editor      = textInput
                                    }
 
 checkboxEditor
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  :: (DomBuilder t m, PostBuild t m)
   => Editor (Const ()) t m (Maybe Bool)
 checkboxEditor = withDefault False $ Editor { _edit_editor = checkboxInput ""
                                             , _edit_viewer = display
@@ -362,7 +367,7 @@ checkboxEditor = withDefault False $ Editor { _edit_editor = checkboxInput ""
                                             }
 
 toggleEditor
-  :: (DomBuilder t m, PostBuild t m, MonadIO m)
+  :: (DomBuilder t m, PostBuild t m)
   => Editor (Const ()) t m (Maybe Bool)
 toggleEditor = withDefault False $ Editor { _edit_editor      = toggleInput ""
                                           , _edit_viewer      = display

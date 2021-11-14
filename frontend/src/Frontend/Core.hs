@@ -13,7 +13,6 @@ module Frontend.Core
 where
 
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Proxy
 import           Data.Text                      ( pack )
@@ -43,7 +42,7 @@ coreButtonLink :<|> coreAlertLink :<|> coreProgressLink :<|> coreTagLink =
   allLinks coreApi
 
 coreLinks
-  :: (MonadFix m, MonadIO m, DomBuilder t m, PostBuild t m)
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
   => Dynamic t URI
   -> m (Event t Link)
 coreLinks dynUri = safelinkGroup

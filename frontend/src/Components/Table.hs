@@ -433,13 +433,7 @@ filterEl pos isSetDyn cnt = do
   mkStatus False = Nothing
 
 showHideColumns
-  :: ( MonadIO m
-     , MonadFix m
-     , MonadHold t m
-     , DomBuilder t m
-     , PostBuild t m
-     , Ord k
-     )
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m, Ord k)
   => Map k Text
   -> m (Dynamic t (Set k))
 showHideColumns columns = do
@@ -448,8 +442,9 @@ showHideColumns columns = do
     let allCols = Map.keysSet columns
     rec dynSet <- elClass "div" "show-hide-columns" $ checkboxesInputMap
           (fmap text columns)
-          (inputConfig allCols) { _inputConfig_setValue = allCols <$ selectAllEv
-                                }
+          (inputConfig "show-hide" allCols)
+            { _inputConfig_setValue = allCols <$ selectAllEv
+            }
         selectAllEv <- btn def { _buttonConfig_priority = ButtonTertiary }
           $ text "Select all"
     pure dynSet
@@ -566,8 +561,8 @@ paginationInput
 paginationInput totalResults initPage updatePage =
   elClass "div" "pagination" $ do
     el "span" $ text "Results per page"
-    dynLim <- _inputEl_value
-      <$> selectInput (inputConfig' (OpElem printPageSize) (Just Page10))
+    dynLim <- _inputEl_value <$> selectInput
+      (inputConfig' (OpElem printPageSize) "pagesize" (Just Page10))
     pageSizeDyn <- holdDyn (_page_size initPage)
       $ leftmost [updated (pageSize' <$> dynLim), _page_size <$> updatePage]
     let maxPageDyn = maxPage <$> totalResults <*> pageSizeDyn
@@ -592,6 +587,7 @@ paginationInput totalResults initPage updatePage =
                                    , _numberRange_precision = Just 0
                                    }
                                  )
+                                 "pagenum"
                                  (_page_num initPage)
                                )
         { _inputConfig_setValue = leftmost
@@ -719,24 +715,26 @@ withFilterCondition
   -> FilterCondition
   -> (FilterCondition -> Event t FilterCondition -> m a)
   -> m a
-withFilterCondition avail initCond editor = inputGroup def $ do
-  rec selectEv <-
-        btnDropdown
-          def { _buttonConfig_class    = "dropdown-select select"
-              , _buttonConfig_priority = ButtonTertiary
-              }
-          (dyn_ (filterConditionIcon <$> dynVal))
-        $   leftmost
-        <$> mapM
-              (\c -> do
-                ev <- btn def (elClass "div" "flex-center" (printFilterCond c))
-                pure (c <$ ev)
-              )
-              avail
+withFilterCondition avail initCond editor =
+  inputGroup (inputConfig "" def) $ do
+    rec selectEv <-
+          btnDropdown
+            def { _buttonConfig_class    = "dropdown-select select"
+                , _buttonConfig_priority = ButtonTertiary
+                }
+            (dyn_ (filterConditionIcon <$> dynVal))
+          $   leftmost
+          <$> mapM
+                (\c -> do
+                  ev <- btn def
+                            (elClass "div" "flex-center" (printFilterCond c))
+                  pure (c <$ ev)
+                )
+                avail
 
-      dynVal <- holdDyn initCond selectEv
+        dynVal <- holdDyn initCond selectEv
 
-  editor initCond selectEv
+    editor initCond selectEv
 
 headMultiSelect
   :: (DomBuilder t m) => Event t Bool -> m a -> m (Dynamic t Bool, a)
@@ -811,7 +809,6 @@ datagridDyn
      , MonadHold t m
      , PostBuild t m
      , MonadFix m
-     , MonadIO m
      , Prerender js t m
      )
   => DatagridConfig t m a f k0 k r

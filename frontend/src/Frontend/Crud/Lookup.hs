@@ -27,7 +27,9 @@ import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Identity          ( Identity(..) )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
-import           Data.Text                      ( Text )
+import           Data.Text                      ( Text
+                                                , intercalate
+                                                )
 import           Data.Typeable                  ( Proxy(..)
                                                 , Typeable
                                                 )
@@ -242,7 +244,6 @@ editFk
      , MonadFix m
      , MonadHold t m
      , MonadIO (Performable m)
-     , MonadIO m
      , Monoid (b Filter)
      , Ord (PrimaryKey b Identity)
      , PerformEvent t m
@@ -262,12 +263,14 @@ editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
   (_fkProp_label prp)
   (respectFocus lookupInput)
   (inputConfig'
-    (labelEndpoint (_fkProp_searchField prp)
-                   (_fkProp_endpoint prp)
-                   (_fkProp_editLink prp)
+      (labelEndpoint (_fkProp_searchField prp)
+                     (_fkProp_endpoint prp)
+                     (_fkProp_editLink prp)
+      )
+      (intercalate "." (_fkProp_key prp))
+      Nothing
     )
-    Nothing
-  ) { _inputConfig_setValue = viewer <$> setEv
+    { _inputConfig_setValue = viewer <$> setEv
     }
  where
   mksetter (Just x) = set (_fkProp_lens prp) (purePatch x)
@@ -287,14 +290,15 @@ gridFkProp prp = Column
   , _column_orderBy  = (_fkProp_key prp, _fkProp_orderBy prp)
   , _column_filterBy = ( _ilens_domain il'
                        , initFilterCondition il'
-                       , filterEditor e il'
+                       , filterEditor e idStr il'
                        )
   }
  where
-  il' = filterWith (_fkProp_lens prp . name) strFilter
-  e   = coerceEditor MaybeLast unMaybeLast textEditor
+  il'   = filterWith (_fkProp_lens prp . name) strFilter
+  e     = coerceEditor MaybeLast unMaybeLast textEditor
 
-  l   = _fkProp_lens prp . name
+  l     = _fkProp_lens prp . name
+  idStr = intercalate "." ("filter" : _fkProp_key prp)
 
 
 name :: Lens' (Named a f) (C f Text)
