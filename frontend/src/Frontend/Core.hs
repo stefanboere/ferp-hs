@@ -109,6 +109,21 @@ coreAlert = do
     "Your container has been created."
     (pure ())
 
+  el "h2" $ text "Lightweight alerts"
+  el "p" $ text
+    "For non-urgent or static messages, for example for status information."
+  _ <- alertLightweight def { _alertConfig_status = Success }
+                        "All checks are succesfull."
+  _ <- alertLightweight def { _alertConfig_status = Danger }
+                        "The configuration is invalid."
+  _ <- alertLightweight def { _alertConfig_status = Warning }
+                        "Some versions are out of date."
+  _ <- alertLightweight def { _alertConfig_status = Info }
+                        "A new version is available."
+  _ <- alertLightweight
+    def { _alertConfig_status = Success, _alertConfig_size = CompactSize }
+    "Compact version"
+
   pure never
 
 coreProgress

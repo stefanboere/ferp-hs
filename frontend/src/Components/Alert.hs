@@ -7,6 +7,7 @@ module Components.Alert
   , alerts
   , alertAppLevel
   , alertStyle
+  , alertLightweight
   , closeBtn
   )
 where
@@ -41,7 +42,7 @@ instance Default AlertConfig where
 
 alertStyle :: Css
 alertStyle = do
-  (".alert" <> ".alert-app-level") ? do
+  (".alert" <> ".alert-app-level" <> ".alert-light") ? do
     display flex
     flexDirection row
     alignItems center
@@ -166,6 +167,25 @@ alertStyle = do
     paddingLeft (rem (1 / 2))
     paddingRight (rem (1 / 2))
 
+  ".alert-light" ? do
+    fontColor nord1'
+    paddingAll nil
+    ".success" & do
+      "fill" -: showColor (statusColor Success)
+
+    ".warning" & do
+      "fill" -: showColor (darken (2 / 10) (statusColor Warning))
+
+    ".danger" & do
+      "fill" -: showColor (statusColor Danger)
+
+    ".info" & do
+      "fill" -: showColor (statusColor Info)
+
+    ".compactsize" & ".alert-message" ? do
+      fontSize (rem (3 / 4))
+
+
 alertAppLevel
   :: (PostBuild t m, DomBuilder t m)
   => AlertConfig
@@ -221,6 +241,17 @@ alerts cfg addMsg = do
 
   delete toDel m = Map.difference m toDel
 
+alertLightweight
+  :: (PostBuild t m, DomBuilder t m) => AlertConfig -> Dynamic t Text -> m ()
+alertLightweight AlertConfig {..} msg = elClass "div" classStr $ do
+  alertContent _alertConfig_status msg
+ where
+  classStr = Text.toLower $ Text.unwords $ Prelude.filter
+    (Prelude.not . Text.null)
+    [ "alert-light"
+    , pack . show $ _alertConfig_size
+    , pack . show $ _alertConfig_status
+    ]
 
 alertContent
   :: (PostBuild t m, DomBuilder t m) => Status -> Dynamic t Text -> m ()
