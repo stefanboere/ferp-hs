@@ -42,6 +42,7 @@ module Components.Input.Basic
   , holdDynAttributes
   , NumberRange(..)
   , selectInput
+  , multiSelectInput
   , allPossibleMap
   , textAreaInput
   , rangeInput
@@ -104,8 +105,14 @@ import           Data.Text                      ( Text
 import qualified Data.Text                     as Text
 import           Data.Time
 import           Data.Time.Calendar.WeekDate
+import qualified Language.Javascript.JSaddle   as JSaddle
 import qualified GHCJS.DOM.Types               as DOM
-                                                ( File )
+import           GHCJS.DOM.Types                ( uncheckedCastTo
+                                                , HTMLOptionElement(..)
+                                                )
+import           GHCJS.DOM.HTMLOptionElement    ( getSelected
+                                                , setSelected
+                                                )
 import           Reflex
 import           Reflex.Dom              hiding ( fileInput
                                                 , rangeInput
@@ -141,6 +148,7 @@ type family Elem a where
 -- | To show the enum values, we need a list of labels for each enum value.
 -- That is, the extra config is a map 'a -> m ()'. This is precisely 'Op (m ()) a'
 type EnumInputConfig t m = InputConfig' (OpElem m) t m
+type ClientEnumInputConfig t m = InputConfig' (OpElem (Client m)) t m
 
 type DomInputEl t m = InputEl (DomBuilderSpace m) t
 
@@ -509,8 +517,14 @@ selectElementStyle = do
     ".icon" ? position absolute
     cursor pointer
 
+  Clay.select # multiple ? do
+    paddingRight (rem (1 / 4))
+    focus Clay.& borderBottomWidth (px 2)
+
+
+
 textAreaElementStyle :: Css
-textAreaElementStyle = (".dropzone" <> textarea) ? do
+textAreaElementStyle = (".dropzone" <> textarea <> Clay.select # multiple) ? do
   background white
   borderWidth 1
   borderRadiusAll (px 3)
@@ -1140,6 +1154,77 @@ checkboxInputSimple initOpen setOpen attrs = do
     Reflex.Dom.& inputElementConfig_initialChecked
     .~           initOpen
   pure (_inputElement_checked r)
+
+multiSelectInput
+  :: forall t m a js
+   . ( PostBuild t m
+     , DomBuilder t m
+     , MonadHold t m
+     , MonadFix m
+     , Enum a
+     , Bounded a
+     , Ord a
+     , Prerender js t m
+     )
+  => ClientEnumInputConfig t m (Set a)
+  -> m (DomInputEl t m (Set a))
+multiSelectInput cfg = do
+  modAttrEv <- statusModAttrEv' cfg
+
+  elClass "div" "input" $ do
+    (n, dynVal) <- elClass "div" "flex-row" $ do
+      rec (n', xs) <- selectElement
+            (  (def :: SelectElementConfig EventResult t (DomBuilderSpace m))
+            &  selectElementConfig_elementConfig
+            .  elementConfig_initialAttributes
+            .~ (Map.singleton "multiple" "" <> _inputConfig_attributes cfg)
+            <> idAttr (_inputConfig_id cfg)
+            &  selectElementConfig_elementConfig
+            .  elementConfig_modifyAttributes
+            .~ modAttrEv
+            &  selectElementConfig_elementConfig
+            .  elementConfig_eventSpec
+            %~ _inputConfig_eventSpec cfg
+            )
+            (mapM (mkOption (() <$ _selectElement_change n'))
+                  (allPossible (_inputConfig_initialValue cfg))
+            )
+
+      statusMessageIcon (_inputConfig_status cfg)
+      pure
+        ( n'
+        , Map.keysSet . Map.filter Prelude.id <$> distributeMapOverDynPure
+          (Map.fromList xs)
+        )
+
+    statusMessageElement (_inputConfig_status cfg)
+
+    pure $ InputEl { _inputEl_value    = dynVal
+                   , _inputEl_hasFocus = _selectElement_hasFocus n
+                   , _inputEl_elements = constDyn [_selectElement_element n]
+                   }
+ where
+  mkOption checkEv x = do
+    let initVal = x `Set.member` _inputConfig_initialValue cfg
+    dynVal' <- holdDyn initVal ((x `Set.member`) <$> _inputConfig_setValue cfg)
+    dynOpt  <- prerender (pure $ constDyn initVal) $ do
+      (optEl, _) <- elDynAttr' "option"
+                               ((<> valAttr x) . mkSelected <$> dynVal')
+                               (toLabel x)
+      let setEv = (x `Set.member`) <$> _inputConfig_setValue cfg
+      let domEl = uncheckedCastTo HTMLOptionElement (_element_raw optEl)
+      performEvent_ (DOM.liftJSM . setSelected domEl <$> setEv)
+      setEv' <- performEvent (DOM.liftJSM (getSelected domEl) <$ checkEv)
+      holdDyn initVal $ leftmost [setEv', setEv]
+    pure (x, join dynOpt)
+
+  valAttr x = "value" =: showNum (Just x)
+  mkSelected True  = Map.singleton "selected" ""
+  mkSelected False = mempty
+
+  toLabel = getOpElem (_inputConfig_extra cfg)
+
+
 
 selectInput
   :: forall t m a

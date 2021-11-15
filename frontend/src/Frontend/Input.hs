@@ -612,7 +612,14 @@ rangeHandler = do
 
   pure never
 
-selectHandler :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+selectHandler
+  :: ( PostBuild t m
+     , DomBuilder t m
+     , MonadHold t m
+     , MonadFix m
+     , Prerender js t m
+     )
+  => m (Event t URI)
 selectHandler = do
   el "h1" $ text "Select"
 
@@ -644,8 +651,41 @@ selectHandler = do
         }
     pure ()
 
+  el "h2" $ text "Multiselect"
+  el "form" $ do
+    _ <- labeled
+      "Select material"
+      multiSelectInput
+      (materialExamples "mselect_n")
+        { _inputConfig_status = constDyn
+          $ InputNeutral (Just "Choose your favorite flavour")
+        }
+    _ <- labeled
+      "Error"
+      multiSelectInput
+      (materialExamples "mselect_e") { _inputConfig_status = constDyn
+                                       $ InputError "Error"
+                                     }
+
+    _ <- labeled
+      "Disabled"
+      multiSelectInput
+      (materialExamples "mselect_d") { _inputConfig_status = constDyn
+                                       InputDisabled
+                                     }
+
+    _ <- labeled
+      "Success"
+      multiSelectInput
+      (materialExamples "mselect_s")
+        { _inputConfig_status = constDyn $ InputSuccess "Success message"
+        }
+    pure ()
+
   pure never
-  where materialExample idStr = materialExample' idStr Just
+ where
+  materialExample idStr = materialExample' idStr Just
+  materialExamples idStr = materialExample' idStr Set.singleton
 
 textareaHandler :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
 textareaHandler = do
