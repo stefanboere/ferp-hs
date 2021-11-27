@@ -119,6 +119,9 @@ modalStyle = do
     justifyContent center
     flexDirection column
 
+    ".card" ? do
+      boxShadow (pure none)
+
     ".button-close" ? do
       marginRight nil
       marginTop nil

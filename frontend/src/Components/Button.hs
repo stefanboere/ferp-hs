@@ -108,6 +108,7 @@ buttonStyle' =
     ? do
         Clay.display inlineFlex
         textDecoration none
+        "font-family" -: "inherit"
         boxSizing borderBox
         alignItems center
         height (rem (3 / 2))

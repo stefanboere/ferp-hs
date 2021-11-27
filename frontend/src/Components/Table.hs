@@ -200,6 +200,7 @@ tableStyle = do
         display inlineBlock
         paddingAll (rem (1 / 2))
         outlineStyle none
+        "fill" -: showColor nord3'
       ".icon" ? do
         position relative
         top (px 2)
@@ -509,7 +510,7 @@ rowMultiSelect attrs dynMouseDown fullRowSelect setSelectEv cnt = do
         pure (r', x')
       let e' = if fullRowSelect then e else r
       let rowClickEv = leftmost
-            [ () <$ domEvent Mousedown e'
+            [ () <$ domEvent Mouseup e'
             , gate (current dynMouseDown) (domEvent Mouseenter e')
             ]
       dynSel <- foldDyn ($) False

@@ -448,6 +448,7 @@ checkboxStyle = do
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do
+  borderBottomWidth nil
 
   before Clay.& do
     borderRadiusAll (pct 50)

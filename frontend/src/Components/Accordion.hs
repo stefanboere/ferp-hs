@@ -82,7 +82,7 @@ accordionStyle' = ".accordion" ? do
     borderTopLeftRadius (px 3) (px 3)
     borderTopRightRadius (px 3) (px 3)
 
-    "summary" & do
+    summary ? do
       borderTopLeftRadius (px 3) (px 3)
       borderTopRightRadius (px 3) (px 3)
 
@@ -92,9 +92,13 @@ accordionStyle' = ".accordion" ? do
     borderBottomLeftRadius (px 3) (px 3)
     borderBottomRightRadius (px 3) (px 3)
 
-    ".content" ? do
+    ".content" <> summary ? do
       borderBottomLeftRadius (px 3) (px 3)
       borderBottomRightRadius (px 3) (px 3)
+
+    open & summary ? do
+      borderBottomLeftRadius nil nil
+      borderBottomRightRadius nil nil
 
   ".disabled" & do
     ".angle-icon" ? visibility hidden
