@@ -9,7 +9,7 @@ in
   }
 , port = +3007
 , oidc =
-  { providerUri = "https://id.boerevlist.nl/realms/ferp-hs/"
+  { providerUri = "http://localhost:3009/realms/ferp-hs/"
   , redirectUri = "http://localhost:3007/auth/return"
   , clientSecret = clientSecret
   , clientId = "ferp-hs-backend"
