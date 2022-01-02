@@ -197,13 +197,18 @@
     "reflex-dom-pandoc": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-zCkaOWwkk0sMph3G9hI4P2AwZ4vKZF7E3ajmUe3RmBo=",
-        "path": "/home/stefan/Projects/reflex-dom-pandoc",
-        "type": "path"
+        "lastModified": 1641059345,
+        "narHash": "sha256-AAJX2qaZ2KYkmJ+x1P0YffSVYUdV5QyBQT7mX4G4USU=",
+        "owner": "stefanboere",
+        "repo": "reflex-dom-pandoc",
+        "rev": "dd70b1d8af883dd91f1b402fbca13a82afde0c66",
+        "type": "github"
       },
       "original": {
-        "path": "/home/stefan/Projects/reflex-dom-pandoc",
-        "type": "path"
+        "owner": "stefanboere",
+        "ref": "dynamic-pandoc",
+        "repo": "reflex-dom-pandoc",
+        "type": "github"
       }
     },
     "reflex-platform": {
@@ -241,13 +246,18 @@
     "servant-subscriber": {
       "flake": false,
       "locked": {
-        "narHash": "sha256-CC12B6/9/0GbpRAVd+ASng/8LCQ0J3kpQdumjFtVYLM=",
-        "path": "/home/stefan/Projects/servant-subscriber",
-        "type": "path"
+        "lastModified": 1629394265,
+        "narHash": "sha256-/0R8VXvICOwwX4fEPUhFCb5CPJbCCjkmV3Ly8x336EI=",
+        "owner": "stefanboere",
+        "repo": "servant-subscriber",
+        "rev": "1a1408896d32a36045a905fb9b460a298603e53e",
+        "type": "github"
       },
       "original": {
-        "path": "/home/stefan/Projects/servant-subscriber",
-        "type": "path"
+        "owner": "stefanboere",
+        "ref": "simple-request",
+        "repo": "servant-subscriber",
+        "type": "github"
       }
     },
     "utils": {

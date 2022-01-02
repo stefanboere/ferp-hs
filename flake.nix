@@ -32,7 +32,7 @@
     };
 
     reflex-dom-pandoc = {
-      url = "path:/home/stefan/Projects/reflex-dom-pandoc";
+      url = "github:stefanboere/reflex-dom-pandoc/dynamic-pandoc";
       flake = false;
     };
 
@@ -42,7 +42,7 @@
     };
 
     servant-subscriber = {
-      url = "path:/home/stefan/Projects/servant-subscriber";
+      url = "github:stefanboere/servant-subscriber/simple-request";
       flake = false;
     };
 
