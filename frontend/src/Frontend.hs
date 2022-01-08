@@ -122,12 +122,12 @@ withHeader
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => (Event t Link -> m (Dynamic t URI))
   -> m ()
-withHeader = withHeader' False (constDyn Nothing)
+withHeader = withHeader' False (constDyn Unknown)
 
 withHeader'
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
   => Bool
-  -> Dynamic t (Maybe AuthUser)
+  -> Dynamic t (FutureMaybe AuthUser)
   -> (Event t Link -> m (Dynamic t URI))
   -> m ()
 withHeader' useFragment dynUser x = do
@@ -146,7 +146,7 @@ withHeader' useFragment dynUser x = do
     , _headerConfig_homePageUrl       = if useFragment then "#/" else "/"
     }
 
-  actions = void $ dyn $ maybe actionsUnAuth (const actionsAuth) <$> dynUser
+  actions = void $ dyn $ authWidget <$> dynUser
 
   actionsUnAuth =
     void $ elAttrClick_ "a" ("href" =: "/auth/login") (icon def loginIcon)
@@ -157,6 +157,14 @@ withHeader' useFragment dynUser x = do
       logoutEv  <- elAttrClick_ "a" ("href" =: "/auth/logout") (text "Logout")
       pure $ leftmost [accountEv, logoutEv]
     pure ()
+
+  actionsLoading =
+    void $ elAttrClick_ "a" ("href" =: "/auth/login") (spinner def "")
+
+
+  authWidget (Present _) = actionsAuth
+  authWidget Absent      = actionsUnAuth
+  authWidget _           = actionsLoading
 
 showAlerts
   :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
@@ -190,11 +198,13 @@ mainPage useFragment setRouteExtEv = do
           leftmost [coerceUri . linkURI <$> setRouteExtEv, routeSetEv]
 
   dynUser <- asks getUser
-  unless useFragment
-    $ dyn_ (maybe (pure ()) (const (refreshAccessTokenEvery 300)) <$> dynUser)
+  unless useFragment $ dyn_ (maybeRefresh <$> dynUser)
 
   return $ fst <$> dynamicRoute
  where
+  maybeRefresh (Present _) = refreshAccessTokenEvery 300
+  maybeRefresh _           = pure ()
+
   decode :: URI -> URI
   decode uri = if useFragment
     then uri { uriPath = fromMaybe "" $ uriFragment uri, uriFragment = Nothing }

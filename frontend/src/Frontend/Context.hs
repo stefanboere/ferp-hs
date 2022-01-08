@@ -10,6 +10,7 @@ module Frontend.Context
   , getConfigFromFile
   , runAppT
   , showClientError
+  , FutureMaybe(..)
   )
 where
 
@@ -84,9 +85,14 @@ getConfigFromFile file = eitherDecodeFileStrict' file >>= either fail pure
 getSelf :: Token -> FreeClient AuthUser
 getSelf = client (Proxy :: Proxy AuthApi)
 
+data FutureMaybe a
+  = Present a
+  | Absent
+  | Unknown
+
 data AppConfig t = AppConfig
   { getConfig :: Config
-  , getUser :: Dynamic t (Maybe AuthUser)
+  , getUser :: Dynamic t (FutureMaybe AuthUser)
   }
 
 data GlobalAlert
@@ -106,7 +112,7 @@ runAppT cfg m = do
   ((y, ys), ws_err) <- runApiWidget (configWebsocketUrl cfg) $ do
     pb      <- getPostBuild
     usrEv   <- requestingJs (getSelf (Token "") <$ pb)
-    dynUser <- holdDyn Nothing (either (const Nothing) Just <$> usrEv)
+    dynUser <- holdDyn Unknown (either (const Absent) Present <$> usrEv)
     let userErr = fmapMaybe (either loginError (const Nothing)) usrEv
     (x, xs) <- runReaderT (runEventWriterT m)
       $ AppConfig { getConfig = cfg, getUser = dynUser }
