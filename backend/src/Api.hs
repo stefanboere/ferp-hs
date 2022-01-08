@@ -36,7 +36,9 @@ import           Servant.RawM                  as RawM
 import           Servant.Router
 import           URI.ByteString
 
-import           Auth                           ( )
+import           Auth                           ( Auth
+                                                , Everyone
+                                                )
 import           Context
 
 
@@ -44,7 +46,11 @@ import           Context
 -- brittany-disable-next-binding
 type Api = "favicon.ico" :> Get '[JSON] NoContent
   :<|> "static" :> RawM
+  :<|> "auth" :> "login" :> LoginApi
   :<|> Frontend.Api
+
+-- brittany-disable-next-binding
+type LoginApi = Auth Everyone  :> Get '[JSON] NoContent
 
 -- | A proxy of the api
 api :: Proxy Api
@@ -52,7 +58,11 @@ api = Proxy
 
 -- | The combined server
 server :: AppServer Api
-server = faviconEndpoint :<|> staticEndpoint :<|> frontendServer
+server =
+  faviconEndpoint :<|> staticEndpoint :<|> loginServer :<|> frontendServer
+
+loginServer :: AppServer LoginApi
+loginServer = throwError err302 { errHeaders = [("Location", "/")] }
 
 faviconEndpoint :: AppServer (Get '[] NoContent)
 faviconEndpoint =

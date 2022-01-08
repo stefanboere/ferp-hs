@@ -21,6 +21,7 @@ import           Data.ByteString                ( ByteString )
 import qualified Data.ByteString.Lazy.Char8    as BL
                                                 ( fromStrict )
 import qualified Data.Text                     as Text
+import           Data.Maybe                     ( fromMaybe )
 import           GHC.Exts                       ( toList )
 import           Lens.Micro                     ( (^.) )
 import           Lucid
@@ -29,7 +30,9 @@ import           Network.HTTP.Media             ( (//)
                                                 )
 import           Network.Wai                    ( rawPathInfo
                                                 , rawQueryString
+                                                , requestHeaders
                                                 )
+import           Network.HTTP.Types.Header      ( hReferer )
 import           Servant
 import           Servant.AccessControl.Server
 import           Servant.Auth.Server            ( AuthResult(..)
@@ -124,7 +127,9 @@ routeRedirect _ context subserver = route
                                          , setCookieValue = sid
                                          , setCookiePath  = Just "/auth/return"
                                          }
-    let curLoc = rawPathInfo req <> rawQueryString req
+    let curLoc = if rawPathInfo req == "/auth/login"
+          then fromMaybe "/" $ lookup hReferer (requestHeaders req)
+          else rawPathInfo req <> rawQueryString req
     let redirectCookie = defaultSetCookie { setCookieName  = "redirect"
                                           , setCookieValue = curLoc
                                           , setCookiePath  = Just "/auth/return"
