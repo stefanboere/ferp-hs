@@ -20,6 +20,7 @@ module Components.Input.Basic
   , checkboxesInputMap
   , checkboxesInputDynMap
   , checkboxInputSimple
+  , tricheckboxInput
   , inputStyle
   , InputConfig'(..)
   , InputConfig
@@ -92,6 +93,7 @@ import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
+                                                , fromMaybe
                                                 )
 import           Data.Monoid                    ( Any(..) )
 import           Data.Proxy
@@ -445,6 +447,15 @@ checkboxStyle = do
           transform (rotate (deg 45))
           top (rem 0.1)
           left (rem 0.4)
+
+  (input # "_indeterminate") ? do
+    after Clay.& do
+      absoluteBlock
+      width (rem (5 / 8))
+      height (rem (1 / 8))
+      backgroundColor grey0'
+      left (rem (3 / 16) @+@ px 1)
+      top (rem (7 / 16))
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do
@@ -1135,6 +1146,46 @@ checkboxInput' lbl cfg = el "div" $ do
                  , _inputEl_hasFocus = _inputElement_hasFocus n
                  , _inputEl_elements = constDyn [_inputElement_element n]
                  }
+
+tricheckboxInput
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => Text
+  -> InputConfig t m (Maybe Bool)
+  -> m (DomInputEl t m (Maybe Bool))
+tricheckboxInput lbl cfg = do
+  rec r <- checkboxInput
+        lbl
+        (fromMaybe False <$> cfg)
+          { _inputConfig_modifyAttributes = mergeWith
+                                              (<>)
+                                              [ modAttrEv
+                                              , _inputConfig_modifyAttributes
+                                                cfg
+                                              ]
+          , _inputConfig_attributes       = _inputConfig_attributes cfg
+                                              <> initialIndetermined
+          }
+      isIndetermined <-
+        holdDyn (isNothing $ _inputConfig_initialValue cfg) $ leftmost
+          [ isNothing <$> _inputConfig_setValue cfg
+          , False <$ updated (_inputEl_value r)
+          ]
+      let modAttrEv =
+            Map.singleton "_indeterminate"
+              .   indeterminedStr
+              <$> updated isIndetermined
+
+  pure $ r
+    { _inputEl_value = addIndetermined <$> _inputEl_value r <*> isIndetermined
+    }
+ where
+  indeterminedStr True = Just ""
+  indeterminedStr _    = Nothing
+  addIndetermined _ True = Nothing
+  addIndetermined x _    = Just x
+  initialIndetermined = if isNothing $ _inputConfig_initialValue cfg
+    then Map.singleton "_indeterminate" ""
+    else mempty
 
 checkboxInputSimple
   :: DomBuilder t m

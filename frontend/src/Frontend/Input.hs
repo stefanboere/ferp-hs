@@ -167,7 +167,9 @@ basicHandler = do
   pure never
 
 
-checkboxHandler :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
+checkboxHandler
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => m (Event t URI)
 checkboxHandler = do
   el "h1" $ text "Checkbox"
 
@@ -201,6 +203,12 @@ checkboxHandler = do
 
     _ <- labeled "Vertical layout" checkboxesInput (materialExample "cbx_vert")
 
+    pure ()
+
+  el "h3" $ text "Indeterminate"
+  el "form" $ do
+    _ <- tricheckboxInput "Subscribe to the news letter"
+                          (inputConfig "cbm" Nothing)
     pure ()
 
   el "h2" $ text "Toggle"
