@@ -161,9 +161,9 @@ performWebSocketRequests
   :: (Prerender js t m, Applicative m)
   => WebSocketEndpoint
   -> Event t (RequesterData FreeClient)
-  -> m (Event t (RequesterData (Either C.ClientError)))
+  -> m (Event t (RequesterData (Either C.ClientError)), Event t ())
 performWebSocketRequests url req =
-  fmap switchPromptlyDyn $ prerender (pure never) $ do
+  fmap flatten $ prerender (pure (never, never)) $ do
     xsrfToken <- findCookie "XSRF-TOKEN"
 
     rec
@@ -188,9 +188,10 @@ performWebSocketRequests url req =
       let modReqs' = attachWithMaybe toUnsub (current reqKeys) inKeys
       let modReqs  = fmapMaybe (\(_, _, x) -> x) modReqs'
 
-    pure rsps
+    pure (rsps, _webSocket_error w)
 
  where
+  flatten x = ( switchPromptlyDyn (fst <$> x), switchPromptlyDyn (snd <$> x))
   -- If a request from the same orig is done again, the old one is unsubscribed
   -- This allows for e.g. dynamic filtering,
   -- i.e. automatic unsubscribing for the original filter if the filter changes
@@ -402,11 +403,11 @@ runApiWidget
   :: (Prerender js t m, MonadHold t m, MonadFix m)
   => WebSocketEndpoint
   -> ApiWidget t m a
-  -> m a
+  -> m (a, Event t ())
 runApiWidget ws start = do
   rec (x, requests) <- runRequesterT start responses
-      responses     <- performWebSocketRequests ws requests
-  pure x
+      (responses, errs)     <- performWebSocketRequests ws requests
+  pure (x, errs)
 
 requestingJs
   :: (Requester t (Client m), Applicative m, Prerender js t m)

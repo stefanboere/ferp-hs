@@ -45,7 +45,6 @@ module Frontend.Crud.Utils
   )
 where
 
-import           Control.Exception.Base         ( displayException )
 import           Control.Lens                   ( Const
                                                 , Lens'
                                                 , set
@@ -53,24 +52,18 @@ import           Control.Lens                   ( Const
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
-import           Data.ByteString                ( ByteString )
-import qualified Data.ByteString.Lazy          as BL
 import           Data.Default
 import           Data.Functor.Compose           ( Compose(..) )
 import qualified Data.Map                      as Map
-import           Data.Maybe                     ( catMaybes
-                                                , fromMaybe
-                                                )
+import           Data.Maybe                     ( fromMaybe )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import qualified Data.Text                     as Text
-import qualified Data.Text.Encoding            as Text
 import           Data.Time                      ( Day )
 import           GHCJS.DOM.Types                ( SerializedScriptValue(..)
                                                 , pToJSVal
                                                 )
-import           Network.HTTP.Types
 import           Reflex.Dom              hiding ( Client
                                                 , Link(..)
                                                 , rangeInput
@@ -101,7 +94,7 @@ import           Common.Api                     ( Be
                                                 )
 import           Common.Schema                  ( C )
 import           Components
-import           Frontend.Context               ( AppT )
+import           Frontend.Context               ( AppT, showClientError )
 import           Reflex.Dom.Ace                 ( AceConfig )
 
 replaceLocation
@@ -432,42 +425,6 @@ showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
 showError =
   fmap (\statusI -> if statusI == Just 401 then reloadAction else pure ())
     . showClientError
-
-showClientError :: ClientError -> (Text, Maybe Int)
-showClientError (FailureResponse rq rsp) =
-  let status  = Sub.responseStatusCode rsp
-      statusI = statusCode status
-      msg =
-          Text.unlines
-            . catMaybes
-            $ [ Just
-              $  "The request to "
-              <> showUrl (Sub.requestPath rq)
-              <> " failed. The server responded with "
-              <> (Text.pack . show $ statusI)
-              <> " "
-              <> (Text.decodeUtf8 . statusMessage $ status)
-              <> "."
-              , if BL.null (Sub.responseBody rsp)
-                then Nothing
-                else Just $ Text.decodeUtf8 (BL.toStrict $ Sub.responseBody rsp)
-              , if statusI == 401
-                then Just "Please try reloading this page."
-                else Nothing
-              ]
-  in  (msg, Just statusI)
-
-showClientError (DecodeFailure x _) =
-  ("The response decoding failed: " <> x, Nothing)
-showClientError (UnsupportedContentType x _) =
-  ("The content type " <> Text.pack (show x) <> " is not supported.", Nothing)
-showClientError (InvalidContentTypeHeader _) =
-  ("The content type header of the response is invalid.", Nothing)
-showClientError (ConnectionError e) =
-  ("A connection error occured: " <> Text.pack (displayException e), Nothing)
-
-showUrl :: (Sub.BaseUrl, ByteString) -> Text
-showUrl (_, p) = Text.decodeUtf8 p
 
 reloadAction :: (Applicative m, Prerender js t m) => m ()
 reloadAction = prerender_ (pure ()) $ do

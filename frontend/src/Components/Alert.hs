@@ -6,6 +6,7 @@ module Components.Alert
   , alert
   , alerts
   , alertAppLevel
+  , alertsAppLevel
   , alertStyle
   , alertLightweight
   , closeBtn
@@ -188,13 +189,13 @@ alertStyle = do
 
 alertAppLevel
   :: (PostBuild t m, DomBuilder t m)
-  => AlertConfig
+  => Status
   -> Dynamic t Text
   -> m a
   -> m (a, Event t ())
-alertAppLevel AlertConfig {..} msg actions = elClass "div" classStr $ do
+alertAppLevel status msg actions = elClass "div" classStr $ do
   elClass "span" "spacer" blank
-  alertContent _alertConfig_status msg
+  alertContent status msg
   result <- actions
   elClass "span" "spacer" blank
   closeEv <- closeBtn def
@@ -202,7 +203,25 @@ alertAppLevel AlertConfig {..} msg actions = elClass "div" classStr $ do
  where
   classStr = Text.toLower $ Text.unwords $ Prelude.filter
     (Prelude.not . Text.null)
-    ["alert-app-level", pack . show $ _alertConfig_status]
+    ["alert-app-level", pack . show $ status]
+
+alertsAppLevel
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m, Ord k)
+  => (k -> (Text, m ()))
+  -> Status
+  -> Event t [k]
+  -> m ()
+alertsAppLevel toMsg cfg addMsg = do
+  rec msgs <- foldDyn ($) mempty $ leftmost [appnds <$> addMsg, delete <$> rmEv]
+      rmEv <- listViewWithKey msgs $ \_ dynMsg ->
+        snd <$> alertAppLevel cfg (fst <$> dynMsg) (dyn_ $ snd <$> dynMsg)
+
+  pure ()
+ where
+  appnd k m = let msg = toMsg k in Map.insert k msg m
+  appnds msgs m = foldr appnd m msgs
+
+  delete toDel m = Map.difference m toDel
 
 alert
   :: (PostBuild t m, DomBuilder t m)

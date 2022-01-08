@@ -75,6 +75,9 @@ appStyle = do
 
   ".nav-opener" ? display none
 
+  ".alerts-app-level" ? do
+    "grid-area" -: "alert"
+
   ".main-content" ? do
     "grid-area" -: "content"
     paddingAll (rem 1)
@@ -84,7 +87,7 @@ appStyle = do
   body ? do
     display grid
     "grid-template-columns" -: "12rem auto"
-    "grid-template-rows" -: "min-content min-content auto"
+    "grid-template-rows" -: "min-content min-content min-content auto"
     boxSizing borderBox
 
 utilsStyle :: Css
@@ -402,7 +405,10 @@ mobileHeaderStyle :: Css
 mobileHeaderStyle = do
   body ? do
     "grid-template-areas" -: Text.unlines
-      (fmap tshow ["header  header", "subnav subnav", "content content"])
+      (fmap
+        tshow
+        ["header  header", "alert alert", "subnav subnav", "content content"]
+      )
   ".app-header" ? ".hamburger" ? display inlineFlex
 
   ".app-logo" ? ".icon" ? important (display none)
@@ -411,7 +417,10 @@ appHeaderStyle :: Css
 appHeaderStyle = do
   body ? do
     "grid-template-areas" -: Text.unlines
-      (fmap tshow ["header  header", "subnav subnav", "sidenav content"])
+      (fmap
+        tshow
+        ["alert alert", "header  header", "subnav subnav", "sidenav content"]
+      )
   ".app-header" ? do
     nav ** a # firstOfType # before ? do
       headerSeparatorStyle

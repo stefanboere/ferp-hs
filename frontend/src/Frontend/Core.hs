@@ -64,17 +64,14 @@ coreAlert = do
   el "p"
     $ text
         "App level alerts should be placed above the header. They are for global error and warning messages."
-  _ <-
-    alertAppLevel def { _alertConfig_status = Danger }
-                  "Your license is about to expire."
-      $ do
-          _ <- btn def (text "Renew")
-          elAttr "a" ("href" =: "#") (text "Click here")
+  _ <- alertAppLevel Danger "Your license is about to expire." $ do
+    _ <- btn def (text "Renew")
+    elAttr "a" ("href" =: "#") (text "Click here")
   _ <- alertAppLevel
-    def { _alertConfig_status = Warning }
+    Warning
     "This feature is under development. For more information, visit the documentation or contact Ferp-hs support."
     (pure ())
-  _ <- alertAppLevel def { _alertConfig_status = Info }
+  _ <- alertAppLevel Info
                      "You can customize your host in the settings panel."
                      (pure ())
 

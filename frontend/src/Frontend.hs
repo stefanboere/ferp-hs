@@ -61,29 +61,34 @@ import           Frontend.Crud
 main :: IO ()
 main = mainWidget $ do
   cfg <- getConfigFromPage
-  runAppT cfg $ do
-    dynUser <- asks getUser
-    withHeader' False dynUser (mainPage False)
+  rec showAlerts xs
+      (x, xs) <- runAppT cfg $ do
+        dynUser <- asks getUser
+        withHeader' False dynUser (mainPage False)
+  pure x
 
 mainWithHead :: IO ()
 mainWithHead = do
   cfg <- getConfigFromFile "config.json"
-  mainWidgetWithHead headWidget $ runAppT cfg $ do
-    dynUser <- asks getUser
-    withHeader' True dynUser (mainPage True)
-    elAttr
-      "link"
-      (  "href"
-      =: configFiraUrl cfg
-      <> "rel"
-      =: "stylesheet"
-      <> "type"
-      =: "text/css"
-      )
-      blank
-    script' (configAceUrl cfg)
-    deferScript (configMathjaxConfigUrl cfg)
-    deferScript (configMathjaxUrl cfg)
+  mainWidgetWithHead headWidget $ do
+    rec showAlerts xs
+        (x, xs) <- runAppT cfg $ do
+          dynUser <- asks getUser
+          withHeader' True dynUser (mainPage True)
+          elAttr
+            "link"
+            (  "href"
+            =: configFiraUrl cfg
+            <> "rel"
+            =: "stylesheet"
+            <> "type"
+            =: "text/css"
+            )
+            blank
+          script' (configAceUrl cfg)
+          deferScript (configMathjaxConfigUrl cfg)
+          deferScript (configMathjaxUrl cfg)
+    pure x
  where
   script' uri = elAttr "script" ("src" =: uri <> "async" =: "") blank
   deferScript uri = elAttr "script" ("src" =: uri <> "defer" =: "") blank
@@ -153,6 +158,15 @@ withHeader' useFragment dynUser x = do
       pure $ leftmost [accountEv, logoutEv]
     pure ()
 
+showAlerts
+  :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
+  => Event t [GlobalAlert]
+  -> m ()
+showAlerts xs = elClass "div" "alerts-app-level"
+  $ alertsAppLevel showAlert Danger xs
+ where
+  showAlert (LoginError x) = (fst x, pure ())
+  showAlert WebsocketError = ("Could not connect to the server.", pure ())
 
 mainPage
   :: ( WidgetConstraint js t m
@@ -225,5 +239,5 @@ handler =
 handlerOffline
   :: WidgetConstraint js t m => RouteT Api (ReaderT Config m) (Event t URI)
 handlerOffline = hoistRoute (Proxy :: Proxy Api) runApi handler
-  where runApi m = ReaderT $ \cfg -> runAppT cfg m
+  where runApi m = ReaderT $ \cfg -> fmap fst (runAppT cfg m)
 
