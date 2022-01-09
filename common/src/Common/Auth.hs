@@ -21,6 +21,7 @@ module Common.Auth
   , AdminOrExtra
   , InRoles
   , Everyone
+  , Nobody
   , AuthApi
   , getUserRoles
   )
@@ -36,6 +37,7 @@ import           GHC.Generics                   ( Generic )
 import           Servant.API                   as S
 import           Servant.AccessControl          ( Auth'
                                                 , Everyone
+                                                , Nobody
                                                 , HasAccessControl(..)
                                                 )
 import qualified Servant.Auth                  as SA

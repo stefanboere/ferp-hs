@@ -132,9 +132,11 @@ instance (ToWwwAuthenticate x, ToWwwAuthenticate (Auth' (y ': xs) v r))
     mx  = toWwwAuthenticate (Proxy :: Proxy x)
     mxs = toWwwAuthenticate (Proxy :: Proxy (Auth' (y ': xs) v r))
 
-instance HasLink sub => HasLink (Auth' auths v r :> sub)  where
-  type MkLink (Auth' auths v r :> sub) a = MkLink sub a
-  toLink toA _ = toLink toA (Proxy :: Proxy sub)
+instance (HasAccessControl v r, HasLink sub) => HasLink (Auth' auths v r :> sub)  where
+  type MkLink (Auth' auths v r :> sub) a = v -> MkLink sub a
+  toLink toA _ l v =
+    let denied = not $ hasAccess (Proxy :: Proxy r) v
+    in  toLink toA (Proxy :: Proxy (QueryFlag "denied" :> sub)) l denied
 
 type family HasJWT xs :: Constraint where
   HasJWT (JWT ': xs) = ()

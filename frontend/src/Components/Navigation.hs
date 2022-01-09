@@ -166,6 +166,9 @@ typographyStyle = do
 
   ".p8" <> ".badge" ? fontSize (rem (10 / 16))
 
+  "a" # ("href" *= "?denied") ? do
+    important $ display none
+
   body ? do
     background white0'
     fontColor nord3'
