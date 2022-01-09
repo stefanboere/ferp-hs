@@ -12,7 +12,9 @@ where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Monad.Fix              ( MonadFix )
-import           Control.Monad.Reader           ( asks )
+import           Control.Monad.Reader           ( MonadReader
+                                                , asks
+                                                )
 import           Data.Functor.Identity          ( Identity )
 import           Data.Functor.Compose
 import           Data.Maybe                     ( fromMaybe )
@@ -40,6 +42,7 @@ import           Components
 import           Frontend.Api
 import           Frontend.Context               ( AuthUser
                                                 , getUserNow
+                                                , AppConfig
                                                 )
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Edit
@@ -49,13 +52,13 @@ import           Frontend.Crud.Utils
 -- brittany-disable-next-binding
 type CrudApi =
   ("blogs" :>
-     (    "all" :> QObj (Api.View Api.Be BlogN) :> View
+     (    Auth Everyone :> "all" :> QObj (Api.View Api.Be BlogN) :> View
      :<|> Auth Everyone :> "new" :> View
      :<|> Auth Everyone :> Capture "key" BlogNId :> View
      )
   ) :<|>
   ("channels" :>
-     (    "all" :> QObj (Api.View Api.Be ChannelT) :> View
+     (    Auth Everyone :> "all" :> QObj (Api.View Api.Be ChannelT) :> View
      :<|> Auth Everyone :> "new" :> View
      :<|> Auth Everyone :> Capture "key" ChannelId :> View
      )
@@ -64,11 +67,11 @@ type CrudApi =
 crudApi :: Proxy CrudApi
 crudApi = Proxy
 
-blogsLink :: Api.View Api.Be BlogN -> Link
+blogsLink :: AuthUser -> Api.View Api.Be BlogN -> Link
 newBlogLink :: AuthUser -> Link
 blogLink :: AuthUser -> BlogNId -> Link
 
-channelsLink :: Api.View Api.Be ChannelT -> Link
+channelsLink :: AuthUser -> Api.View Api.Be ChannelT -> Link
 newChannelLink :: AuthUser -> Link
 channelLink :: AuthUser -> ChannelId -> Link
 
@@ -78,13 +81,18 @@ channelLink :: AuthUser -> ChannelId -> Link
   = allLinks crudApi
 
 crudLinks
-  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
+  :: ( MonadFix m
+     , MonadHold t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadReader (AppConfig t) m
+     )
   => Dynamic t URI
   -> m (Event t Link)
-crudLinks dynUri = safelinkGroup
+crudLinks dynUri = safelinkGroupAuth
   (text "Crud")
-  [ safelink dynUri (blogsLink mempty) $ text "Blogs"
-  , safelink dynUri (channelsLink mempty) $ text "Channels"
+  [ safelinkAuth dynUri (`blogsLink` mempty) $ text "Blogs"
+  , safelinkAuth dynUri (`channelsLink` mempty) $ text "Channels"
   ]
 
 crudHandler
@@ -92,6 +100,21 @@ crudHandler
 crudHandler =
   (blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just))
     :<|> (channelsHandler :<|> channelEdit Nothing :<|> (channelEdit . Just))
+
+safelinkAuth
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     , MonadReader (AppConfig t) m
+     )
+  => Dynamic t URI
+  -> (AuthUser -> Link)
+  -> m ()
+  -> m (Dynamic t Bool, Event t Link, Dynamic t Bool)
+safelinkAuth dynLoc mkLnk cnt = do
+  usr <- asks getUserNow
+  safelinkAuth' usr dynLoc mkLnk cnt
 
 browseFormAuth
   :: ( WidgetConstraint js t m
@@ -175,7 +198,7 @@ blogEdit = editFormAuth cfg $ \usr modBlogEv ->
                                        patchBlog usingCookie (coerce pk) . flattenNamed
     , _formConfig_setPrimaryKey    = setBlogPk
     , _formConfig_header           = mkHeader
-    , _formConfig_routeAfterDelete = blogsLink mempty
+    , _formConfig_routeAfterDelete = (`blogsLink` mempty)
     , _formConfig_editRoute        = blogLink
     }
   req = requiredEditor
@@ -258,7 +281,7 @@ channelEdit = editFormAuth cfg $ \_ modBlogEv ->
                        , _formConfig_patchReq         = patchChannel usingCookie
                        , _formConfig_setPrimaryKey    = setChannelPk
                        , _formConfig_header           = mkHeader
-                       , _formConfig_routeAfterDelete = channelsLink mempty
+                       , _formConfig_routeAfterDelete = (`channelsLink` mempty)
                        , _formConfig_editRoute        = channelLink
                        }
   setChannelPk (Just (ChannelId pk)) x = x { _channelId = pure pk }

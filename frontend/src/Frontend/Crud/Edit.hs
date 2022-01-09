@@ -29,7 +29,11 @@ import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( LocationHdr )
 import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
-import           URI.ByteString                 ( URI )
+import           URI.ByteString                 ( URI
+                                                , URIRef(..)
+                                                , Scheme(..)
+                                                , Query(..)
+                                                )
 
 import           Common.Schema
 import           Components
@@ -260,7 +264,7 @@ data EditFormConfig t m env a = EditFormConfig
   , _formConfig_setPrimaryKey
       :: Maybe (PrimaryKey a Identity) -> a MaybeLast -> a MaybeLast
   , _formConfig_header           :: a MaybeLast -> Text
-  , _formConfig_routeAfterDelete :: Link
+  , _formConfig_routeAfterDelete :: env -> Link
   , _formConfig_editRoute        :: env -> PrimaryKey a Identity -> Link
   }
 
@@ -323,7 +327,7 @@ editForm env cfg editor initPk = do
     (dynPatch, patchEv) <- createPatchDyn dynRecRemote dynRec
 
   pure $ leftmost
-    [ coerceUri (linkURI (_formConfig_routeAfterDelete cfg)) <$ deleteEvSuccess
+    [ attachPromptlyDynWith deleteLink env deleteEvSuccess
     , actionRouteEv
     , fmapMaybe unMaybeLast rEv
     ]
@@ -332,3 +336,12 @@ editForm env cfg editor initPk = do
   deleteButton' = deleteButton (_formConfig_deleteReq cfg)
   patchButton'  = patchButton (_formConfig_patchReq cfg)
   postButton'   = postButton (_formConfig_postReq cfg)
+
+  deleteLink (Just x) _ =
+    coerceUri (linkURI (_formConfig_routeAfterDelete cfg x))
+  deleteLink _ _ = URI { uriScheme    = Scheme "http"
+                       , uriAuthority = Nothing
+                       , uriPath      = ""
+                       , uriQuery     = Query []
+                       , uriFragment  = Nothing
+                       }

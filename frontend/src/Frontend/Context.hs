@@ -3,6 +3,7 @@
 module Frontend.Context
   ( Config(..)
   , AppConfig(..)
+  , defaultAppConfig
   , AuthUser(..)
   , AppT
   , GlobalAlert(..)
@@ -99,6 +100,9 @@ data AppConfig t = AppConfig
   { getConfig :: Config
   , getUser :: Dynamic t (FutureMaybe AuthUser)
   }
+
+defaultAppConfig :: Reflex t => Config -> AppConfig t
+defaultAppConfig cfg = AppConfig cfg (constDyn Unknown)
 
 getUserNow :: Reflex t => AppConfig t -> Dynamic t (Maybe AuthUser)
 getUserNow = fmap futureToMaybe . getUser

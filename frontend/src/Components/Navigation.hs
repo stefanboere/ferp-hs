@@ -16,7 +16,10 @@ module Components.Navigation
   , elAttrClick_
   , coerceUri
   , safelink
+  , safelinkDyn
+  , safelinkAuth'
   , safelinkGroup
+  , safelinkGroupAuth
   , ahrefPreventDefault
   , elDynAttrEventSpec'
   )
@@ -25,14 +28,18 @@ where
 import           Clay                    hiding ( icon )
 import qualified Clay.Media                    as Media
 import qualified Clay.Flexbox                  as Flexbox
-import           Control.Monad                  ( when )
+import           Control.Monad                  ( when
+                                                , join
+                                                )
 import           Control.Monad.Fix              ( MonadFix )
 import qualified Data.ByteString.Char8         as B
                                                 ( pack )
 import           Data.Default
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
-import           Data.Monoid                    ( Any(..) )
+import           Data.Monoid                    ( Any(..)
+                                                , All(..)
+                                                )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -45,6 +52,8 @@ import           Servant.API                    ( toUrlPiece )
 import qualified Servant.Links                 as L
                                                 ( Link
                                                 , URI(..)
+                                                , Param(..)
+                                                , linkQueryParams
                                                 , linkURI
                                                 , uriPath
                                                 )
@@ -169,6 +178,9 @@ typographyStyle = do
   "a" # ("href" *= "?denied") ? do
     important $ display none
 
+  ".hidden" ? do
+    important $ display none
+
   body ? do
     background white0'
     fontColor nord3'
@@ -205,14 +217,14 @@ navGroup = navGroup' 0.7 "nav-group"
 navGroup'
   :: (MonadHold t m, PostBuild t m, DomBuilder t m)
   => Double
-  -> Text
+  -> Dynamic t Text
   -> Event t Bool
   -> m ()
   -> m a
   -> m a
-navGroup' iconSize cls setOpen titl cnt = do
+navGroup' iconSize dynCls setOpen titl cnt = do
   dynOpen <- holdDyn False setOpen
-  elDynAttr "details" (mkAttr <$> dynOpen) $ do
+  elDynAttr "details" (mkAttr <$> dynOpen <*> dynCls) $ do
     el "summary" $ do
       el "span" titl
       icon
@@ -223,8 +235,8 @@ navGroup' iconSize cls setOpen titl cnt = do
 
     el "ul" cnt
  where
-  mkAttr True  = Map.singleton "class" cls <> Map.singleton "open" ""
-  mkAttr False = Map.singleton "class" cls
+  mkAttr True  cls = Map.singleton "class" cls <> Map.singleton "open" ""
+  mkAttr False cls = Map.singleton "class" cls
 
 ahrefPreventDefault
   :: forall t m
@@ -283,16 +295,44 @@ safelink
   -> L.Link
   -> m ()
   -> m (Dynamic t Bool, Event t L.Link)
-safelink dynLoc lnk cnt = do
-  closeEv <- ahrefPreventDefault (constDyn ("/" <> toUrlPiece lnk))
+safelink dynLoc lnk = safelinkDyn dynLoc (constDyn lnk)
+
+safelinkDyn
+  :: (DomBuilder t m, PostBuild t m)
+  => Dynamic t URI
+  -> Dynamic t L.Link
+  -> m ()
+  -> m (Dynamic t Bool, Event t L.Link)
+safelinkDyn dynLoc lnk cnt = do
+  closeEv <- ahrefPreventDefault (("/" <>) . toUrlPiece <$> lnk)
                                  isActiveDyn
                                  mempty
                                  cnt
-  pure (isActiveDyn, lnk <$ closeEv)
+  pure (isActiveDyn, tagPromptlyDyn lnk closeEv)
  where
-  isActiveDyn = (lUriPath lnk ==) . uriPath <$> dynLoc
-  lUriPath    = ("/" <>) . B.pack . L.uriPath . L.linkURI
+  isActiveDyn =
+    (\dlnk lnk' -> lUriPath lnk' == uriPath dlnk) <$> dynLoc <*> lnk
+  lUriPath = ("/" <>) . B.pack . L.uriPath . L.linkURI
 
+safelinkAuth'
+  :: (DomBuilder t m, PostBuild t m, MonadHold t m, MonadFix m)
+  => Dynamic t (Maybe env)
+  -> Dynamic t URI
+  -> (env -> L.Link)
+  -> m ()
+  -> m (Dynamic t Bool, Event t L.Link, Dynamic t Bool)
+safelinkAuth' env dynLoc mkLnk cnt = do
+  lnkDyn <- maybeDyn (fmap mkLnk <$> env)
+  e      <- dyn (maybe (pure (constDyn False, never)) orig <$> lnkDyn)
+  ev     <- switchHold never (snd <$> e)
+  dn     <- holdDyn (constDyn False) (fst <$> e)
+  pure (join dn, ev, hasAccess =<< lnkDyn)
+ where
+  orig lnk = safelinkDyn dynLoc lnk cnt
+  hasAccess Nothing  = constDyn False
+  hasAccess (Just x) = Prelude.all notDenied . L.linkQueryParams <$> x
+  notDenied (L.FlagParam x) = x /= "denied"
+  notDenied _               = False
 
 coerceUri :: L.URI -> URI
 coerceUri uri = URI { uriScheme    = scheme (L.uriScheme uri)
@@ -332,6 +372,35 @@ safelinkGroup lbl childs = do
       let anyActive  = fmap getAny $ mconcat $ fmap (fmap Any . fst) closeEvs
       let initActive = tagPromptlyDyn anyActive postBuild
   pure $ leftmost $ fmap snd closeEvs
+
+-- | A group of links which automatically opens if one child is active.
+-- Also, it
+safelinkGroupAuth
+  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
+  => m ()
+  -> [m (Dynamic t Bool, Event t L.Link, Dynamic t Bool)]
+  -> m (Event t L.Link)
+safelinkGroupAuth lbl childs = do
+  rec closeEvs <-
+        navGroup' 0.7
+                  (mkCls <$> allHidden)
+                  (leftmost [initActive, updated anyActive])
+                  lbl
+          $ sequence childs
+
+      postBuild <- getPostBuild
+      let anyActive = fmap getAny $ mconcat $ fmap
+            (fmap Any . (\(x, _, _) -> x))
+            closeEvs
+      let initActive = tagPromptlyDyn anyActive postBuild
+      let allHidden = fmap getAll $ mconcat $ fmap
+            (fmap (All . Prelude.not) . (\(_, _, x) -> x))
+            closeEvs
+  pure $ leftmost $ fmap (\(_, x, _) -> x) closeEvs
+ where
+  mkCls False = "nav-group"
+  mkCls True  = "nav-group hidden"
+
 
 app
   :: (MonadFix m, PostBuild t m, DomBuilder t m)

@@ -27,7 +27,9 @@ import           Control.Monad                  ( unless
                                                 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( ReaderT(..)
+                                                , MonadReader
                                                 , asks
+                                                , lift
                                                 )
 import           Data.Default
 import           Data.Either                    ( fromRight )
@@ -56,7 +58,6 @@ import           Frontend.Container
 import           Frontend.Core
 import           Frontend.Input
 import           Frontend.Crud
-
 
 main :: IO ()
 main = mainWidget $ do
@@ -120,12 +121,22 @@ css = do
 
 withHeader
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
-  => (Event t Link -> m (Dynamic t URI))
+  => Config
+  -> (Event t Link -> m (Dynamic t URI))
   -> m ()
-withHeader = withHeader' False (constDyn Unknown)
+withHeader cfg e = runReaderT
+  (withHeader' False (constDyn Unknown) (coerceE e))
+  (defaultAppConfig cfg)
+  where coerceE fn x = lift (fn x)
+
 
 withHeader'
-  :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
+  :: ( MonadHold t m
+     , MonadFix m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadReader (AppConfig t) m
+     )
   => Bool
   -> Dynamic t (FutureMaybe AuthUser)
   -> (Event t Link -> m (Dynamic t URI))
@@ -229,7 +240,12 @@ api :: Proxy Api
 api = Proxy
 
 sideNav
-  :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
+  :: ( MonadFix m
+     , MonadHold t m
+     , DomBuilder t m
+     , PostBuild t m
+     , MonadReader (AppConfig t) m
+     )
   => Dynamic t URI
   -> m (Event t Link)
 sideNav dynUri = leftmost <$> sequence

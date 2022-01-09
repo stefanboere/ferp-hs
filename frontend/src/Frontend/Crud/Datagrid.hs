@@ -557,7 +557,7 @@ data BrowseFormConfig t m env a c = BrowseFormConfig
   , _browseConfig_header      :: Text
   , _browseConfig_insertRoute :: env -> Link
   , _browseConfig_editRoute   :: env -> PrimaryKey a Identity -> Link
-  , _browseConfig_browseRoute :: View Be a -> Link
+  , _browseConfig_browseRoute :: env -> View Be a -> Link
   , _browseConfig_columns
       :: [ Column
           t
@@ -621,9 +621,14 @@ browseForm env cfg vw = elClass "div" "flex-column" $ do
     dynFilter <- dynUniqDebounce 1 (API.filters vw)
       $ updated (_grid_filter gridResult)
     let dynView = API.View <$> dynPage <*> dynSort <*> dynFilter
-    replaceLocation (_browseConfig_browseRoute cfg <$> updated dynView)
+    replaceLocation
+      (attachPromptlyDynWithMaybe browseRoute env (updated dynView))
 
   pure (leftmost [_grid_navigate gridResult, insertEvResult, customEvSuccess])
+
+ where
+  browseRoute (Just x) y = Just $ _browseConfig_browseRoute cfg x y
+  browseRoute Nothing  _ = Nothing
 
 linkWithSelection
   :: (SetFilter "" 'List b, SetFilter "!" 'List b)

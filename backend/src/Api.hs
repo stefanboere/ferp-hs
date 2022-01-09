@@ -86,7 +86,8 @@ prerenderApp
 prerenderApp pageT = do
   cfg <- asks getConfig
   let page = runReaderT pageT (configFrontend cfg)
-  (_, body) <- liftIO $ renderStatic (Frontend.withHeader (page' page))
+  (_, body) <- liftIO
+    $ renderStatic (Frontend.withHeader (configFrontend cfg) (page' page))
   pure $ do
     doctype_
     html_ [lang_ "en"] $ do

@@ -177,9 +177,6 @@ tableStyle = do
     cursor pointer
     hover Clay.& textDecoration underline
 
-    ".hidden" ? do
-      important $ display none
-
   th ? do
     Clay.button ? height (rem 1)
     span ? flexGrow 1
@@ -535,9 +532,6 @@ rowMultiSelect attrs dynMouseDown fullRowSelect setSelectEv cnt = do
 
 selectedCountStyle :: Css
 selectedCountStyle = do
-  ".hidden" ? do
-    important $ display none
-
   ".selected-count" ? do
     "min-width" -: "min-content"
     display flex
