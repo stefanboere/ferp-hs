@@ -20,6 +20,7 @@ import           Control.Lens                   ( Lens'
                                                 , set
                                                 , view
                                                 )
+import           Control.Applicative            ( liftA2 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose           ( Compose(..) )
@@ -69,13 +70,13 @@ import           Components.Table
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Utils
 
-type LookupInputConfig t m k = InputConfig' (LabelEndpoint t m k) t m
+type LookupInputConfig t m env k = InputConfig' (LabelEndpoint t m env k) t m
 
-data LabelEndpoint t m k a = LabelEndpoint
+data LabelEndpoint t m env k a = LabelEndpoint
   { unLabelEndpoint
       :: OptionsRequest k
       -> Request (Prerender.Client m) (API.GetListHeaders (Elem a))
-  , editLink :: k -> L.Link
+  , editLink :: env -> k -> L.Link
   }
 
 lookupInput
@@ -92,9 +93,15 @@ lookupInput
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
      )
-  => LookupInputConfig t m (PrimaryKey a Identity) (Maybe (Named a Identity))
+  => Dynamic t (Maybe env)
+  -> LookupInputConfig
+       t
+       m
+       env
+       (PrimaryKey a Identity)
+       (Maybe (Named a Identity))
   -> m (DomInputEl t m (Maybe (Named a Identity)))
-lookupInput cfg = do
+lookupInput env cfg = do
   rec (x, routeEv) <- comboboxInputKS
         (openlinkEl (_cb_selection <$> _inputEl_value x))
         showOpt
@@ -140,9 +147,10 @@ lookupInput cfg = do
     (\pk -> Named { _id = pk, _name = t }) <$> mx
 
   openlinkEl mkey = do
-    mkeyDyn <- maybeDyn mkey
+    mkeyDyn <- maybeDyn (liftA2 (,) <$> env <*> mkey)
     dynEv   <- dyn
-      (   maybe (pure never) (safelinkNoTab angleDoubleRightIcon . fmap mklnk)
+      (   maybe (pure never)
+                (safelinkNoTab angleDoubleRightIcon . fmap (uncurry mklnk))
       <$> mkeyDyn
       )
     switchHold never dynEv
@@ -171,10 +179,11 @@ labelEndpoint
           (Prerender.Client m)
           (API.GetListHeaders (Named a Identity))
      )
-  -> (PrimaryKey a Identity -> L.Link)
+  -> (env -> PrimaryKey a Identity -> L.Link)
   -> LabelEndpoint
        t
        m
+       env
        (PrimaryKey a Identity)
        (Maybe (Named a Identity))
 labelEndpoint l req = LabelEndpoint mkRequest
@@ -196,7 +205,7 @@ labelEndpoint l req = LabelEndpoint mkRequest
     }
 
 
-data FkProperty t m a b = FkProperty
+data FkProperty t m env a b = FkProperty
   { _fkProp_label   :: Text
   , _fkProp_lens    :: forall f . Lens' (a f) (Named b f)
   , _fkProp_key     :: API.Path
@@ -206,7 +215,7 @@ data FkProperty t m a b = FkProperty
       -> Maybe (PrimaryKey b Identity)
       -> Request (Prerender.Client m) (API.GetListHeaders (Named b Identity))
   , _fkProp_searchField :: Lens' (b Filter) (C Filter Text)
-  , _fkProp_editLink    :: PrimaryKey b Identity -> L.Link
+  , _fkProp_editLink    :: env -> PrimaryKey b Identity -> L.Link
   }
 
 fkProp
@@ -225,8 +234,8 @@ fkProp
           (Prerender.Client m)
           (API.GetListHeaders (Named b Identity))
      )
-  -> (PrimaryKey b Identity -> L.Link)
-  -> FkProperty t m a b
+  -> (env -> PrimaryKey b Identity -> L.Link)
+  -> FkProperty t m env a b
 fkProp lbl l p sf ep lnk =
   let fn = API.prependHasField p . sortByName . toApiDirection
   in  FkProperty { _fkProp_label       = lbl
@@ -256,12 +265,13 @@ editFk
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
      )
-  => FkProperty t m a b
+  => Dynamic t (Maybe env)
+  -> FkProperty t m env a b
   -> Event t (a MaybeLast)
   -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
-editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
+editFk env prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
   (_fkProp_label prp)
-  (respectFocus lookupInput)
+  (respectFocus (lookupInput env))
   (inputConfig'
       (labelEndpoint (_fkProp_searchField prp)
                      (_fkProp_endpoint prp)
@@ -282,7 +292,7 @@ editFk prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
 
 gridFkProp
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
-  => FkProperty t m a b
+  => FkProperty t m env a b
   -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
 gridFkProp prp = Column
   { _column_label    = _fkProp_label prp

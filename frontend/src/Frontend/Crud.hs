@@ -12,6 +12,8 @@ where
 
 import           Control.Applicative            ( (<**>) )
 import           Control.Monad.Fix              ( MonadFix )
+import           Control.Monad.Reader           ( asks )
+import           Data.Functor.Identity          ( Identity )
 import           Data.Functor.Compose
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Proxy
@@ -23,7 +25,9 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.QueryObject       ( QObj )
-import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
+import           Servant.Crud.QueryOperator     ( MaybeLast(..)
+                                                , Filter
+                                                )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
@@ -34,6 +38,9 @@ import           Common.Auth
 import           Common.Schema
 import           Components
 import           Frontend.Api
+import           Frontend.Context               ( AuthUser
+                                                , getUserNow
+                                                )
 import           Frontend.Crud.Datagrid
 import           Frontend.Crud.Edit
 import           Frontend.Crud.Lookup
@@ -58,12 +65,12 @@ crudApi :: Proxy CrudApi
 crudApi = Proxy
 
 blogsLink :: Api.View Api.Be BlogN -> Link
-newBlogLink :: Link
-blogLink :: BlogNId -> Link
+newBlogLink :: AuthUser -> Link
+blogLink :: AuthUser -> BlogNId -> Link
 
 channelsLink :: Api.View Api.Be ChannelT -> Link
-newChannelLink :: Link
-channelLink :: ChannelId -> Link
+newChannelLink :: AuthUser -> Link
+channelLink :: AuthUser -> ChannelId -> Link
 
 -- brittany-disable-next-binding
 (blogsLink :<|> newBlogLink :<|> blogLink) :<|>
@@ -86,11 +93,47 @@ crudHandler =
   (blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just))
     :<|> (channelsHandler :<|> channelEdit Nothing :<|> (channelEdit . Just))
 
+browseFormAuth
+  :: ( WidgetConstraint js t m
+     , Table a
+     , Ord (PrimaryKey a Identity)
+     , Eq (a Filter)
+     )
+  => BrowseFormConfig t m AuthUser a c
+  -> Api.View Api.Be a
+  -> AppT t m (Event t URI)
+browseFormAuth cfg vw = do
+  usr <- asks getUserNow
+  browseForm usr cfg vw
+
+editFormAuth
+  :: ( WidgetConstraint js t m
+     , Beamable a
+     , FieldsFulfillConstraint Eq a
+     , Eq (a Identity)
+     , Eq (a MaybeLast)
+     , Monoid (a MaybeLast)
+     )
+  => EditFormConfig t m AuthUser a
+  -> (  Dynamic t (Maybe AuthUser)
+     -> Event t (a MaybeLast)
+     -> EventWriterT
+          t
+          (MaybeLast URI)
+          (AppT t m)
+          (Dynamic t (a MaybeLast))
+     )
+  -> Maybe (PrimaryKey a Identity)
+  -> AppT t m (Event t URI)
+editFormAuth cfg editor initPk = do
+  usr <- asks getUserNow
+  editForm usr cfg (editor usr) initPk
+
 blogsHandler
   :: (WidgetConstraint js t m)
   => Api.View Api.Be BlogN
   -> AppT t m (Event t URI)
-blogsHandler = browseForm BrowseFormConfig
+blogsHandler = browseFormAuth BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection blogId
                                                               unBlogId
                                                               getBlogsApiLink
@@ -110,12 +153,12 @@ blogsHandler = browseForm BrowseFormConfig
   where unBlogId (BlogId x) = x
 
 blogEdit :: WidgetConstraint js t m => Maybe BlogNId -> AppT t m (Event t URI)
-blogEdit = editForm cfg $ \modBlogEv ->
+blogEdit = editFormAuth cfg $ \usr modBlogEv ->
   el "form"
     $    getCompose
     $    pure mempty
     <**> editWith textEditor blogTitleProp modBlogEv
-    <**> editFk blogChannelProp modBlogEv
+    <**> editFk usr blogChannelProp modBlogEv
     <**> editWith checkboxEditor   blogIsExtraProp     modBlogEv
     <**> editWith toggleEditor     blogIsPublishedProp modBlogEv
     <**> editWith (req dateEditor) blogDateProp        modBlogEv
@@ -151,7 +194,7 @@ blogIdProp :: Property BlogN SerialInt64
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
 
 blogChannelProp
-  :: (Request (Client m) ~ FreeClient) => FkProperty t m BlogN ChannelT
+  :: (Request (Client m) ~ FreeClient) => FkProperty t m AuthUser BlogN ChannelT
 blogChannelProp = fkProp "Channel"
                          blogChannel
                          (Proxy :: Proxy "_blogChannel")
@@ -182,7 +225,7 @@ channelsHandler
   :: (WidgetConstraint js t m)
   => Api.View Api.Be ChannelT
   -> AppT t m (Event t URI)
-channelsHandler = browseForm BrowseFormConfig
+channelsHandler = browseFormAuth BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection channelId
                                                               unChannelId
                                                               getChannelsApiLink
@@ -199,9 +242,10 @@ channelsHandler = browseForm BrowseFormConfig
   }
   where unChannelId (ChannelId x) = x
 
+
 channelEdit
   :: WidgetConstraint js t m => Maybe ChannelId -> AppT t m (Event t URI)
-channelEdit = editForm cfg $ \modBlogEv ->
+channelEdit = editFormAuth cfg $ \_ modBlogEv ->
   el "form"
     $    getCompose
     $    pure mempty

@@ -224,16 +224,18 @@ editPrimaryKey setPk initPk setPkEv = Compose $ do
 -- | Read the primary key from the post response and update the location
 applyPkFromPostResponse
   :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
-  => (c -> Link)
+  => (env -> c -> Link)
+  -> Dynamic t (Maybe env)
   -> Event t (Headers '[LocationHdr] c)
   -> m (Event t (Maybe c))
-applyPkFromPostResponse mkLnk postRespEv = do
+applyPkFromPostResponse mkLnk env postRespEv = do
   let reqBody = getResponse <$> postRespEv
-  replaceLocation (mkLnk <$> reqBody)
+  replaceLocation
+    (attachPromptlyDynWithMaybe (\e c -> fmap (`mkLnk` c) e) env reqBody)
   pure (Just <$> reqBody)
 
 
-data EditFormConfig t m a = EditFormConfig
+data EditFormConfig t m env a = EditFormConfig
   { _formConfig_actions
       :: Maybe (PrimaryKey a Identity)
       -> Event t (Maybe (PrimaryKey a Identity))
@@ -259,7 +261,7 @@ data EditFormConfig t m a = EditFormConfig
       :: Maybe (PrimaryKey a Identity) -> a MaybeLast -> a MaybeLast
   , _formConfig_header           :: a MaybeLast -> Text
   , _formConfig_routeAfterDelete :: Link
-  , _formConfig_editRoute        :: PrimaryKey a Identity -> Link
+  , _formConfig_editRoute        :: env -> PrimaryKey a Identity -> Link
   }
 
 
@@ -278,7 +280,8 @@ editForm
      , Eq (a MaybeLast)
      , Monoid (a MaybeLast)
      )
-  => EditFormConfig t m a
+  => Dynamic t (Maybe env)
+  -> EditFormConfig t m env a
   -> (  Event t (a MaybeLast)
      -> EventWriterT
           t
@@ -288,7 +291,8 @@ editForm
      )
   -> Maybe (PrimaryKey a Identity)
   -> AppT t m (Event t URI)
-editForm cfg editor initPk = do
+editForm env cfg editor initPk = do
+
   rec
     el "h1" $ dynText (_formConfig_header cfg <$> mDynRec)
 
@@ -305,7 +309,9 @@ editForm cfg editor initPk = do
     _               <- orAlert patchEvResult
     deleteEvSuccess <- orAlert deleteEvResult
     postEvSuccess   <- orAlert postEvResult
-    setPkEv <- applyPkFromPostResponse (_formConfig_editRoute cfg) postEvSuccess
+    setPkEv         <- applyPkFromPostResponse (_formConfig_editRoute cfg)
+                                               env
+                                               postEvSuccess
 
     dynRecRemote    <- holdDyn Nothing (Just <$> getEvSuccess)
 

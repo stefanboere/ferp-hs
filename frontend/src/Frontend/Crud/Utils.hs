@@ -9,6 +9,7 @@ module Frontend.Crud.Utils
     replaceLocation
     -- * Buttons
   , triStateBtn
+  , optionalBtn
   , backBtn
   , saveBtn
   , refreshBtn
@@ -158,6 +159,11 @@ backBtn lbl = do
     >> el "span" (text lbl)
   prerender_ (pure ()) $ performEvent_ (goBack <$ ev)
 
+optionalBtn :: (Reflex t, MonadFix m, Adjustable t m, NotReady t m, PostBuild t m, MonadHold t m ) => (Dynamic t a -> m (Event t b)) -> Dynamic t (Maybe a) -> m (Event t b)
+optionalBtn orig dynval = do
+  dynval' <- maybeDyn dynval
+  r <- dyn (maybe (pure never) orig <$> dynval')
+  switchHold never r
 
 saveBtn
   :: (PostBuild t m, DomBuilder t m) => Dynamic t ActionState -> m (Event t ())

@@ -11,6 +11,7 @@ module Frontend.Context
   , runAppT
   , showClientError
   , FutureMaybe(..)
+  , getUserNow
   )
 where
 
@@ -90,10 +91,17 @@ data FutureMaybe a
   | Absent
   | Unknown
 
+futureToMaybe :: FutureMaybe a -> Maybe a
+futureToMaybe (Present a) = Just a
+futureToMaybe _           = Nothing
+
 data AppConfig t = AppConfig
   { getConfig :: Config
   , getUser :: Dynamic t (FutureMaybe AuthUser)
   }
+
+getUserNow :: Reflex t => AppConfig t -> Dynamic t (Maybe AuthUser)
+getUserNow = fmap futureToMaybe . getUser
 
 data GlobalAlert
   = LoginError (Text, Maybe Int)

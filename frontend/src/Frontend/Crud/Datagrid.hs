@@ -539,7 +539,7 @@ toMapSubsetDiff getEvSuccess deleteEvSuccess = do
           attachWith addDeletes (current keysSet) (updated dynRecRemote)
   pure updateRows
 
-data BrowseFormConfig t m a c = BrowseFormConfig
+data BrowseFormConfig t m env a c = BrowseFormConfig
   { _browseConfig_actions
       :: Dynamic t (View Be a)
       -> Dynamic t (Selection (PrimaryKey a Identity))
@@ -555,8 +555,8 @@ data BrowseFormConfig t m a c = BrowseFormConfig
       -> a Filter
       -> Request (Prerender.Client (AppT t m)) [PrimaryKey a Identity]
   , _browseConfig_header      :: Text
-  , _browseConfig_insertRoute :: Link
-  , _browseConfig_editRoute   :: PrimaryKey a Identity -> Link
+  , _browseConfig_insertRoute :: env -> Link
+  , _browseConfig_editRoute   :: env -> PrimaryKey a Identity -> Link
   , _browseConfig_browseRoute :: View Be a -> Link
   , _browseConfig_columns
       :: [ Column
@@ -582,17 +582,18 @@ browseForm
      , Ord (PrimaryKey a Identity)
      , Eq (a Filter)
      )
-  => BrowseFormConfig t m a c
+  => Dynamic t (Maybe env)
+  -> BrowseFormConfig t m env a c
   -> View Be a
   -> AppT t m (Event t URI)
-browseForm cfg vw = elClass "div" "flex-column" $ do
+browseForm env cfg vw = elClass "div" "flex-column" $ do
   el "h1" $ text (_browseConfig_header cfg)
 
   rec
     (insertEvResult, getEvResult, deleteEvResult, customEv) <-
       el "div"
       $   (,,,)
-      <$> insertBtn (constDyn (_browseConfig_insertRoute cfg))
+      <$> optionalBtn insertBtn (fmap (_browseConfig_insertRoute cfg) <$> env)
       <*> getListButton (_browseConfig_getListReq cfg) dynView
       <*> deleteListButton (_browseConfig_deleteListReq cfg) selection dynFilter
       <*> _browseConfig_actions cfg dynView selection
@@ -608,7 +609,8 @@ browseForm cfg vw = elClass "div" "flex-column" $ do
       , _gridConfig_selectAll   = leftmost
         [False <$ deleteEvSuccess, False <$ updated dynFilter]
       , _gridConfig_setValue    = updateRows
-      , _gridConfig_toLink      = _browseConfig_editRoute cfg . primaryKey
+      , _gridConfig_toLink      = \r ->
+        fmap (\v -> _browseConfig_editRoute cfg v (primaryKey r)) <$> env
       , _gridConfig_initialView = fromApiView vw
       , _gridConfig_toPrimary   = primaryKey
       }

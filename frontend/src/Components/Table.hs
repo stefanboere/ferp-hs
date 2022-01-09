@@ -361,17 +361,21 @@ linkCell dynHref = elClass "td" "center link" . elDynAttr
   ((Map.singleton "tabindex" "-1" <>) . Map.singleton "href" <$> dynHref)
 
 safelinkCell
-  :: (DomBuilder t m, PostBuild t m)
-  => Dynamic t L.Link
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => Dynamic t (Maybe L.Link)
   -> m ()
   -> m (Event t URI)
-safelinkCell lnk cnt = do
-  clickEv <- elClass "td" "center link" $ ahrefPreventDefault
-    (("/" <>) . toUrlPiece <$> lnk)
-    (constDyn False)
-    (Map.singleton "tabindex" "-1")
-    cnt
-  pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
+safelinkCell mlnk cnt = elClass "td" "center link" $ do
+  lnk <- maybeDyn mlnk
+  r   <- dyn (maybe (pure never) atag <$> lnk)
+  switchHold never r
+ where
+  atag lnk = do
+    clickEv <- ahrefPreventDefault (("/" <>) . toUrlPiece <$> lnk)
+                                   (constDyn False)
+                                   (Map.singleton "tabindex" "-1")
+                                   cnt
+    pure $ tagPromptlyDyn (coerceUri . L.linkURI <$> lnk) clickEv
 
 angleDoubleRightIcon :: (DomBuilder t m, PostBuild t m) => m ()
 angleDoubleRightIcon =
@@ -789,7 +793,7 @@ data DatagridConfig t m a f k0 k r = DatagridConfig
   { _gridConfig_columns     :: [Column t m a f k0 r]
   , _gridConfig_selectAll   :: Event t Bool
   , _gridConfig_setValue    :: Event t (MapSubset Int (Maybe r))
-  , _gridConfig_toLink      :: r -> L.Link
+  , _gridConfig_toLink      :: r -> Dynamic t (Maybe L.Link)
   , _gridConfig_toPrimary   :: r -> k
   , _gridConfig_initialView :: DatagridView k0 f
   }
@@ -886,10 +890,9 @@ datagridDyn cfg = datagrid 2 $ \dynHeight -> do
                   ]
                 )
               $ do
-                  dynLnk <- holdDyn (_gridConfig_toLink cfg initR)
-                                    (_gridConfig_toLink cfg <$> updateR)
+                  rDyn <- holdDyn initR updateR
+                  let dynLnk = _gridConfig_toLink cfg =<< rDyn
                   lnkEv <- safelinkCell dynLnk angleDoubleRightIcon
-                  rDyn  <- holdDyn initR updateR
                   rcols <- Reflex.Dom.list
                     dynCols
                     (\dynF -> el "td" $ do
