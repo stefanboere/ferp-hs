@@ -94,6 +94,22 @@
         "type": "github"
       }
     },
+    "moz_overlay": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1638887313,
+        "narHash": "sha256-FMYV6rVtvSIfthgC1sK1xugh3y7muoQcvduMdriz4ag=",
+        "owner": "mozilla",
+        "repo": "nixpkgs-mozilla",
+        "rev": "7c1e8b1dd6ed0043fb4ee0b12b815256b0b9de6f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mozilla",
+        "repo": "nixpkgs-mozilla",
+        "type": "github"
+      }
+    },
     "mvn2nix": {
       "inputs": {
         "nixpkgs": "nixpkgs",
@@ -110,6 +126,24 @@
       "original": {
         "owner": "fzakaria",
         "repo": "mvn2nix",
+        "type": "github"
+      }
+    },
+    "naersk": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1639947939,
+        "narHash": "sha256-pGsM8haJadVP80GFq4xhnSpNitYNQpaXk4cnA796Cso=",
+        "owner": "nix-community",
+        "repo": "naersk",
+        "rev": "2fc8ce9d3c025d59fee349c1f80be9785049d653",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "naersk",
         "type": "github"
       }
     },
@@ -131,6 +165,20 @@
     },
     "nixpkgs_2": {
       "locked": {
+        "lastModified": 1641969095,
+        "narHash": "sha256-WCiFqG6+E5NmeI6xnw/fxuKHgdsfb8xjL8N9Gxu4/hU=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "b458e5133fba2c873649f071f7a8dfeae52ebd17",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "type": "indirect"
+      }
+    },
+    "nixpkgs_3": {
+      "locked": {
         "lastModified": 1619531122,
         "narHash": "sha256-ovm5bo6PkZzNKh2YGXbRKYIjega0EjiEP0YDwyeXEYU=",
         "owner": "NixOS",
@@ -146,7 +194,7 @@
     "pre-commit-hooks": {
       "inputs": {
         "flake-utils": "flake-utils_2",
-        "nixpkgs": "nixpkgs_2"
+        "nixpkgs": "nixpkgs_3"
       },
       "locked": {
         "lastModified": 1624971177,
@@ -234,7 +282,9 @@
         "fira": "fira",
         "flake-utils": "flake-utils",
         "keycloak-config-cli-src": "keycloak-config-cli-src",
+        "moz_overlay": "moz_overlay",
         "mvn2nix": "mvn2nix",
+        "naersk": "naersk",
         "pre-commit-hooks": "pre-commit-hooks",
         "reflex-dom-ace": "reflex-dom-ace",
         "reflex-dom-contrib": "reflex-dom-contrib",

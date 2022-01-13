@@ -43,6 +43,9 @@ let
         #  };
         brittany = ghc.brittany;
         inherit keycloak-config-cli;
+        inherit (pkgs) moz-rust wasm-pack nodejs openssl pkgconfig;
+        inherit (pkgs.xorg) libX11 libXcursor libXi libXrandr;
+        inherit (pkgs.nodePackages) http-server;
       };
 
       overrides = with pkgs.haskell.lib;
@@ -182,11 +185,27 @@ let
       '';
     };
 
+  truck-param = pkgs.naersk-lib.buildPackage {
+    pname = "truck-param";
+    version = "0.0.1";
+
+    buildInputs = with pkgs; [ openssl ];
+    nativeBuildInputs = with pkgs; [ pkgconfig ];
+
+    root = ./.;
+
+    meta = with pkgs.lib; {
+      description = "Parametric modeling in Rust";
+      license = licenses.mit;
+    };
+  };
+
 in {
   ferp-hs = project true // {
     inherit frontend-min vendor-lib;
     inherit frontend-gtk;
   };
   brittany = pkgs.haskellPackages.brittany;
+  vulkan-loader = pkgs.vulkan-loader;
   inherit keycloak-config-cli keycloak-nordtheme;
 }

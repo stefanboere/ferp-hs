@@ -52,11 +52,19 @@
     };
 
     mvn2nix.url = "github:fzakaria/mvn2nix";
+
+    naersk.url = "github:nix-community/naersk";
+
+    moz_overlay = {
+      url = "github:mozilla/nixpkgs-mozilla";
+      flake = false;
+    };
   };
 
   outputs = inputs@{ self, MathJax, ace-builds, flake-utils, pre-commit-hooks
     , reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc, reflex-platform
-    , servant-subscriber, keycloak-config-cli-src, mvn2nix, fira }:
+    , servant-subscriber, keycloak-config-cli-src, mvn2nix, fira, naersk
+    , moz_overlay }:
     {
       nixosModules = {
         ferp-hs = ./nix/modules/ferp-hs.nix;
@@ -73,9 +81,24 @@
       };
     } // flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
       let
+        rust_overlay = final: prev: {
+          moz-rust = ((prev.rustChannelOf {
+            channel = "nightly";
+            sha256 = "B3T/bVER66CE2z7Ocvk7Gn6hXwDZnW+5n/3C0H+HSOk=";
+          }).rust.override { targets = [ "wasm32-unknown-unknown" ]; });
+          naersk-lib = naersk.lib."${system}".override {
+            cargo = final.moz-rust;
+            rustc = final.moz-rust;
+          };
+        };
         reflex-platform-derivation = import reflex-platform {
           inherit system;
-          nixpkgsOverlays = [ mvn2nix.overlay ];
+          nixpkgsOverlays = [
+            mvn2nix.overlay
+            (import moz_overlay)
+            naersk.overlay
+            rust_overlay
+          ];
         };
         pkgs = import ./overlay.nix {
           inherit MathJax ace-builds reflex-dom-ace reflex-dom-contrib
@@ -93,6 +116,7 @@
               brittany.enable = true;
               nixfmt.enable = true;
               prettier.enable = true;
+              rustfmt.enable = true;
             };
           };
         };
@@ -101,6 +125,8 @@
           inherit (self.checks.${system}.pre-commit-check) shellHook;
           # Fixes crashes of webkitgtk for spinner icon
           WEBKIT_DISABLE_COMPOSITING_MODE = "1";
+          RUST_BACKTRACE = 1;
+          LD_LIBRARY_PATH = "${pkgs.vulkan-loader}/lib";
         });
 
         packages = {

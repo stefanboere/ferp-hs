@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = [
+  "truck-param-base",
+  "truck-param-viewer",
+  "truck-param-js"
+]
