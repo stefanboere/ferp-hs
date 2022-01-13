@@ -1,8 +1,192 @@
 import init, * as Truck from "./pkg/truck_param_js.js";
 
-const fps = 1000 / 30;
+var vertexShader = `#version 300 es
+  in vec3 position;
+  in vec2 uv;
+  in vec3 normal;
+
+  uniform vec3 camera_position;
+  uniform vec3 camera_direction;
+  uniform vec3 camera_updirection;
+  uniform vec2 resolution;
+
+  const float camera_fov = 3.141592653 / 4.0;
+  const float camera_near = 0.1;
+  const float camera_far = 10.0;
+
+  out vec3 vertex_position;
+  out vec2 vertex_uv;
+  out vec3 vertex_normal;
+
+  vec4 get_vertex_position(
+      in vec3 pos,
+      in vec3 c_pos,
+      in vec3 c_dir,
+      in vec3 c_up,
+      in float c_fov,
+      in float asp,
+      in float c_far,
+      in float c_near
+  ) {
+      vec3 vec = pos - c_pos;
+      float far = 1.0 / tan(c_fov / 2.0);
+      vec3 x_axis = cross(c_dir, c_up);
+      vec3 y_axis = c_up;
+      float depth = dot(c_dir, vec);
+      vec3 h = (vec - depth * c_dir) * far;
+      float u = dot(h, x_axis) / asp;
+      float v = dot(h, y_axis);
+      return vec4(u, v, (depth - c_near) / (c_far - c_near), depth);
+  }
+
+  void main() {
+      gl_Position = get_vertex_position(
+          position,
+          camera_position,
+          camera_direction,
+          camera_updirection,
+          camera_fov,
+          resolution.x / resolution.y,
+          camera_far,
+          camera_near
+      );
+      vertex_position = position;
+      vertex_uv = uv;
+      vertex_normal = normal;
+  }
+`;
+
+var fragmentShader = `#version 300 es
+  precision highp float;
+
+  in vec3 vertex_position;
+  in vec2 vertex_uv;
+  in vec3 vertex_normal;
+
+  uniform vec3 camera_position;
+  uniform vec3 camera_direction;
+  uniform vec3 camera_updirection;
+  uniform vec2 resolution;
+
+  out vec4 color;
+
+  // Based on the microfacet theory
+  // cf: https://qiita.com/mebiusbox2/items/e7063c5dfe1424e0d01a
+
+  struct Light {
+      vec4 position;
+      vec4 color;
+      ivec4 light_type;
+  };
+
+  struct Material {
+      vec4 albedo;
+      float roughness;
+      float reflectance;
+      float ambient_ratio;
+  };
+
+  // light direction from point to light
+  vec3 light_direction(Light light, vec3 position) {
+      switch(light.light_type[0]) {
+      case 0:
+          return normalize(light.position.xyz - position);
+      default:
+          return light.position.xyz;
+      }
+  }
+
+  vec3 irradiance(Light light, vec3 position, vec3 normal) {
+      vec3 light_dir = light_direction(light, position);
+      return light.color.xyz * clamp(dot(light_dir, normal), 0.0, 1.0);
+  }
+
+  vec3 diffuse_brdf(Material material) {
+      return material.albedo.xyz * (1.0 - material.reflectance);
+  }
+
+  float microfacet_distribution(vec3 middle, vec3 normal, float alpha) {
+      float dotNH = dot(normal, middle);
+      float alpha2 = alpha * alpha;
+      float sqrt_denom = 1.0 - dotNH * dotNH * (1.0 - alpha2);
+      return alpha2 / (sqrt_denom * sqrt_denom);
+  }
+
+  float schlick_approxy(vec3 vec, vec3 normal, float k) {
+      float dotNV = dot(normal, vec);
+      return dotNV / (dotNV * (1.0 - k) + k);
+  }
+
+  float geometric_decay(vec3 light_dir, vec3 camera_dir, vec3 normal, float alpha) {
+      float k = alpha / 2.0;
+      return schlick_approxy(light_dir, normal, k) * schlick_approxy(camera_dir, normal, k);
+  }
+
+  vec3 fresnel(vec3 f0, vec3 middle, vec3 camera_dir) {
+      float c = 1.0 - dot(middle, camera_dir);
+      c = c * c * c * c * c;
+      return f0 + (1.0 - f0) * c;
+  }
+
+  vec3 specular_brdf(Material material, vec3 camera_dir, vec3 light_dir, vec3 normal) {
+      vec3 specular_color = material.albedo.xyz * material.reflectance;
+      vec3 middle = normalize(camera_dir + light_dir);
+      float alpha = material.roughness * material.roughness;
+      float distribution = microfacet_distribution(middle, normal, alpha);
+      float decay = geometric_decay(light_dir, camera_dir, normal, alpha);
+      vec3 fresnel_color = fresnel(specular_color, middle, camera_dir);
+      float dotCN = clamp(dot(camera_dir, normal), 0.0, 1.0);
+      float dotLN = clamp(dot(light_dir, normal), 0.0, 1.0);
+      float denom = 4.0 * dotCN * dotLN;
+      if (denom < 1.0e-6) {
+          return vec3(0.0, 0.0, 0.0);
+      }
+      return distribution * decay / denom * fresnel_color;
+  }
+
+  vec3 microfacet_color(vec3 position, vec3 normal, Light light, vec3 camera_dir, Material material) {
+      vec3 light_dir = light_direction(light, position);
+      vec3 irradiance = irradiance(light, position, normal);
+      vec3 diffuse = diffuse_brdf(material);
+      vec3 specular = specular_brdf(material, camera_dir, light_dir, normal);
+      return (diffuse + specular) * irradiance;
+  }
+
+  vec3 ambient_correction(vec3 pre_color, Material material) {
+      return pre_color * (1.0 - material.ambient_ratio)
+          + material.albedo.xyz * material.ambient_ratio;
+  }
+
+  void main() {
+      vec3 position = vertex_position;
+      vec2 uv = vertex_uv;
+      vec3 normal = normalize(vertex_normal);
+      uv.y = 1.0 - uv.y;
+
+  /* discard by texture */
+
+      Material mat;
+      mat.albedo = vec4(1.0);
+      mat.roughness = 0.2;
+      mat.reflectance = 0.1;
+      mat.ambient_ratio = 0.04;
+
+      Light light;
+      light.position = vec4(camera_position, 1);
+      light.color = vec4(0.93, 0.94, 0.96, 1.0);
+      light.light_type = ivec4(0);
+
+      vec3 camera_dir = normalize(camera_position - position);
+
+      vec3 col = microfacet_color(position, normal, light, camera_dir, mat);
+      col = ambient_correction(col, mat);
+
+      color = vec4(col, 1.0);
+  }
+`;
 
 class App {
+  #fps = 1000 / 30;
   #canvas;
   #gl;
 
@@ -33,13 +217,15 @@ class App {
     canvas.addEventListener("mousemove", this.#mouseMove.bind(this));
     canvas.addEventListener("mousedown", this.#mouseDown.bind(this));
     canvas.addEventListener("mouseup", this.#mouseUp.bind(this));
+    const resize_ob = new ResizeObserver(this.#resize.bind(this));
+    resize_ob.observe(canvas);
 
     this.#gl =
       canvas.getContext("webgl2") || canvas.getContext("experimental-webgl");
 
     const prg = this.#createProgram(
-      this.#createShader("vertexshader"),
-      this.#createShader("fragmentshader")
+      this.#createShader(vertexShader, "x-vertex"),
+      this.#createShader(fragmentShader, "x-fragment")
     );
     this.#uniLocation = [
       this.#gl.getUniformLocation(prg, "camera_position"),
@@ -79,24 +265,21 @@ class App {
     }
   }
 
-  #createShader(id) {
+  #createShader(shaderText, type) {
     let shader;
 
-    const scriptElement = document.getElementById(id);
-    if (!scriptElement) return;
-
-    switch (scriptElement.type) {
-      case "x-shader/x-vertex":
+    switch (type) {
+      case "x-vertex":
         shader = this.#gl.createShader(this.#gl.VERTEX_SHADER);
         break;
-      case "x-shader/x-fragment":
+      case "x-fragment":
         shader = this.#gl.createShader(this.#gl.FRAGMENT_SHADER);
         break;
       default:
         return;
     }
 
-    this.#gl.shaderSource(shader, scriptElement.text);
+    this.#gl.shaderSource(shader, shaderText);
     this.#gl.compileShader(shader);
 
     if (this.#gl.getShaderParameter(shader, this.#gl.COMPILE_STATUS)) {
@@ -135,19 +318,21 @@ class App {
     }
 
     if (!this.#needsRender) {
-      setTimeout(this.#render.bind(this), fps);
+      setTimeout(this.#render.bind(this), this.#fps);
       return;
     }
 
     let gl = this.#gl;
     let c = this.#canvas;
 
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     if (!this.#vBuffer) {
       gl.flush();
       this.#needsRender = false;
-      setTimeout(this.#render.bind(this), fps);
+      setTimeout(this.#render.bind(this), this.#fps);
       return;
     }
 
@@ -198,7 +383,7 @@ class App {
     gl.flush();
 
     this.#needsRender = false;
-    setTimeout(this.#render.bind(this), fps);
+    setTimeout(this.#render.bind(this), this.#fps);
   }
 
   #rotation(origin, axis, theta, vec) {
@@ -291,6 +476,16 @@ class App {
     this.#rotflag = false;
   }
 
+  #resize(_e) {
+    var width = this.#canvas.clientWidth;
+    var height = this.#canvas.clientHeight;
+    if (this.#canvas.width != width || this.#canvas.height != height) {
+      this.#canvas.width = width;
+      this.#canvas.height = height;
+    }
+    this.#needsRender = true;
+  }
+
   draw(polygon) {
     if (typeof polygon === "undefined") {
       console.warn("meshing failed");
@@ -319,9 +514,6 @@ class App {
 async function run() {
   await init();
 
-  const cw = 768;
-  const ch = 768;
-
   let app;
 
   if (document.readyState !== "loading") {
@@ -332,8 +524,6 @@ async function run() {
 
   function onLoad() {
     let c = document.getElementById("canvas");
-    c.width = cw;
-    c.height = ch;
 
     app = new App(c);
 
@@ -346,11 +536,6 @@ async function run() {
       return;
     }
     const solid = Truck.build_torus(0.5, e.target.value);
-
-    if (typeof solid === "undefined") {
-      console.warn("invalid json");
-      return;
-    }
     let polygon = solid.to_polygon(0.01);
     app.draw(polygon);
   }

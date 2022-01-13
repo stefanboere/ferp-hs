@@ -43,7 +43,7 @@ let
         #  };
         brittany = ghc.brittany;
         inherit keycloak-config-cli;
-        inherit (pkgs) moz-rust wasm-pack nodejs openssl pkgconfig;
+        inherit (pkgs) moz-rust wasm-pack nodejs;
         inherit (pkgs.xorg) libX11 libXcursor libXi libXrandr;
         inherit (pkgs.nodePackages) http-server;
       };
@@ -206,6 +206,6 @@ in {
     inherit frontend-gtk;
   };
   brittany = pkgs.haskellPackages.brittany;
-  vulkan-loader = pkgs.vulkan-loader;
+  inherit (pkgs) vulkan-loader openssl pkgconfig;
   inherit keycloak-config-cli keycloak-nordtheme;
 }

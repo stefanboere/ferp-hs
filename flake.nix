@@ -127,6 +127,8 @@
           WEBKIT_DISABLE_COMPOSITING_MODE = "1";
           RUST_BACKTRACE = 1;
           LD_LIBRARY_PATH = "${pkgs.vulkan-loader}/lib";
+          nativeBuildInputs = old.nativeBuildInputs
+            ++ [ pkgs.openssl pkgs.pkgconfig ];
         });
 
         packages = {
