@@ -514,31 +514,9 @@ class App {
 async function run() {
   await init();
 
-  let app;
-
-  if (document.readyState !== "loading") {
-    onLoad();
-  } else {
-    addEventListener("load", onLoad, false);
-  }
-
-  function onLoad() {
-    let c = document.getElementById("canvas");
-
-    app = new App(c);
-
-    document.querySelector("input").addEventListener("change", fileRead);
-  }
-
-  function fileRead(e) {
-    if (typeof e.target.value === "undefined") {
-      console.warn("invalid input");
-      return;
-    }
-    const solid = Truck.build_torus(0.5, e.target.value);
-    let polygon = solid.to_polygon(0.01);
-    app.draw(polygon);
-  }
+  window.TruckParam = {};
+  window.TruckParam.App = App;
+  window.TruckParam.Truck = Truck;
 }
 
 run();
