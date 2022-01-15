@@ -53,11 +53,12 @@ import           URI.ByteString
 
 import           Components
 import           Frontend.Api                   ( refreshAccessTokenEvery )
-import           Frontend.Context
 import           Frontend.Container
+import           Frontend.Context
 import           Frontend.Core
-import           Frontend.Input
 import           Frontend.Crud
+import           Frontend.Input
+import           Frontend.Truck
 
 main :: IO ()
 main = mainWidget $ do
@@ -87,12 +88,14 @@ mainWithHead = do
             )
             blank
           script' (configAceUrl cfg)
+          moduleScript (configTruckParamUrl cfg)
           deferScript (configMathjaxConfigUrl cfg)
           deferScript (configMathjaxUrl cfg)
     pure x
  where
   script' uri = elAttr "script" ("src" =: uri <> "async" =: "") blank
   deferScript uri = elAttr "script" ("src" =: uri <> "defer" =: "") blank
+  moduleScript uri = elAttr "script" ("src" =: uri <> "type" =: "module") blank
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do
@@ -118,6 +121,7 @@ css = do
   timelineStyle
   codeInputStyle
   markdownInputStyle
+  truckParamStyle
 
 withHeader
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)
@@ -234,6 +238,7 @@ type Api = View
     :<|> InputApi
     :<|> CoreApi
     :<|> ContainerApi
+    :<|> TruckApi
     :<|> CrudApi
 
 api :: Proxy Api
@@ -249,7 +254,12 @@ sideNav
   => Dynamic t URI
   -> m (Event t Link)
 sideNav dynUri = leftmost <$> sequence
-  [coreLinks dynUri, inputLinks dynUri, containerLinks dynUri, crudLinks dynUri]
+  [ coreLinks dynUri
+  , inputLinks dynUri
+  , containerLinks dynUri
+  , truckLinks dynUri
+  , crudLinks dynUri
+  ]
 
 homeHandler :: (DomBuilder t m) => m (Event t URI)
 homeHandler = pure never
@@ -260,6 +270,7 @@ handler =
     :<|> inputHandler
     :<|> coreHandler
     :<|> containerHandler
+    :<|> truckHandler
     :<|> crudHandler
 
 handlerOffline

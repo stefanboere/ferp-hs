@@ -19,6 +19,14 @@
     <canvas id="canvas"></canvas><br />
     <input type="range" min="0.01" max="1" step="0.1" /><br />
     <script>
+      if (document.readyState !== "loading") {
+        onLoad();
+      } else {
+        addEventListener("load", onLoad, false);
+      }
+
+      let app;
+
       function defer(method) {
         if (window.TruckParam) {
           method();
@@ -29,18 +37,10 @@
         }
       }
 
-      if (document.readyState !== "loading") {
-        onLoad();
-      } else {
-        addEventListener("load", onLoad, false);
-      }
-
-      let app;
-
       function onLoad() {
+        let c = document.getElementById("canvas");
         defer(function () {
-          let c = document.getElementById("canvas");
-          app = new window.TruckParam.App(c);
+          app = new TruckParam(c);
 
           document.querySelector("input").addEventListener("change", fileRead);
         });
@@ -51,9 +51,7 @@
           console.warn("invalid input");
           return;
         }
-        const solid = window.TruckParam.Truck.build_torus(0.5, e.target.value);
-        let polygon = solid.to_polygon(0.01);
-        app.draw(polygon);
+        app.build_torus(0.5, e.target.value);
       }
     </script>
   </body>

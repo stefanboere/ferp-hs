@@ -55,6 +55,7 @@ data Config = Config
   , configMathjaxUrl :: Text
   , configMathjaxConfigUrl :: Text
   , configFiraUrl :: Text
+  , configTruckParamUrl :: Text
   }
   deriving Generic
 

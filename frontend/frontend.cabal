@@ -66,6 +66,7 @@ library
     Components.Table
     Components.Tag
     Components.Timeline
+    Components.TruckParam
     DevelMain
     Frontend.Api
     Frontend.Container
@@ -77,6 +78,7 @@ library
     Frontend.Crud.Lookup
     Frontend.Crud.Utils
     Frontend.Input
+    Frontend.Truck
     Nordtheme
 
   build-depends:

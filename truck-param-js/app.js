@@ -509,14 +509,18 @@ class App {
     this.#indexLength = object.index_buffer_size() / 4;
     this.#loaded = true;
   }
+
+  build_torus(x, y) {
+    const solid = Truck.build_torus(x, y);
+    var polygon = solid.to_polygon(0.01);
+    this.draw(polygon);
+  }
 }
 
 async function run() {
   await init();
 
-  window.TruckParam = {};
-  window.TruckParam.App = App;
-  window.TruckParam.Truck = Truck;
+  window.TruckParam = App;
 }
 
 run();
