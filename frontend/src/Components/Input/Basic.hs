@@ -13,6 +13,8 @@ module Components.Input.Basic
   , noInput
   , numberInput
   , integralInput
+  , numericInputInternal
+  , boundNumericInput
   , toggleInput
   , togglesInput
   , checkboxInput
@@ -850,7 +852,6 @@ textInputWithIco'' cls before' after' cfg = do
   mkCls InputDisabled = "disabled"
   mkCls x             = colorCls x
 
-
 numberInput
   :: ( MonadHold t m
      , PostBuild t m
@@ -861,7 +862,7 @@ numberInput
      )
   => NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
-numberInput = numberRangeInput True
+numberInput = boundNumericInput (numericInputInternal True)
 
 integralInput
   :: forall t m a
@@ -879,7 +880,7 @@ integralInput cfg = conv <$> numberInput
   conv :: DomInputEl t m (Maybe Double) -> DomInputEl t m (Maybe a)
   conv = fmap (fmap Prelude.round)
 
-numberRangeInput
+numericInputInternal
   :: ( MonadHold t m
      , PostBuild t m
      , DomBuilder t m
@@ -890,44 +891,38 @@ numberRangeInput
   => Bool
   -> NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
-numberRangeInput isReg cfg = do
-  (minMaxEv, minMaxDyn) <- getMinMaxEv prnt nc
+numericInputInternal isReg cfg = do
   rec
     n <- textInput cfg
       { _inputConfig_initialValue     = prnt $ _inputConfig_initialValue cfg
       , _inputConfig_setValue         = leftmost
         [prnt <$> _inputConfig_setValue cfg, zeroIfEmptyEv]
-      , _inputConfig_status = zipDynWith max (_inputConfig_status cfg) statusDyn
       , _inputConfig_attributes       = _inputConfig_attributes cfg <> initAttrs
       , _inputConfig_modifyAttributes = mergeWith
                                           (<>)
                                           [ _inputConfig_modifyAttributes cfg
-                                          , minMaxEv
                                           , selectAttrEv
                                           ]
       , _inputConfig_extra            = Const ()
       }
     let
-      result0       = fmap (readMaybe . unpack) n
+      result0       = fmap (readMaybe' . unpack) n
       result        = _inputEl_value result0
       selectAttrEv  = if isReg then mkOnClick <$> updated result else never
       lostFocusEv   = ffilter Prelude.not (updated (_inputEl_hasFocus n))
       zeroIfEmptyEv = attachWithMaybe emptyNoFocus (current result) lostFocusEv
-      modAttrEv     = updated
-        (   styleChange
-        <$> minMaxDyn
-        <*> result
-        <*> _inputEl_hasFocus n
-        <*> _inputEl_value n
-        )
-    statusDyn <- holdDyn def modAttrEv
 
-  return result0
+  pure result0
  where
+  readMaybe' x | null x    = Just 0
+               | otherwise = readMaybe x
+
+  nc        = _inputConfig_extra cfg
+
   initAttrs = Map.fromList $ mapMaybe
     (\(x, y) -> (x, ) <$> y)
-    [ ("type" , if isReg then Just "number" else Just "range")
-    , ("style", Just "text-align:right")
+    [ ("style", Just "text-align:right")
+    , ("type" , if isReg then Just "number" else Just "range")
     , ( "onClick"
       , if _inputConfig_initialValue cfg == 0 && isReg
         then Just "this.select()"
@@ -935,20 +930,6 @@ numberRangeInput isReg cfg = do
       )
     , ("step", mkStep <$> _numberRange_precision nc)
     ]
-
-  styleChange (b_min, b_max) (Just x) _ _
-    | maybe False (x >) b_max
-    = InputError $ "Exceeds the maximum " <> prnt (fromJust b_max)
-    | maybe False (x <) b_min
-    = InputError $ "Is less than the minimum " <> prnt (fromJust b_min)
-    | otherwise
-    = def
-  styleChange _ Nothing hasFocus t
-    | Text.null t || hasFocus = def
-    | -- Don't update the value when still typing
-      otherwise               = InputError "Not a valid number"
-
-  nc = _inputConfig_extra cfg
 
   mkOnClick x = "onClick"
     =: if isNothing x || x == Just 0 then Just "this.select()" else Nothing
@@ -958,6 +939,52 @@ numberRangeInput isReg cfg = do
   prnt = showFloat (_numberRange_precision nc)
   emptyNoFocus Nothing _ = Just (prnt 0)
   emptyNoFocus _       _ = Nothing
+
+-- | Checks the bounds on numeric inputs
+boundNumericInput
+  :: (MonadHold t m, PostBuild t m, MonadFix m, RealFloat a)
+  => (NumberInputConfig t m a -> m (DomInputEl t m (Maybe a)))
+  -> NumberInputConfig t m a
+  -> m (DomInputEl t m (Maybe a))
+boundNumericInput editor cfg = do
+  (minMaxEv, minMaxDyn) <- getMinMaxEv prnt nc
+  rec n <- editor cfg
+        { _inputConfig_status           = zipDynWith max
+                                                     (_inputConfig_status cfg)
+                                                     statusDyn
+        , _inputConfig_attributes       = _inputConfig_attributes cfg
+        , _inputConfig_modifyAttributes = mergeWith
+                                            (<>)
+                                            [ _inputConfig_modifyAttributes cfg
+                                            , minMaxEv
+                                            ]
+        }
+      let result    = _inputEl_value n
+          modAttrEv = updated
+            (styleChange <$> minMaxDyn <*> result <*> _inputEl_hasFocus n)
+      statusDyn <- holdDyn def modAttrEv
+
+  pure $ n { _inputEl_value = onlyIfValid <$> result <*> minMaxDyn }
+ where
+  onlyIfValid (Just x) (b_min, b_max)
+    | maybe True (x <=) b_max && maybe True (x >=) b_min = Just x
+    | otherwise = Nothing
+  onlyIfValid Nothing _ = Nothing
+
+  styleChange (b_min, b_max) (Just x) _
+    | maybe False (x >) b_max
+    = InputError $ "Exceeds the maximum " <> prnt (fromJust b_max)
+    | maybe False (x <) b_min
+    = InputError $ "Is less than the minimum " <> prnt (fromJust b_min)
+    | otherwise
+    = def
+  styleChange _ Nothing hasFocus | hasFocus  = def
+                                 | -- Don't update the value when still typing
+                                   otherwise = InputError "Not a valid number"
+
+  prnt = showFloat (_numberRange_precision nc)
+
+  nc   = _inputConfig_extra cfg
 
 showFloat :: RealFloat a => Maybe Int -> a -> Text
 showFloat Nothing x = pack (show (fromRational $ toRational x :: Double))
@@ -1402,7 +1429,7 @@ rangeInput
      )
   => NumberInputConfig t m a
   -> m (DomInputEl t m (Maybe a))
-rangeInput = numberRangeInput False
+rangeInput = boundNumericInput (numericInputInternal False)
 
 fileInput
   :: forall t m

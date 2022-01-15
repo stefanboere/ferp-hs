@@ -49,38 +49,37 @@ torusHandler = do
   el "h1" $ text "Torus"
 
   elClass "div" "grid" $ do
-    params <- card $ cardContent $ el "form" $ do
-      mayorEl <- labeled
-        "Mayor radius"
-        rangeInput
-        (inputConfig'
-          (NumberRange { _numberRange_maxValue  = constDyn $ Just 1
-                       , _numberRange_minValue  = constDyn $ Just 0.1
-                       , _numberRange_precision = Just 2
-                       }
+    params <- card $ do
+      cardHeader (text "Radii")
+      cardContent $ el "form" $ do
+        mayorEl <- labeled
+          "Mayor radius"
+          rangeAndNumberInput
+          (inputConfig'
+            (NumberRange { _numberRange_maxValue  = constDyn $ Just 1
+                         , _numberRange_minValue  = constDyn $ Just 0.1
+                         , _numberRange_precision = Just 2
+                         }
+            )
+            "radius_mayor"
+            (0.5 :: Double)
           )
-          "radius_mayor"
-          (0.5 :: Double)
-        )
-      let mayor = _inputEl_value mayorEl
-      minorEl <- labeled
-        "Minor radius"
-        rangeInput
-        (inputConfig'
-          (NumberRange { _numberRange_maxValue  = fmap (/ 2) <$> mayor
-                       , _numberRange_minValue  = constDyn $ Just 0.01
-                       , _numberRange_precision = Just 2
-                       }
+        let mayor = _inputEl_value mayorEl
+        minorEl <- labeled
+          "Minor radius"
+          rangeAndNumberInput
+          (inputConfig'
+            (NumberRange { _numberRange_maxValue  = mayor
+                         , _numberRange_minValue  = constDyn $ Just 0.01
+                         , _numberRange_precision = Just 2
+                         }
+            )
+            "radius_minor"
+            (0.1 :: Double)
           )
-          "radius_minor"
-          (0.1 :: Double)
-        )
-      let minor = _inputEl_value minorEl
-      display mayor
-      text " "
-      display minor
+        let minor = _inputEl_value minorEl
 
-      pure (liftA2 (,) <$> mayor <*> minor)
+        pure (liftA2 (,) <$> mayor <*> minor)
 
     cardTruckParam params
 

@@ -6,14 +6,16 @@
 module Components.Input.Numeric
   ( Overridable(..)
   , overridableNumberInput
+  , rangeAndNumberInput
   )
 where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
+import           Data.Monoid                    ( First(..) )
 import           Data.Maybe                     ( isJust )
 import           Reflex
-import           Reflex.Dom
+import           Reflex.Dom              hiding ( rangeInput )
 
 import           Components.Input.Basic
 
@@ -89,10 +91,37 @@ overridableNumberInput setCalc cfg = elClass "div" "flex-row" $ do
   overriddenStatus _             = InputNeutral Nothing
 
 
+-- | Range input with a number input for specific value input
+rangeAndNumberInput
+  :: ( MonadHold t m
+     , PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , Read a
+     , RealFloat a
+     )
+  => NumberInputConfig t m a
+  -> m (DomInputEl t m (Maybe a))
+rangeAndNumberInput = boundNumericInput $ \cfg ->
+  inputGroup (inputConfig (_inputConfig_id cfg) ())
+      { _inputConfig_status = _inputConfig_status cfg
+      }
+    $ do
+        rec rel    <- mkElem cfg False "_range" setEv
+            nel    <- mkElem cfg True "_number" setEv
+            dynVal <- holdDyn (Just $ _inputConfig_initialValue cfg) $ leftmost
+              [ Just <$> _inputConfig_setValue cfg
+              , updated (_inputEl_value rel)
+              , updated (_inputEl_value nel)
+              ]
+            dynValUniq <- holdUniqDyn dynVal
+            let setEv = fmapMaybe id $ updated dynValUniq
+        pure $ fmap getFirst $ fmap First nel <> fmap First rel
 
-
-
-
-
-
-
+ where
+  mkElem cfg isReg idSuff setEv = numericInputInternal
+    isReg
+    cfg { _inputConfig_status   = def
+        , _inputConfig_id       = _inputConfig_id cfg <> idSuff
+        , _inputConfig_setValue = setEv
+        }
