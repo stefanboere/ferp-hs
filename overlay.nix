@@ -13,6 +13,7 @@ let
         beam-crud = ./beam-crud;
         common = ./common;
         frontend = ./frontend;
+        reflex-dom-hatex = ./reflex-dom-hatex;
         servant-ac = ./servant-ac;
         servant-ac-server = ./servant-ac-server;
         servant-crud = ./servant-crud;
@@ -28,13 +29,19 @@ let
           "beam-crud"
           "common"
           "frontend"
+          "reflex-dom-hatex"
           "servant-ac"
           "servant-ac-server"
           "servant-crud"
           "servant-crud-server"
           "servant-subscriber-reflex"
         ];
-        ghcjs = [ "common" "frontend" "servant-subscriber-reflex" ];
+        ghcjs = [
+          "common"
+          "frontend"
+          "reflex-dom-hatex"
+          "servant-subscriber-reflex"
+        ];
       };
 
       shellToolOverrides = ghc: super: {
@@ -81,6 +88,9 @@ let
           generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
           true-name = doJailbreak (unmarkBroken super.true-name);
           servant-server = dontCheck super.servant-server;
+          dumb-cas = self.callHackage "dumb-cas" "0.2.0.0" { };
+          TeX-my-math =
+            dontCheck (self.callHackage "TeX-my-math" "0.201.2.0" { });
 
           backend = justStaticExecutables super.backend;
           backend-api = justStaticExecutables super.backend-api;

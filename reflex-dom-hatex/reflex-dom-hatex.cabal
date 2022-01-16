@@ -1,0 +1,56 @@
+cabal-version:   2.4
+name:            reflex-dom-hatex
+version:         0.1.0.0
+synopsis:        See README for more info
+description:     See README for more info
+license:         BSD-3-Clause
+license-file:    LICENSE
+author:          Stefan Boere
+maintainer:      Stefan Boere <s.boere@hotmail.com>
+copyright:       2021 Stefan Boere
+build-type:      Simple
+extra-doc-files:
+  CHANGELOG.md
+  README.md
+
+common common-options
+  build-depends:    base ^>=4.12.0.0
+  ghc-options:
+    -Wall -Wcompat -Widentities -Wincomplete-uni-patterns
+    -Wincomplete-record-updates
+
+  if impl(ghc >=8.0)
+    ghc-options: -Wredundant-constraints
+
+  if impl(ghc >=8.2)
+    ghc-options: -fhide-source-paths
+
+  if impl(ghc >=8.4)
+    ghc-options: -Wmissing-export-lists -Wpartial-fields
+
+  if impl(ghc >=8.8)
+    ghc-options: -Wmissing-deriving-strategies
+
+  default-language: Haskell2010
+
+library
+  import:          common-options
+  hs-source-dirs:  src
+  exposed-modules:
+    Math.LaTeX.Calculation
+    Reflex.Dom.HaTeX
+
+  build-depends:
+    , bytestring
+    , containers
+    , data-default
+    , dependent-sum
+    , dumb-cas
+    , ghcjs-dom
+    , HaTeX
+    , jsaddle
+    , mtl
+    , reflex
+    , reflex-dom
+    , TeX-my-math
+    , text
