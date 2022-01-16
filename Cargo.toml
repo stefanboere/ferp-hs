@@ -2,6 +2,9 @@
 resolver = "2"
 members = [
   "truck-param-base",
-  "truck-param-viewer",
-  "truck-param-js"
+  "truck-param-js",
+  "truck-js" # Temporary until released to crates.io
 ]
+
+[profile.release]
+lto = true

@@ -9,7 +9,8 @@ authors = ["Stefan Boere <s.boere@hotmail.com>"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-truck-js = { git = "https://github.com/ricosjp/truck" }
-truck-modeling = { git = "https://github.com/ricosjp/truck", version = "0.3.0"}
+truck-js = { version = "0.1.0", path = "../truck-js" }
+truck-modeling = "0.3.0"
 truck-param-base = { version = "0.1.0", path = "../truck-param-base" }
 wasm-bindgen = "0.2.78"
+

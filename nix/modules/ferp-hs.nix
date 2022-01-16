@@ -67,6 +67,7 @@ let
       mathjaxConfigUrl = "/static/vendor/mathjax/mathjax-config.js";
       aceUrl = "/static/vendor/ace/ace.js";
       firaUrl = "/static/vendor/fira/fira.css";
+      truckParamUrl = "/static/truck-param/bootstrap.js";
     };
   };
 

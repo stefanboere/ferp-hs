@@ -59,12 +59,14 @@
       url = "github:mozilla/nixpkgs-mozilla";
       flake = false;
     };
+
+    nixpkgs.url = "nixpkgs/nixpkgs-unstable";
   };
 
   outputs = inputs@{ self, MathJax, ace-builds, flake-utils, pre-commit-hooks
     , reflex-dom-ace, reflex-dom-contrib, reflex-dom-pandoc, reflex-platform
     , servant-subscriber, keycloak-config-cli-src, mvn2nix, fira, naersk
-    , moz_overlay }:
+    , moz_overlay, nixpkgs }:
     {
       nixosModules = {
         ferp-hs = ./nix/modules/ferp-hs.nix;
@@ -91,18 +93,18 @@
             rustc = final.moz-rust;
           };
         };
+        pkgs-unstable = import nixpkgs {
+          inherit system;
+          overlays = [ (import moz_overlay) naersk.overlay rust_overlay ];
+        };
         reflex-platform-derivation = import reflex-platform {
           inherit system;
-          nixpkgsOverlays = [
-            mvn2nix.overlay
-            (import moz_overlay)
-            naersk.overlay
-            rust_overlay
-          ];
+          nixpkgsOverlays = [ mvn2nix.overlay ];
         };
         pkgs = import ./overlay.nix {
           inherit MathJax ace-builds reflex-dom-ace reflex-dom-contrib
-            reflex-dom-pandoc servant-subscriber keycloak-config-cli-src fira;
+            reflex-dom-pandoc servant-subscriber keycloak-config-cli-src fira
+            pkgs-unstable;
           reflex-platform = reflex-platform-derivation;
         };
       in rec {
@@ -128,11 +130,12 @@
           RUST_BACKTRACE = 1;
           LD_LIBRARY_PATH = "${pkgs.vulkan-loader}/lib";
           nativeBuildInputs = old.nativeBuildInputs
-            ++ [ pkgs.openssl pkgs.pkgconfig ];
+            ++ [ pkgs-unstable.openssl pkgs-unstable.pkgconfig ];
         });
 
         packages = {
-          inherit (pkgs.ferp-hs) frontend-min frontend-gtk vendor-lib;
+          inherit (pkgs.ferp-hs)
+            frontend-min frontend-gtk vendor-lib truck-param-js;
           inherit (pkgs.ferp-hs.ghc) backend backend-api;
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
