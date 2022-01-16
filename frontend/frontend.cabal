@@ -106,6 +106,7 @@ library
     , reflex-dom
     , reflex-dom-ace
     , reflex-dom-contrib
+    , reflex-dom-hatex
     , reflex-dom-pandoc
     , servant
     , servant-ac

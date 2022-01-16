@@ -7,6 +7,8 @@ module Reflex.Dom.HaTeX
   ( mainWithHead
   , writeTex
   , elLaTeX
+  , elLaTeXM
+  , module Text.LaTeX
   )
 where
 
@@ -35,32 +37,26 @@ import           Text.LaTeX.Base.Syntax
 import qualified Text.LaTeX.Base.Pretty        as TeX
 import           Reflex.Dom
 
-import           Math.LaTeX.Calculation         ( example )
-
-headWidget :: DomBuilder t m => m ()
-headWidget = do
-  el "script"
-    $ text
-        "MathJax = { tex: { inlineMath: [['$', '$'], ['\\\\(', '\\\\)']] }, svg: { fontCache: 'global' }, startup: {typeset: false } };"
-  elAttr
-    "script"
-    (Map.fromList
-      [ ("type" , "text/javascript")
-      , ("async", "")
-      , ("src", "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js")
-      ]
-    )
-    blank
-
 mainWithHead :: IO ()
 mainWithHead = do
-  mainWidgetWithHead headWidget $ do
-    d <- rangeInput def
-    elLaTeX (execLaTeXM . example <$> _rangeInput_value d)
+  mainWidget $ do
+    elLaTeX (constDyn $ execLaTeXM example)
 
 writeTex :: IO ()
-writeTex = Text.writeFile "main.tex" $ Text.pack $ TeX.prettyLaTeX
-  (execLaTeXM $ example 1.0)
+writeTex =
+  Text.writeFile "main.tex" $ Text.pack $ TeX.prettyLaTeX (execLaTeXM example)
+
+example :: LaTeXM ()
+example = do
+  documentclass [] article
+  title "Reflex Dom HaTeX"
+  usepackage [] "amsmath"
+  usepackage [] "amssymb"
+  document $ do
+    maketitle
+    section "Section 1"
+    "The following is an experiment in displaying LaTeX using reflex-dom."
+    pure ()
 
 data Metadata
   = Title Text
@@ -71,6 +67,17 @@ data MetadataTag
  = TitleTag
  | AuthorTag
  deriving (Eq, Ord, Show)
+
+elLaTeXM
+  :: ( DomBuilder t m
+     , PostBuild t m
+     , MonadHold t m
+     , MonadFix m
+     , Prerender js t m
+     )
+  => Dynamic t (LaTeXM ())
+  -> m ()
+elLaTeXM = elLaTeX . fmap execLaTeXM
 
 elLaTeX
   :: ( DomBuilder t m

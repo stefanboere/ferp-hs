@@ -8,4 +8,7 @@ window.MathJax = {
   svg: {
     fontCache: "global",
   },
+  startup: {
+    typeset: false,
+  },
 };
