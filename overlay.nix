@@ -90,7 +90,6 @@ let
   pkgs = reflex-platform.nixpkgs;
   haskellLib = pkgs.haskell.lib;
 
-  # TODO add truck-param
   frontend-min = let
     frontend = haskellLib.justStaticExecutables (project true).ghcjs.frontend;
     pname = "frontend";

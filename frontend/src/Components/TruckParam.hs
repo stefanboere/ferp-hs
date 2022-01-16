@@ -23,9 +23,7 @@ import qualified GHCJS.DOM.Types               as DOM
 import           GHCJS.DOM                      ( currentWindowUnchecked )
 import           GHCJS.DOM.WindowOrWorkerGlobalScope
                                                 ( setTimeout_ )
-import           GHCJS.DOM.Types                ( MonadJSM
-                                                , liftJSM
-                                                , uncheckedCastTo
+import           GHCJS.DOM.Types                ( uncheckedCastTo
                                                 , HTMLElement(..)
                                                 )
 import           Reflex.Dom              hiding ( Link(..)

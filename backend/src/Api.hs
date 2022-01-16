@@ -97,17 +97,21 @@ prerenderApp pageT = do
           [name_ "viewport", content_ "width=device-width, initial-scale=1.0"]
         link_ [rel_ "shortcut icon", href_ "/static/favicon.ico"]
         link_ [href_ "/static/style.css", rel_ "stylesheet", type_ "text/css"]
-        link_ [href_ (configFiraUrl cfg), rel_ "stylesheet", type_ "text/css"]
+        link_
+          [ href_ (Frontend.configFiraUrl cfg)
+          , rel_ "stylesheet"
+          , type_ "text/css"
+          ]
         link_
           [ href_ "/static/all.min.js"
           , rel_ "preload"
           , makeAttribute "as" "script"
           ]
         script_ [type_ "text/plain", id_ "config"] (encode cfg)
-        asyncScript (configAceUrl cfg)
-        deferScript (configMathjaxConfigUrl cfg)
-        deferScript (configMathjaxUrl cfg)
-        moduleScript (configTruckParamUrl cfg)
+        asyncScript (Frontend.configAceUrl cfg)
+        deferScript (Frontend.configMathjaxConfigUrl cfg)
+        deferScript (Frontend.configMathjaxUrl cfg)
+        moduleScript (Frontend.configTruckParamUrl cfg)
       body_ $ do
         toHtmlRaw body
         deferScript "/static/all.min.js"
