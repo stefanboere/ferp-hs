@@ -233,7 +233,7 @@ markdownInputStyle = do
   ".code-input" ? do
     Clay.display grid
     "grid-gap" -: "1rem"
-    "grid-template-columns" -: "repeat(auto-fit, minmax(30rem, 1fr))"
+    "grid-template-columns" -: "repeat(auto-fit, minmax(min(30rem, 100%), 1fr))"
     "grid-template-rows" -: "1fr auto"
 
     ".statusmessage" ? do

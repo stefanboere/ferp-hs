@@ -107,21 +107,18 @@ rangeAndNumberInput = boundNumericInput $ \cfg ->
       { _inputConfig_status = _inputConfig_status cfg
       }
     $ do
-        rec rel    <- mkElem cfg False "_range" setEv
-            nel    <- mkElem cfg True "_number" setEv
-            dynVal <- holdDyn (Just $ _inputConfig_initialValue cfg) $ leftmost
-              [ Just <$> _inputConfig_setValue cfg
-              , updated (_inputEl_value rel)
-              , updated (_inputEl_value nel)
-              ]
-            dynValUniq <- holdUniqDyn dynVal
-            let setEv = fmapMaybe id $ updated dynValUniq
+        rec rel <- mkElem cfg False "_range" (exceptSelf nel rel)
+            nel <- mkElem cfg True "_number" (exceptSelf rel nel)
+            display (_inputEl_hasFocus rel)
         pure $ fmap getFirst $ fmap First nel <> fmap First rel
 
  where
+  exceptSelf other self = gate (current $ _inputEl_hasFocus other) $ difference
+    (fmapMaybe id $ updated (_inputEl_value other))
+    (updated (_inputEl_value self))
   mkElem cfg isReg idSuff setEv = numericInputInternal
     isReg
     cfg { _inputConfig_status   = def
         , _inputConfig_id       = _inputConfig_id cfg <> idSuff
-        , _inputConfig_setValue = setEv
+        , _inputConfig_setValue = leftmost [_inputConfig_setValue cfg, setEv]
         }

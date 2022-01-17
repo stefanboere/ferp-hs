@@ -87,11 +87,11 @@ torusHandler = do
 
         pure (liftA2 (,) <$> mayor <*> minor)
 
-    cardTruckParam params
-
     card $ do
       cardHeader (text "Volumes")
       cardContent $ elLaTeXM (maybe errMsg (uncurry torusVolumeCalc) <$> params)
+
+    cardTruckParam params
 
   pure never
 

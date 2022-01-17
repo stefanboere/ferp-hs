@@ -217,6 +217,10 @@ class App {
     canvas.addEventListener("mousemove", this.#mouseMove.bind(this));
     canvas.addEventListener("mousedown", this.#mouseDown.bind(this));
     canvas.addEventListener("mouseup", this.#mouseUp.bind(this));
+    canvas.addEventListener("touchmove", this.#touchMove.bind(this));
+    canvas.addEventListener("touchstart", this.#touchStart.bind(this));
+    canvas.addEventListener("touchend", this.#touchEnd.bind(this));
+    canvas.addEventListener("touchcancel", this.#touchEnd.bind(this));
     const resize_ob = new ResizeObserver(this.#resize.bind(this));
     resize_ob.observe(canvas);
 
@@ -416,8 +420,7 @@ class App {
     return [vec[0] + origin[0], vec[1] + origin[1], vec[2] + origin[2]];
   }
 
-  #mouseMove(e) {
-    const offset = [e.offsetX, e.offsetY];
+  #rotate(offset) {
     if (this.#rotflag) {
       const diff = [offset[0] - this.#mouse[0], this.#mouse[1] - offset[1]];
       if (diff[0] == 0 || diff[1] == 0) return;
@@ -468,11 +471,33 @@ class App {
     this.#needsRender = true;
   }
 
+  #mouseMove(e) {
+    const offset = [e.offsetX, e.offsetY];
+    this.#rotate(offset);
+  }
+
   #mouseDown(_e) {
     this.#rotflag = true;
   }
 
   #mouseUp(_e) {
+    this.#rotflag = false;
+  }
+
+  #touchMove(e) {
+    e.preventDefault();
+    var touch = e.touches[0];
+    var offset = [touch.clientX, touch.clientY];
+    this.#rotate(offset);
+  }
+
+  #touchStart(e) {
+    e.preventDefault();
+    this.#rotflag = true;
+  }
+
+  #touchEnd(e) {
+    e.preventDefault();
     this.#rotflag = false;
   }
 
