@@ -109,7 +109,6 @@ rangeAndNumberInput = boundNumericInput $ \cfg ->
     $ do
         rec rel <- mkElem cfg False "_range" (exceptSelf nel rel)
             nel <- mkElem cfg True "_number" (exceptSelf rel nel)
-            display (_inputEl_hasFocus rel)
         pure $ fmap getFirst $ fmap First nel <> fmap First rel
 
  where
