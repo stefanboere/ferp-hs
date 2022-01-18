@@ -466,9 +466,9 @@ class App {
         -len,
         this.#cameraUpdirection
       );
+      this.#needsRender = true;
     }
     this.#mouse = offset;
-    this.#needsRender = true;
   }
 
   #mouseMove(e) {
@@ -493,6 +493,9 @@ class App {
 
   #touchStart(e) {
     e.preventDefault();
+    var touch = e.touches[0];
+    var offset = [touch.clientX, touch.clientY];
+    this.#mouse = offset;
     this.#rotflag = true;
   }
 
