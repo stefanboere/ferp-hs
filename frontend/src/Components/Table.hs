@@ -208,8 +208,6 @@ tableStyle = do
       marginTop (rem (-1 / 4))
       marginBottom (rem (-1 / 2))
 
-    input # ("type" @= "checkbox") ? top (rem (-1 / 8))
-
     (Clay.select <> ".select") ? do
       borderBottomColor nord4'
 
@@ -247,9 +245,9 @@ tableStyle = do
     "table-layout" -: "fixed"
 
   thead ? do
-    th # firstChild ? borderRadius (px 3) nil nil nil
+    th # firstChild ? borderRadius (px 2) nil nil nil
 
-    th # lastChild ? borderRadius (px 3) nil nil nil
+    th # lastChild ? borderRadius nil (px 2) nil nil
 
   tbody ? do
     display block
@@ -273,9 +271,11 @@ tableStyle = do
 
   (tbody <> tfoot) ? do
 
-    tr # lastChild ** td # firstChild ? borderRadius nil nil nil (px 3)
+    tr # lastChild ** td # firstChild ? borderRadius nil nil nil (px 2)
 
-    tr # lastChild ** td # lastChild ? borderRadius nil nil (px 3) nil
+    tr # lastChild ** td # lastChild ? borderRadius nil nil (px 2) nil
+
+    lastChild Clay.& borderRadius nil nil (px 2) (px 2)
 
   tfoot ? do
     td ? borderTop solid (px 1) nord4'

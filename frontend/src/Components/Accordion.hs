@@ -83,8 +83,8 @@ accordionStyle' = ".accordion" ? do
     borderTopRightRadius (px 3) (px 3)
 
     summary ? do
-      borderTopLeftRadius (px 3) (px 3)
-      borderTopRightRadius (px 3) (px 3)
+      borderTopLeftRadius (px 2) (px 2)
+      borderTopRightRadius (px 2) (px 2)
 
 
   lastOfType & do
@@ -93,8 +93,8 @@ accordionStyle' = ".accordion" ? do
     borderBottomRightRadius (px 3) (px 3)
 
     ".content" <> summary ? do
-      borderBottomLeftRadius (px 3) (px 3)
-      borderBottomRightRadius (px 3) (px 3)
+      borderBottomLeftRadius (px 2) (px 2)
+      borderBottomRightRadius (px 2) (px 2)
 
     open & summary ? do
       borderBottomLeftRadius nil nil

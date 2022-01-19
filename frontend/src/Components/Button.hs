@@ -465,7 +465,7 @@ signpostStyle = do
 
   (".top-left" <> ".top-middle") ? do
     before Clay.& do
-      bottom (rem (-1 / 4) @-@ px 2)
+      bottom (rem (-1 / 4) @-@ px 1)
       borderRight solid (px 1) grey0'
       borderBottom solid (px 1) grey0'
       transforms [skewY (deg 45)]
@@ -483,7 +483,7 @@ signpostStyle = do
     borderBottomLeftRadius nil nil
     before Clay.& do
       left (px (-1))
-      bottom (rem (-1 / 4) @-@ px 2)
+      bottom (rem (-1 / 4) @-@ px 1)
       borderLeft solid (px 1) grey0'
       borderBottom solid (px 1) grey0'
       transforms [skewY (deg (-45))]
@@ -524,7 +524,7 @@ signpostStyle = do
     borderTopLeftRadius nil nil
     before Clay.& do
       left (px (-1))
-      top (rem (-1 / 4) @-@ px 2)
+      top (rem (-1 / 4) @-@ px 1)
       borderLeft solid (px 1) grey0'
       borderTop solid (px 1) grey0'
       transforms [skewY (deg 45)]
@@ -532,7 +532,7 @@ signpostStyle = do
   ".bottom-middle" ? top (pct 100 @+@ rem (1 / 2))
 
   (".bottom-middle" <> ".bottom-left") # before ? do
-    top (rem (-1 / 4) @-@ px 2)
+    top (rem (-1 / 4) @-@ px 1)
     borderRight solid (px 1) grey0'
     borderTop solid (px 1) grey0'
     transforms [skewY (deg (-45))]

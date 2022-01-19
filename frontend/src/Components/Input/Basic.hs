@@ -341,7 +341,7 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
   marginRight (rem 1.5)
 
   before Clay.& do
-    left (rem (-0.3))
+    left (rem (-1 / 2))
     width (rem 2.2)
     height (rem 1.1)
     backgroundColor nord3'
@@ -363,15 +363,15 @@ toggleStyle = input # ("type" @= "checkbox") # ".toggle" ? do
     absoluteBlock
     width (rem 0.825)
     height (rem 0.825)
-    left (rem (-0.20))
-    top (rem 0.06)
+    left (rem (-0.3625))
+    top (rem 0.04375)
     borderRadiusAll (pct 50)
     background white0'
     transitionDuration 0.1
     transitionTimingFunction easeIn
 
     checked Clay.& do
-      left (rem 0.925)
+      left (rem 0.7375)
       borderWidth nil
       transitionDuration 0.1
       transitionTimingFunction easeIn
@@ -403,6 +403,7 @@ checkboxStyle = do
         width (rem (13 / 16))
         height (rem (13 / 16))
         paddingAll nil
+        border none 0 grey0'
 
         disabled Clay.& cursor notAllowed
 
@@ -457,7 +458,7 @@ checkboxStyle = do
       height (rem (1 / 8))
       backgroundColor grey0'
       left (rem (3 / 16) @+@ px 1)
-      top (rem (7 / 16))
+      top (rem 0.40625)
 
 radioStyle :: Css
 radioStyle = input # ("type" @= "radio") ? do
@@ -465,13 +466,12 @@ radioStyle = input # ("type" @= "radio") ? do
 
   before Clay.& do
     borderRadiusAll (pct 50)
-    left (rem (-0.1))
 
   checked Clay.& after Clay.& do
     width (rem 0.25)
     height (rem 0.25)
-    left (rem 0.25)
-    top (rem 0.3)
+    left (rem 0.375)
+    top (rem 0.28125)
     background white0'
     borderRadiusAll (pct 50)
 
@@ -642,7 +642,9 @@ formStyle = do
   ".statusmessage" ? do
     Clay.display flex
     alignItems center
-    ".icon" ? position relative
+    ".icon" ? do
+      position relative
+      marginLeft (px 1 @-@ rem (1 / 4))
 
   mobileFormStyle (form # ".vertical")
 

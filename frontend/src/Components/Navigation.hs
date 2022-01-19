@@ -521,6 +521,10 @@ commonAppHeaderStyle = do
       headerSeparatorStyle
       right nil
 
+  {-    ".header-actions" ** (a <> ".dropdown") # lastOfType # after ? do
+      display none
+      -}
+
     "nav" ? do
       flexDirection row
 
@@ -803,7 +807,7 @@ mobileNavStyle = do
     ".nav-group" ? do
       paddingLeft nil
       summary ? do
-        paddingLeft (rem 0.6)
+        paddingLeft (rem 1)
         hover Clay.& backgroundColor grey0'
 
       ".angle-icon" ? do
@@ -813,7 +817,7 @@ mobileNavStyle = do
 
     a ? do
       ".active" Clay.& backgroundColor white0'
-
+      paddingLeft (rem 1)
       hover Clay.& backgroundColor grey0'
 
 commonNavStyle :: Css

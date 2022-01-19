@@ -86,8 +86,8 @@ timelineHorizontalStyle = do
 
       before & do
         position relative
-        top (rem (-2))
-        left (rem 2)
+        top (rem (-2) @-@ px 1)
+        left (rem 2 @-@ px 1)
         width (pct 100 @-@ rem 1)
         height nil
 
@@ -113,8 +113,8 @@ timelineVerticalStyle = do
 
     before & do
       position absolute
-      left (rem (-2))
-      top (rem 2)
+      left (rem (-2) @-@ px 1)
+      top (rem 2 @-@ px 1)
       height (pct 100 @-@ rem 1)
 
 
