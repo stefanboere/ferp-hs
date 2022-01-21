@@ -107,14 +107,24 @@ rangeAndNumberInput = boundNumericInput $ \cfg ->
       { _inputConfig_status = _inputConfig_status cfg
       }
     $ do
-        rec rel <- mkElem cfg False "_range" (exceptSelf nel rel)
-            nel <- mkElem cfg True "_number" (exceptSelf rel nel)
+        rec
+          rel <- mkElem cfg False "_range" (exceptSelf nel nel_ev)
+          nel <- mkElem cfg True "_number" (exceptSelf rel rel_ev)
+-- This is an ugly way of making sure the prerendering doesn't loop infinitely
+-- We cannot pass the events directly to the other mkElem, because then the prerender stops working.
+-- Instead we manually setup the events
+          pb  <- headE $ leftmost
+            [updated $ _inputEl_hasFocus rel, updated $ _inputEl_hasFocus nel]
+          rel_ev <- switchHold
+            never
+            (fmapMaybe id (updated (_inputEl_value rel)) <$ pb)
+          nel_ev <- switchHold
+            never
+            (fmapMaybe id (updated (_inputEl_value nel)) <$ pb)
         pure $ fmap getFirst $ fmap First nel <> fmap First rel
 
  where
-  exceptSelf other self = gate (current $ _inputEl_hasFocus other) $ difference
-    (fmapMaybe id $ updated (_inputEl_value other))
-    (updated (_inputEl_value self))
+  exceptSelf other self = gate (current $ _inputEl_hasFocus other) self
   mkElem cfg isReg idSuff setEv = numericInputInternal
     isReg
     cfg { _inputConfig_status   = def

@@ -52,7 +52,7 @@ prerenderApp
 prerenderApp pageT = do
   cfg <- ask
   let page = runReaderT pageT cfg
-  (_, body) <- liftIO $ renderStatic (Frontend.withHeader (page' page))
+  (_, body) <- liftIO $ renderStatic (Frontend.withHeader cfg (page' page))
   pure $ do
     doctype_
     html_ [lang_ "en"] $ do
@@ -64,14 +64,20 @@ prerenderApp pageT = do
         link_ [rel_ "shortcut icon", href_ "/static/favicon.ico"]
         link_ [href_ "/static/style.css", rel_ "stylesheet", type_ "text/css"]
         link_
+          [ href_ (Frontend.configFiraUrl cfg)
+          , rel_ "stylesheet"
+          , type_ "text/css"
+          ]
+        link_
           [ href_ "/static/all.min.js"
           , rel_ "preload"
           , makeAttribute "as" "script"
           ]
-        script_ [type_ "text/plain"] (encode cfg)
-        asyncScript "/static/vendor/ace/ace.js"
-        deferScript "/static/vendor/mathjax/mathjax-config.js"
-        deferScript "/static/vendor/mathjax/tex-svg.js"
+        script_ [type_ "text/plain", id_ "config"] (encode cfg)
+        asyncScript (Frontend.configAceUrl cfg)
+        deferScript (Frontend.configMathjaxConfigUrl cfg)
+        deferScript (Frontend.configMathjaxUrl cfg)
+        moduleScript (Frontend.configTruckParamUrl cfg)
       body_ $ do
         toHtmlRaw body
         deferScript "/static/all.min.js"
@@ -82,6 +88,8 @@ prerenderApp pageT = do
     ("" :: ByteString)
   asyncScript src =
     script_ [src_ src, type_ "text/javascript"] ("" :: ByteString)
+
+  moduleScript src = script_ [src_ src, type_ "module"] ("" :: ByteString)
 
   page' page _ = do
     x <- page

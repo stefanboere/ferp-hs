@@ -157,16 +157,16 @@ type ClientEnumInputConfig t m = InputConfig' (OpElem (Client m)) t m
 type DomInputEl t m = InputEl (DomBuilderSpace m) t
 
 data InputConfig' extraConfig t m a = InputConfig
-  { _inputConfig_initialValue     :: a
+  { _inputConfig_initialValue     :: !a
   , _inputConfig_setValue         :: Event t a
-  , _inputConfig_id               :: Text
+  , _inputConfig_id               :: !Text
   , _inputConfig_status           :: Dynamic t InputStatus
-  , _inputConfig_attributes       :: Map AttributeName Text
+  , _inputConfig_attributes       :: !(Map AttributeName Text)
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
   , _inputConfig_eventSpec
       :: EventSpec (DomBuilderSpace m) EventResult
       -> EventSpec (DomBuilderSpace m) EventResult
-  , _inputConfig_extra :: extraConfig a
+  , _inputConfig_extra :: !(extraConfig a)
   }
 
 -- | The result of an input widget
