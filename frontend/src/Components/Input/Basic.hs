@@ -23,6 +23,7 @@ module Components.Input.Basic
   , checkboxesInputDynMap
   , checkboxInputSimple
   , tricheckboxInput
+  , tricheckboxInputSimple
   , inputStyle
   , InputConfig'(..)
   , InputConfig
@@ -452,11 +453,14 @@ checkboxStyle = do
           left (rem 0.4)
 
   (input # "_indeterminate") ? do
+    before Clay.& do
+      borderColor nord10'
+
     after Clay.& do
       absoluteBlock
       width (rem (5 / 8))
       height (rem (1 / 8))
-      backgroundColor grey0'
+      backgroundColor nord10'
       left (rem (3 / 16) @+@ px 1)
       top (rem 0.40625)
 
@@ -1192,29 +1196,55 @@ tricheckboxInput lbl cfg = do
                                                 cfg
                                               ]
           , _inputConfig_attributes       = _inputConfig_attributes cfg
-                                              <> initialIndetermined
+            <> indeterminedAttr (_inputConfig_initialValue cfg)
           }
-      isIndetermined <-
-        holdDyn (isNothing $ _inputConfig_initialValue cfg) $ leftmost
-          [ isNothing <$> _inputConfig_setValue cfg
-          , False <$ updated (_inputEl_value r)
-          ]
-      let modAttrEv =
-            Map.singleton "_indeterminate"
-              .   indeterminedStr
-              <$> updated isIndetermined
+      isIndetermined <- holdIsIndeterminedDyn (_inputConfig_initialValue cfg)
+                                              (_inputConfig_setValue cfg)
+                                              (updated $ _inputEl_value r)
+      let modAttrEv = indeterminedAttrUpdate <$> updated isIndetermined
 
   pure $ r
     { _inputEl_value = addIndetermined <$> _inputEl_value r <*> isIndetermined
     }
  where
-  indeterminedStr True = Just ""
-  indeterminedStr _    = Nothing
   addIndetermined _ True = Nothing
   addIndetermined x _    = Just x
-  initialIndetermined = if isNothing $ _inputConfig_initialValue cfg
-    then Map.singleton "_indeterminate" ""
-    else mempty
+
+holdIsIndeterminedDyn
+  :: (Reflex t, MonadHold t m)
+  => Maybe Bool
+  -> Event t (Maybe Bool)
+  -> Event t b
+  -> m (Dynamic t Bool)
+holdIsIndeterminedDyn initVal setVal setFalse = holdDyn (isNothing initVal)
+  $ leftmost [isNothing <$> setVal, False <$ setFalse]
+
+indeterminedAttr :: Maybe Bool -> Map AttributeName Text
+indeterminedAttr x | isNothing x = Map.singleton "_indeterminate" ""
+                   | otherwise   = mempty
+
+indeterminedAttrUpdate :: Bool -> Map AttributeName (Maybe Text)
+indeterminedAttrUpdate True  = Map.singleton "_indeterminate" (Just "")
+indeterminedAttrUpdate False = Map.singleton "_indeterminate" Nothing
+
+tricheckboxInputSimple
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => Maybe Bool
+  -> Event t (Maybe Bool)
+  -> m (Dynamic t (Maybe Bool))
+tricheckboxInputSimple initOpen setOpen = do
+  rec r <- checkboxInputSimple' modAttrEv
+                                (fromMaybe False initOpen)
+                                (fromMaybe False <$> setOpen)
+                                (indeterminedAttr initOpen)
+
+      isIndetermined <- holdIsIndeterminedDyn initOpen setOpen (updated r)
+      let modAttrEv = indeterminedAttrUpdate <$> updated isIndetermined
+
+  pure $ addIndetermined <$> r <*> isIndetermined
+ where
+  addIndetermined _ True = Nothing
+  addIndetermined x _    = Just x
 
 checkboxInputSimple
   :: DomBuilder t m
@@ -1222,7 +1252,16 @@ checkboxInputSimple
   -> Event t Bool
   -> Map AttributeName Text
   -> m (Dynamic t Bool)
-checkboxInputSimple initOpen setOpen attrs = do
+checkboxInputSimple = checkboxInputSimple' never
+
+checkboxInputSimple'
+  :: DomBuilder t m
+  => Event t (Map AttributeName (Maybe Text))
+  -> Bool
+  -> Event t Bool
+  -> Map AttributeName Text
+  -> m (Dynamic t Bool)
+checkboxInputSimple' setAttrs initOpen setOpen attrs = do
   r <-
     inputElement
     $            def
@@ -1232,6 +1271,9 @@ checkboxInputSimple initOpen setOpen attrs = do
     .            elementConfig_initialAttributes
     .~           attrs
     <>           ("type" =: "checkbox")
+    Reflex.Dom.& inputElementConfig_elementConfig
+    .            elementConfig_modifyAttributes
+    .~           setAttrs
     Reflex.Dom.& inputElementConfig_initialChecked
     .~           initOpen
   pure (_inputElement_checked r)

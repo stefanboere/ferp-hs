@@ -13,6 +13,7 @@ module Components.Navigation
   , navGroup
   , treeview
   , leaf
+  , leafcheckbox
   , elAttrClick_
   , coerceUri
   , safelink
@@ -180,6 +181,9 @@ typographyStyle = do
 
   ".hidden" ? do
     important $ display none
+
+  ".space-between" ? do
+    justifyContent spaceBetween
 
   body ? do
     background white0'
@@ -929,11 +933,13 @@ treeviewStyle = do
       paddingAll nil
 
     li ? do
+      margin nil nil nil (rem (3 / 2))
       display flex
       alignItems center
       lineHeight (rem 1.5)
 
     summary ? do
+      margin nil nil nil (rem (3 / 2))
       fontWeight (weight 500)
       display flex
       justifyContent flexStart
@@ -950,14 +956,18 @@ treeviewStyle = do
         display flex
         alignItems center
 
+    summary |> Clay.span ? do
+      width (pct 100)
+      justifyContent spaceBetween
+
     ".angle-icon" ? do
       order (-1)
       marginLeft (rem (-3 / 2))
       marginRight (rem (1 / 2))
-      transforms [translate (rem 0.5) (rem 0.25), rotate (deg 90)]
+      transforms [translate (rem 0.25) (rem 0.25), rotate (deg 90)]
 
   ".treeview" # open |> summary |> ".angle-icon" ? transforms
-    [translate (rem 0.25) (rem 0.25), rotate (deg 180)]
+    [translate nil (rem 0.25), rotate (deg 180)]
 
 
 treeview
@@ -970,4 +980,24 @@ treeview = navGroup' 1 "treeview"
 
 leaf :: (DomBuilder t m) => m a -> m a
 leaf = el "li"
+
+leafcheckbox
+  :: (DomBuilder t m)
+  => Text
+  -> m ()
+  -> m ()
+  -> Bool
+  -> Event t Bool
+  -> m (Dynamic t Bool)
+leafcheckbox idStr lbl rightLbl initVal setVal =
+  elClass "li" "space-between" $ do
+    r' <- el "span" $ do
+      r <- checkboxInputSimple initVal setVal (Map.singleton "id" idStr)
+      elAttr
+        "label"
+        (Map.singleton "class" "checkbox-label" <> Map.singleton "for" idStr)
+        lbl
+      pure r
+    el "span" rightLbl
+    pure r'
 

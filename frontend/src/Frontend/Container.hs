@@ -430,7 +430,8 @@ containerTimeline = do
                  (pure ())
 
 containerTreeview
-  :: (PostBuild t m, DomBuilder t m, MonadHold t m) => m (Event t URI)
+  :: (PostBuild t m, DomBuilder t m, MonadHold t m, MonadFix m)
+  => m (Event t URI)
 containerTreeview = do
   el "h1" $ text "Treeview"
   treeview never (item "ferp-hs") $ do
@@ -461,8 +462,48 @@ containerTreeview = do
     leafitem "DevelMain"
     leafitem "Nordtheme"
 
+  treeview never (itemcb "ferp-hs") $ do
+    treeview never (itemcb "Components") $ do
+
+      treeview never (itemcb "Input") $ do
+        leafitemcb "Basic"
+        leafitemcb "Combobox"
+        leafitemcb "Numeric"
+
+      leafitemcb "Accordion"
+      leafitemcb "Alert"
+      leafitemcb "Card"
+      leafitemcb "Class"
+      leafitemcb "Icon"
+      leafitemcb "Input"
+      leafitemcb "Navigation"
+      leafitemcb "Progress"
+      leafitemcb "Table"
+      leafitemcb "Tag"
+      leafitemcb "Timeline"
+
+    treeview never (itemcb "Frontend") $ do
+      leafitemcb "Container"
+      leafitemcb "Core"
+      leafitemcb "Input"
+
+    leafitemcb "DevelMain"
+    leafitemcb "Nordtheme"
+
   pure never
 
  where
-  item lbl = icon def folderIcon >> text lbl
+  item lbl = el "span" $ icon def folderIcon >> text lbl
   leafitem lbl = leaf $ icon def fileIcon >> text lbl
+
+  itemcb lbl = do
+    _ <- el "span" $ do
+      tricheckboxInputSimple Nothing never
+      text lbl
+    el "span" $ text "€ 2,-"
+    pure ()
+  leafitemcb lbl = do
+    _ <- leafcheckbox lbl (text lbl) (text "€ 1,-") False never
+    pure ()
+
+
