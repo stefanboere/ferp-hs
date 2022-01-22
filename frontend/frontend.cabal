@@ -53,6 +53,7 @@ library
     Components.Button
     Components.Card
     Components.Class
+    Components.Costing
     Components.History
     Components.Icon
     Components.Input
@@ -94,6 +95,7 @@ library
     , foreign-store
     , fuzzy
     , ghcjs-dom
+    , hledger-lib
     , http-api-data
     , http-types
     , jsaddle

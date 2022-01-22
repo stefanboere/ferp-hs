@@ -93,16 +93,17 @@ containerAccordion = do
 
   el "h2" $ text "Stackview"
   el "div" $ do
-    _ <- stackviewEmpty "Label 1" (textInput (inputConfig "cnt_1" "Content 1"))
-    _ <- stackview never (stackviewRow "Label 2" (text "Content 2")) $ do
-      _ <- stackviewRow "Sub-label 1"
-                        (textInput (inputConfig "sub_1" "Sub-content 1"))
-      stackviewRow "Sub-label 2" (text "Sub-content 2")
-      stackviewRow "Sub-label 3" (text "Sub-content 3")
-    _ <- stackview never (stackviewRow "Label 3" (text "Content 3")) $ do
-      stackviewRow "Sub-label 1" (text "Sub-content 1")
-      stackviewRow "Sub-label 2" (text "Sub-content 2")
-      stackviewRow "Sub-label 3" (text "Sub-content 3")
+    _ <- stackviewEmpty (text "Label 1")
+                        (textInput (inputConfig "cnt_1" "Content 1"))
+    _ <- stackview never (stackviewRow' "Label 2" (text "Content 2")) $ do
+      _ <- stackviewRow' "Sub-label 1"
+                         (textInput (inputConfig "sub_1" "Sub-content 1"))
+      stackviewRow' "Sub-label 2" (text "Sub-content 2")
+      stackviewRow' "Sub-label 3" (text "Sub-content 3")
+    _ <- stackview never (stackviewRow' "Label 3" (text "Content 3")) $ do
+      stackviewRow' "Sub-label 1" (text "Sub-content 1")
+      stackviewRow' "Sub-label 2" (text "Sub-content 2")
+      stackviewRow' "Sub-label 3" (text "Sub-content 3")
     pure ()
 
   el "h2" $ text "Stepper"
@@ -120,6 +121,7 @@ containerAccordion = do
     pure ((,) <$> page1 <*> page2)
 
   pure never
+  where stackviewRow' = stackviewRow . text
 
 containerCard :: (PostBuild t m, DomBuilder t m) => m (Event t URI)
 containerCard = do
@@ -497,8 +499,8 @@ containerTreeview = do
   leafitem lbl = leaf $ icon def fileIcon >> text lbl
 
   itemcb lbl = do
-    _ <- el "span" $ do
-      tricheckboxInputSimple Nothing never
+    el "span" $ do
+      _ <- tricheckboxInputSimple Nothing never
       text lbl
     el "span" $ text "€ 2,-"
     pure ()

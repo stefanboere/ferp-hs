@@ -4,6 +4,7 @@ module Components
   , module Components.Button
   , module Components.Card
   , module Components.Class
+  , module Components.Costing
   , module Components.History
   , module Components.Icon
   , module Components.Input
@@ -21,6 +22,7 @@ import           Components.Alert
 import           Components.Button
 import           Components.Card
 import           Components.Class
+import           Components.Costing
 import           Components.History
 import           Components.Icon
 import           Components.Input

@@ -122,6 +122,7 @@ css = do
   codeInputStyle
   markdownInputStyle
   truckParamStyle
+  costingStyle
 
 withHeader
   :: (MonadHold t m, MonadFix m, PostBuild t m, DomBuilder t m)

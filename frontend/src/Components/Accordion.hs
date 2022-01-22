@@ -229,7 +229,7 @@ accordionEmpty titl = fst <$> stepper' mempty
 
 stackviewEmpty
   :: (DomBuilder t m, MonadHold t m, PostBuild t m, MonadFix m)
-  => Dynamic t Text
+  => m ()
   -> m a
   -> m a
 stackviewEmpty titl = accordionEmpty . stackviewRow titl
@@ -242,9 +242,9 @@ stackview
   -> m (b, a)
 stackview = accordion' " stack-view"
 
-stackviewRow :: (DomBuilder t m, PostBuild t m) => Dynamic t Text -> m a -> m a
+stackviewRow :: (DomBuilder t m) => m () -> m a -> m a
 stackviewRow titl cnt = elClass "div" "stack-row" $ do
-  dynText titl
+  el "div" titl
   elClass "div" "stack-content" cnt
 
 
@@ -284,7 +284,7 @@ stepperPage titl descr cnt = StateT $ \(stepNum, openEv) -> do
  where
   heading stepNum stateDyn = do
     _ <- elClass "span" "stepnum" $ dyn (numOrIcon stepNum <$> stateDyn)
-    stackviewRow (constDyn titl) (text descr)
+    stackviewRow (text titl) (text descr)
 
   numOrIcon _ StepperSuccess = icon
     def { _iconConfig_status = constDyn (Just Success) }

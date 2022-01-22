@@ -16,6 +16,7 @@ import           Control.Applicative            ( liftA2 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Proxy
 import           GHC.Generics
+import           Hledger
 import           Math.LaTeX.Calculation
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
@@ -85,17 +86,20 @@ torusHandler = do
           )
         let minor = _inputEl_value minorEl
 
-        pure (liftA2 (,) <$> mayor <*> minor)
+        pure (liftA2 Torus <$> mayor <*> minor)
 
     card $ do
       cardHeader (text "Volumes")
-      cardContent $ elLaTeXM (maybe errMsg (uncurry torusVolumeCalc) <$> params)
+      cardContent $ elLaTeXM (maybe errMsg torusVolumeCalc <$> params)
 
-    cardTruckParam params
+    cardTruckParam (fmap unTorus <$> params)
+
+    cardTruckCosting params
 
   pure never
 
  where
+  unTorus (Torus r1 r0) = (r1, r0)
   errMsg :: LaTeXM ()
   errMsg = document "Volumes could not be calculated"
 
@@ -105,20 +109,64 @@ data Torus a = Torus
   }
   deriving (Generic1, Variables)
 
-torusVolumeCalc :: Double -> Double -> LaTeXM ()
-torusVolumeCalc r1 r0 = document $ do
+torusVolumeCalc :: Torus Double -> LaTeXM ()
+torusVolumeCalc torus = document $ do
   "The volume of the torus is"
-  _ <- formula torusSymbs 𝑉 torusVolume inputs
+  _ <- formula torusSymbs 𝑉 torusVolume torus
   "And the surface area is given by"
-  _ <- formula torusSymbs 𝐴 torusSurfaceArea inputs
+  _ <- formula torusSymbs 𝐴 torusSurfaceArea torus
   pure ()
  where
-  inputs = Torus r1 r0
   torusSymbs :: Torus (Expression' γ s² s¹ ζ)
   torusSymbs = Torus { _mayorRadius = 𝑅, _minorRadius = 𝑟 }
 
-  torusSurfaceArea :: Floating a => Torus a -> a
-  torusSurfaceArea Torus {..} = 4 * (pi ** 2) * _mayorRadius * _minorRadius
+torusSurfaceArea :: Floating a => Torus a -> a
+torusSurfaceArea Torus {..} = 4 * (pi ** 2) * _mayorRadius * _minorRadius
 
-  torusVolume :: Floating a => Torus a -> a
-  torusVolume Torus {..} = 2 * (pi ** 2) * _mayorRadius * (_minorRadius ** 2)
+torusVolume :: Floating a => Torus a -> a
+torusVolume Torus {..} = 2 * (pi ** 2) * _mayorRadius * (_minorRadius ** 2)
+
+torusMaterialCosts :: Maybe (Torus Double) -> [BudgetPosting]
+torusMaterialCosts Nothing = []
+torusMaterialCosts (Just t) =
+  [ def { _bp_account = "expenses:Materials:Base material"
+        , _bp_comment = "Given by the volume 𝑉 "
+        , _bp_amount  = mixed [eur (realToFrac (torusVolume t))]
+        }
+  , def { _bp_account = "expenses:Materials:Topping"
+        , _bp_amount  = mixed [eur (realToFrac (torusSurfaceArea t))]
+        }
+  , def { _bp_account = "expenses:Materials:Box"
+        , _bp_amount  = mixed [eur 0.05]
+        }
+  ]
+
+torusLabourCosts :: Maybe (Torus Double) -> [BudgetPosting]
+torusLabourCosts Nothing = []
+torusLabourCosts (Just t) =
+  [ def { _bp_account = "expenses:Labour:Production"
+        , _bp_amount  = mixed [hrs (realToFrac (torusSurfaceArea t))]
+        }
+  , def { _bp_account = "expenses:Labour:Shop operation"
+        , _bp_amount  = mixed [hrs 0.1]
+        }
+  ]
+
+cardTruckCosting
+  :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
+  => Dynamic t (Maybe (Torus Double))
+  -> m ()
+cardTruckCosting params = cardCosting $ do
+  dyn_ (errMsg <$> params)
+  x <- costingGroup "Materials" $ torusMaterialCosts <$> params
+  y <- costingGroup "Labour" $ torusLabourCosts <$> params
+  pure (x + y)
+
+ where
+  errMsg (Just _) = pure ()
+  errMsg Nothing  = do
+    _ <- alert
+      def { _alertConfig_size = CompactSize, _alertConfig_status = Warning }
+      "Cost calculations cannot be performed"
+      (pure ())
+    pure ()
