@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TypeApplications #-}
 module Components.Input.Markdown
   ( codeInputScripts
@@ -17,6 +18,7 @@ import           Clay                    hiding ( button
                                                 , id
                                                 , map
                                                 , script
+                                                , call
                                                 )
 import           Commonmark
 import           Commonmark.Extensions
@@ -37,6 +39,9 @@ import           Data.Text                      ( Text
                                                 , pack
                                                 )
 import qualified Data.Text                     as Text
+import           GHCJS.DOM                      ( currentWindowUnchecked )
+import           GHCJS.DOM.WindowOrWorkerGlobalScope
+                                                ( setTimeout_ )
 import qualified GHCJS.DOM.Types               as DOM
 import           Language.Javascript.JSaddle
 import           Reflex.Dom
@@ -83,9 +88,6 @@ codeInput
      , DomBuilder t m
      , PostBuild t m
      , Prerender js t m
-     , MonadIO (Performable m)
-     , TriggerEvent t m
-     , PerformEvent t m
      , MonadFix m
      )
   => CodeInputConfig t m Text
@@ -96,14 +98,23 @@ codeInput cfg = do
     (_inputConfig_attributes cfg <> "id" =: "editor") -- FIXME hardcoded id
     (_inputConfig_modifyAttributes cfg)
 
-  (e, ())     <- elDynAttr' "div" dynAttrs (text initText)
+  (e, ())   <- elDynAttr' "div" dynAttrs (text initText)
 
-  postBuildEv <- getPostBuild
-  postBuild   <- delay 0.1 postBuildEv
+  dynValDyn <- prerender (pure $ constDyn triv) $ do
+    (postBuild, raiseLoad) <- newTriggerEvent
+    liftJSM $ do
+      window <- currentWindowUnchecked
+      rec tryInit <- function $ \_ _ _ -> do
+            ace   <- jsg ("ace" :: Text)
+            undef <- valIsUndefined ace
+            if undef
+              then setTimeout_ window tryInit (Just 50)
+              else do
+                liftIO $ raiseLoad ()
 
-  dynValDyn   <- prerender
-    (pure $ constDyn triv)
-    (widgetHold
+      _ <- call (makeObject (toJSVal tryInit)) global ()
+      pure ()
+    widgetHold
       (pure triv)
       (  aceEditor (getConst $ _inputConfig_extra cfg)
                    readonlyDyn
@@ -111,7 +122,7 @@ codeInput cfg = do
                    (_inputConfig_setValue cfg)
       <$ postBuild
       )
-    )
+
 
   let dynVal = join dynValDyn
 
@@ -284,9 +295,6 @@ markdownInput
   :: ( MonadHold t m
      , DomBuilder t m
      , PostBuild t m
-     , TriggerEvent t m
-     , PerformEvent t m
-     , MonadIO (Performable m)
      , Prerender js t m
      , MonadFix m
      )

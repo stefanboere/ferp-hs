@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TupleSections #-}
 module Reflex.Dom.HaTeX
   ( mainWithHead
@@ -15,7 +16,6 @@ where
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.Reader           ( MonadReader(..)
                                                 , runReaderT
-                                                , unless
                                                 , join
                                                 )
 import           Data.Dependent.Sum
@@ -28,6 +28,9 @@ import qualified Data.Text                     as Text
 import qualified Data.Text.IO                  as Text
 import           Data.Type.Equality             ( (:~:)(..) )
 import           Language.Javascript.JSaddle
+import           GHCJS.DOM                      ( currentWindowUnchecked )
+import           GHCJS.DOM.WindowOrWorkerGlobalScope
+                                                ( setTimeout_ )
 import qualified GHCJS.DOM.Types               as DOM
 import           GHCJS.DOM.HTMLElement          ( HTMLElement(..)
                                                 , setInnerText
@@ -192,9 +195,9 @@ renderMath'
      , DomBuilderSpace m ~ GhcjsDomSpace
      , MonadFix m
      , MonadHold t m
+     , MonadJSM m
      , MonadJSM (Performable m)
      , PerformEvent t m
-     , PostBuild t m
      , TriggerEvent t m
      )
   => Dynamic t MathType
@@ -207,21 +210,41 @@ renderMath' x y = do
 
   let v = DOM.uncheckedCastTo HTMLElement $ _element_raw e
 
-  pb' <- getPostBuild
-  pb  <- delay 2 pb'
-  let ev = leftmost [updated dynMath, tagPromptlyDyn dynMath pb]
-  _ <- performEvent $ ffor ev $ \m -> liftJSM $ do
-    mathjax <- jsg ("MathJax" :: Text)
-    undef   <- valIsUndefined mathjax
-    unless undef $ do
-      mathjaxobj  <- valToObject mathjax
-      tsprop      <- getProp "typeset" mathjaxobj
-      tspropUndef <- valIsUndefined tsprop
-      unless tspropUndef $ do
-        _ <- mathjax # ("typesetClear" :: Text) $ [[v]]
-        setInnerText v m
-        _ <- mathjax # ("typeset" :: Text) $ [[v]]
-        pure ()
+  (loadEv, raiseLoad) <- newTriggerEvent
+  liftJSM $ do
+    window <- currentWindowUnchecked
+    rec tryInit <- function $ \_ _ _ -> do
+          mathjax <- jsg ("MathJax" :: Text)
+          undef   <- valIsUndefined mathjax
+          if undef
+            then setTimeout_ window tryInit (Just 50)
+            else do
+              mathjaxobj  <- valToObject mathjax
+              tsprop      <- getProp "typeset" mathjaxobj
+              tspropUndef <- valIsUndefined tsprop
+              if tspropUndef
+                then setTimeout_ window tryInit (Just 50)
+                else do
+                  liftIO $ raiseLoad mathjax
+
+    _ <- call (makeObject (toJSVal tryInit)) global ()
+    pure ()
+
+  dynMathjax <- holdDyn Nothing (Just <$> loadEv)
+  let ev = leftmost
+        [ attachWithMaybe (\mj m -> fmap (, m) mj)
+                          (current dynMathjax)
+                          (updated dynMath)
+        , attachWithMaybe (\m mj -> fmap (, m) mj)
+                          (current dynMath)
+                          (updated dynMathjax)
+        ]
+
+  _ <- performEvent $ ffor ev $ \(mathjax, m) -> liftJSM $ do
+    _ <- mathjax # ("typesetClear" :: Text) $ [[v]]
+    setInnerText v m
+    _ <- mathjax # ("typeset" :: Text) $ [[v]]
+    pure ()
 
   pure ()
  where

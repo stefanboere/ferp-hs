@@ -12,9 +12,10 @@ import           Clay                    hiding ( id
                                                 , call
                                                 , div
                                                 )
+import           Control.Applicative            ( liftA2 )
+import           Control.Monad                  ( void )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO(..) )
-import           Control.Concurrent.MVar
 import           Control.Lens                   ( (^.) )
 import           Data.Text                      ( Text )
 import           Language.Javascript.JSaddle
@@ -42,27 +43,14 @@ truckParamStyle = ".truck-param" ? do
     height (pct 100)
 
 cardTruckParam
-  :: ( DomBuilder t m
-     , PostBuild t m
-     , PerformEvent t m
-     , TriggerEvent t m
-     , MonadIO (Performable m)
-     , MonadHold t m
-     , MonadFix m
-     , Prerender js t m
-     )
+  :: (DomBuilder t m, Prerender js t m)
   => Dynamic t (Maybe (Double, Double))
   -> m ()
-cardTruckParam params = do
-  uniqParams <- holdUniqDyn params
-  ev         <- throttle 0.1 (fmapMaybe id $ updated uniqParams)
-  pb'        <- getPostBuild
-  pb         <- delay 5 pb'
+cardTruckParam params =
   card
     $ elClass "div" "truck-param card-nopadding"
     $ prerender_ (pure ())
-    $ truckParamJs
-    $ leftmost [ev, tagMaybe (current params) pb]
+    $ truckParamJs params
 
 truckParamJs
   :: ( MonadJSM m
@@ -71,15 +59,19 @@ truckParamJs
      , TriggerEvent t m
      , DomBuilderSpace m ~ GhcjsDomSpace
      , MonadJSM (Performable m)
+     , MonadFix m
+     , MonadHold t m
      )
-  => Event t (Double, Double)
+  => Dynamic t (Maybe (Double, Double))
   -> m ()
-truckParamJs ev = do
+truckParamJs dynParams' = do
+  uniqParams    <- holdUniqDyn dynParams'
+  dynParams     <- improvingMaybe uniqParams
   (canvasEl, _) <- el' "canvas" blank
   let c = uncheckedCastTo HTMLElement $ _element_raw canvasEl
-  truck_param_mvar <- liftJSM $ do
+  (loadEv, raiseLoad) <- newTriggerEvent
+  liftJSM $ do
     window <- currentWindowUnchecked
-    result <- liftIO newEmptyMVar
     rec tryInit <- function $ \_ _ _ -> do
           truckParam <- jsg ("TruckParam" :: Text)
           undef      <- valIsUndefined truckParam
@@ -88,16 +80,22 @@ truckParamJs ev = do
               setTimeout_ window tryInit (Just 50)
             else do
               app' <- new truckParam (toJSVal c)
-              liftIO $ putMVar result app'
+              liftIO $ raiseLoad app'
 
     _ <- call (makeObject (toJSVal tryInit)) global ()
-    pure result
+    pure ()
 
-  _ <- performEventAsync $ ffor ev $ \(x, y) _ -> do
-    liftJSM $ do
-      truck_param <- liftIO $ readMVar truck_param_mvar
-      _           <- truck_param ^. js2 ("build_torus" :: Text) x y
-      pure ()
+  dynApp <- holdDyn Nothing (Just <$> loadEv)
+  let ev' = leftmost
+        [ attachWithMaybe (liftA2 (,)) (current dynApp) (updated dynParams)
+        , attachWithMaybe (flip (liftA2 (,)))
+                          (current dynParams)
+                          (updated dynApp)
+        ]
+  ev <- throttle 0.1 ev'
+
+  _  <- performEventAsync $ ffor ev $ \(truck_param, (x, y)) _ -> do
+    liftJSM $ void $ truck_param ^. js2 ("build_torus" :: Text) x y
   pure ()
 
 

@@ -376,10 +376,7 @@ toggleEditor = withDefault False $ Editor { _edit_editor      = toggleInput ""
 markdownEditor
   :: ( DomBuilder t m
      , PostBuild t m
-     , TriggerEvent t m
      , MonadHold t m
-     , PerformEvent t m
-     , MonadIO (Performable m)
      , MonadFix m
      , Prerender js t m
      )
