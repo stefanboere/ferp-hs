@@ -25,8 +25,10 @@ module Common.Schema
   , C
   , Named(..)
   , ToName(..)
-  ) where
+  )
+where
 
+import           Data.Monoid                    ( Last )
 import           Data.Text                      ( Text )
 import           Data.Time                      ( Day
                                                 , UTCTime
@@ -66,7 +68,7 @@ data ChannelT f = Channel
   deriving (Generic, Beamable)
 
 type Channel = ChannelT Identity
-type ChannelPatch = ChannelT MaybeLast
+type ChannelPatch = ChannelT Last
 type ChannelId = PrimaryKey ChannelT Identity
 
 {- HLINT ignore "Redundant bracket" -}
@@ -98,7 +100,7 @@ type BlogN = BlogTT Named
 type BlogN1 = BlogN Identity
 type BlogT = BlogTT PrimaryKey
 type Blog = BlogT Identity
-type BlogPatch = BlogT MaybeLast
+type BlogPatch = BlogT Last
 type BlogId = PrimaryKey BlogT Identity
 type BlogNId = PrimaryKey BlogN Identity
 

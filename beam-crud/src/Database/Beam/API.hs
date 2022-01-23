@@ -52,12 +52,14 @@ module Database.Beam.API
   , OrderBy'
   , ViewOrderBy
   , OrderByScope
-  ) where
+  )
+where
 
 import           Prelude
 
 import           Control.Monad.Free             ( liftF )
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Last )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Text                      ( Text )
 import           Database.Beam
@@ -98,9 +100,7 @@ import           Servant.Crud.QueryObject       ( Options(..)
                                                 , QObj
                                                 , defaultOptions
                                                 )
-import           Servant.Crud.QueryOperator     ( Filter
-                                                , MaybeLast
-                                                )
+import           Servant.Crud.QueryOperator     ( Filter )
 
 
 -- | 'OrderBy' specialized for use with the Beam backend
@@ -133,7 +133,7 @@ type GetListLabels be t
 type Get_ t = CaptureId t :> Get' (t Identity)
 
 -- | Regular patch requests
-type Patch_ t = CaptureId t :> Req' (t MaybeLast) :> Patch_'
+type Patch_ t = CaptureId t :> Req' (t Last) :> Patch_'
 
 -- | Regular put requests
 type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'

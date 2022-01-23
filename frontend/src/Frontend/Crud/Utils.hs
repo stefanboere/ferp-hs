@@ -57,6 +57,7 @@ import           Data.Default
 import           Data.Functor.Compose           ( Compose(..) )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Last(..) )
 import           Data.Text                      ( Text
                                                 , pack
                                                 )
@@ -78,7 +79,6 @@ import           Servant.API                    ( toUrlPiece
                                                 , uriQuery
                                                 )
 import qualified Servant.Crud.OrderBy          as API
-import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import qualified Servant.Links                 as L
                                                 ( Link
                                                 , URI(..)
@@ -159,10 +159,20 @@ backBtn lbl = do
     >> el "span" (text lbl)
   prerender_ (pure ()) $ performEvent_ (goBack <$ ev)
 
-optionalBtn :: (Reflex t, MonadFix m, Adjustable t m, NotReady t m, PostBuild t m, MonadHold t m ) => (Dynamic t a -> m (Event t b)) -> Dynamic t (Maybe a) -> m (Event t b)
+optionalBtn
+  :: ( Reflex t
+     , MonadFix m
+     , Adjustable t m
+     , NotReady t m
+     , PostBuild t m
+     , MonadHold t m
+     )
+  => (Dynamic t a -> m (Event t b))
+  -> Dynamic t (Maybe a)
+  -> m (Event t b)
 optionalBtn orig dynval = do
   dynval' <- maybeDyn dynval
-  r <- dyn (maybe (pure never) orig <$> dynval')
+  r       <- dyn (maybe (pure never) orig <$> dynval')
   switchHold never r
 
 saveBtn
@@ -253,18 +263,18 @@ editWith
      , PostBuild t m
      , MonadFix m
      , Functor c
-     , Monoid (a MaybeLast)
+     , Monoid (a Last)
      )
   => Editor c t m (Maybe b)
   -> Property a b
-  -> Event t (a MaybeLast)
-  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
+  -> Event t (a Last)
+  -> Compose m (Dynamic t) (a Last -> a Last)
 editWith e' prp = formProp e
                            (Text.intercalate "." (_prop_key prp))
                            (_prop_label prp)
                            (_prop_lens prp)
                            mempty
-  where e = coerceEditor MaybeLast unMaybeLast e'
+  where e = coerceEditor Last getLast e'
 
 
 data Editor c t m b = Editor

@@ -18,7 +18,8 @@ module Database.Beam.TH
   , instancesT
   , instancesTFull
   , instancesBody
-  ) where
+  )
+where
 
 import           Data.Aeson                     ( FromJSON(..)
                                                 , ToJSON(..)
@@ -27,6 +28,7 @@ import           Data.Aeson                     ( FromJSON(..)
                                                 )
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Csv                      as Csv
+import           Data.Monoid                    ( Last )
 import           Data.Swagger                   ( ToParamSchema
                                                 , ToSchema
                                                 , declareNamedSchema
@@ -47,9 +49,7 @@ import           Servant.Crud.Server.QueryObject
                                                 , ToParams
                                                 )
 import           Servant.Crud.Server.QueryOperator
-                                                ( Filter
-                                                , MaybeLast
-                                                )
+                                                ( Filter )
 
 -- | Creates instances for 'Eq', 'Show', 'FromJSON', 'ToJSON', 'FromQueryText'
 -- 'ToQueryText', 'ToParams' and 'ToSchema' for the 'NameT Identity' and 'NameT Maybe'
@@ -87,7 +87,7 @@ instancesSchema :: TypeQ -> DecsQ
 instancesSchema t =
   [d|
   deriving instance ToSchema ($(t) Identity)
-  deriving instance ToSchema ($(t) MaybeLast)
+  deriving instance ToSchema ($(t) Last)
   |]
 
 -- | Regular instances like 'Eq', 'Show' and JSON related instances

@@ -39,7 +39,8 @@ module Database.Beam.Extra
   , purePatch
   , joinPatch
   , FieldsFulfillConstraint
-  ) where
+  )
+where
 
 import           Prelude
 
@@ -50,6 +51,7 @@ import           Control.Monad.Trans.State.Lazy ( evalState
                                                 )
 import           Data.Functor.Identity
 import           Data.Maybe                     ( isJust )
+import           Data.Monoid                    ( Last(..) )
 import           Database.Beam           hiding ( save' )
 import           Database.Beam.Backend.SQL      ( BeamSql2003ExpressionBackend
                                                 , BeamSqlBackend
@@ -61,7 +63,6 @@ import           Database.Beam.Backend.SQL.BeamExtensions
                                                 )
 import           Database.Beam.Query.Internal
 import           Database.Beam.Schema.Tables
-import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 
 -- | Saves all 'Just' fields in the database. This is useful for PATCH requests.
 --
@@ -84,7 +85,7 @@ patch
         -- ^ Table to update
   -> PrimaryKey t Identity
         -- ^ Primary key of the row
-  -> t MaybeLast
+  -> t Last
         -- ^ Value to set possibly, primary keys are ignored
   -> SqlUpdate be t
 patch table key v = updateTable
@@ -92,13 +93,13 @@ patch table key v = updateTable
   (setFieldsToMaybe v (val_ (changeBeamRep toNullable v)))
   (references_ (val_ key))
  where
-  toNullable :: Columnar' MaybeLast a -> Columnar' (Nullable Identity) a
-  toNullable ~(Columnar' (MaybeLast x)) = Columnar' x
+  toNullable :: Columnar' Last a -> Columnar' (Nullable Identity) a
+  toNullable ~(Columnar' (Last x)) = Columnar' x
 
   setFieldsToMaybe
     :: forall table be' table'
      . (Table table)
-    => table MaybeLast
+    => table Last
     -> forall s
      . table (Nullable (QExpr be' s))
     -> table (QFieldAssignment be' table')
@@ -117,7 +118,7 @@ patch table key v = updateTable
       (\_ (Columnar' x) -> do
         n <- get
         put (n + 1)
-        return (Columnar' (Const (n, isJust $ unMaybeLast x)))
+        return (Columnar' (Const (n, isJust $ getLast x)))
       )
       (tblSkeleton :: TableSkeleton table)
       tbl
@@ -140,7 +141,7 @@ runPatch
         -- ^ Table to update
   -> PrimaryKey t Identity
         -- ^ Primary key of the row
-  -> t MaybeLast
+  -> t Last
         -- ^ Value to set possibly
   -> m ()
 runPatch tbl key v = runUpdate $ patch tbl key v
@@ -151,28 +152,26 @@ makePatch
    . (FieldsFulfillConstraint Eq t, Beamable t)
   => t Identity
   -> t Identity
-  -> t MaybeLast
+  -> t Last
 makePatch old new = runIdentity $ zipBeamFieldsM
   (\(Columnar' colOld) (Columnar' (WithConstraint colNew)) ->
-    pure . Columnar' . MaybeLast $ if colOld == colNew
-      then Nothing
-      else Just colNew
+    pure . Columnar' . Last $ if colOld == colNew then Nothing else Just colNew
   )
   old
   (withConstrainedFields @Eq new)
 
 -- | Create a patch that sets all columns to a  new value
-purePatch :: forall t . Beamable t => t Identity -> t MaybeLast
+purePatch :: forall t . Beamable t => t Identity -> t Last
 purePatch x = runIdentity $ zipBeamFieldsM
-  (\_ (Columnar' colNew) -> pure . Columnar' . MaybeLast $ Just colNew)
+  (\_ (Columnar' colNew) -> pure . Columnar' . Last $ Just colNew)
   (tblSkeleton :: TableSkeleton t)
   x
 
 -- | Move the maybe thought the table structure.
 -- Returns Just if all fields are Just.
-joinPatch :: forall t . Beamable t => t MaybeLast -> Maybe (t Identity)
+joinPatch :: forall t . Beamable t => t Last -> Maybe (t Identity)
 joinPatch = zipBeamFieldsM
-  (\_ (Columnar' (MaybeLast colNew)) -> fmap Columnar' colNew)
+  (\_ (Columnar' (Last colNew)) -> fmap Columnar' colNew)
   (tblSkeleton :: TableSkeleton t)
 
 

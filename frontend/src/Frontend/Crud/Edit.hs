@@ -22,12 +22,12 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
 import           Data.Text                      ( Text )
+import           Data.Monoid                    ( Last(..) )
 import           Reflex.Dom              hiding ( Link )
 import qualified Reflex.Dom.Prerender          as Prerender
                                                 ( Client )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( LocationHdr )
-import           Servant.Crud.QueryOperator     ( MaybeLast(..) )
 import           Servant.Links           hiding ( URI(..) )
 import           URI.ByteString                 ( URI
                                                 , URIRef(..)
@@ -172,12 +172,12 @@ createPatchDyn
      , MonadHold t m
      , MonadFix m
      , MonadIO (Performable m)
-     , Eq (r MaybeLast)
-     , Monoid (r MaybeLast)
+     , Eq (r Last)
+     , Monoid (r Last)
      )
   => Dynamic t (Maybe (r Identity)) -- ^ The currently saved value
   -> Dynamic t (Maybe (r Identity)) -- ^ The edited value
-  -> m (Dynamic t (Maybe (r MaybeLast)), Event t ()) -- ^ The patch and debounced update event
+  -> m (Dynamic t (Maybe (r Last)), Event t ()) -- ^ The patch and debounced update event
 createPatchDyn dynRemote dynRec = do
   let dynPatch = makePatch' <$> dynRemote <*> dynRec
   patchEv <- debounce 3 (() <$ fmapMaybe validAndNonempty (updated dynPatch))
@@ -244,7 +244,7 @@ data EditFormConfig t m env a = EditFormConfig
       :: Maybe (PrimaryKey a Identity)
       -> Event t (Maybe (PrimaryKey a Identity))
       -> Dynamic t (Maybe (a Identity))
-      -> Dynamic t (a MaybeLast)
+      -> Dynamic t (a Last)
       -> AppT t m (Event t URI)
   , _formConfig_getReq
       :: PrimaryKey a Identity
@@ -259,11 +259,11 @@ data EditFormConfig t m env a = EditFormConfig
            (Headers '[LocationHdr] (PrimaryKey a Identity))
   , _formConfig_patchReq
       :: PrimaryKey a Identity
-      -> a MaybeLast
+      -> a Last
       -> Request (Prerender.Client (AppT t m)) NoContent
   , _formConfig_setPrimaryKey
-      :: Maybe (PrimaryKey a Identity) -> a MaybeLast -> a MaybeLast
-  , _formConfig_header           :: a MaybeLast -> Text
+      :: Maybe (PrimaryKey a Identity) -> a Last -> a Last
+  , _formConfig_header           :: a Last -> Text
   , _formConfig_routeAfterDelete :: env -> Link
   , _formConfig_editRoute        :: env -> PrimaryKey a Identity -> Link
   }
@@ -281,17 +281,13 @@ editForm
      , Beamable a
      , FieldsFulfillConstraint Eq a
      , Eq (a Identity)
-     , Eq (a MaybeLast)
-     , Monoid (a MaybeLast)
+     , Eq (a Last)
+     , Monoid (a Last)
      )
   => Dynamic t (Maybe env)
   -> EditFormConfig t m env a
-  -> (  Event t (a MaybeLast)
-     -> EventWriterT
-          t
-          (MaybeLast URI)
-          (AppT t m)
-          (Dynamic t (a MaybeLast))
+  -> (  Event t (a Last)
+     -> EventWriterT t (Last URI) (AppT t m) (Dynamic t (a Last))
      )
   -> Maybe (PrimaryKey a Identity)
   -> AppT t m (Event t URI)
@@ -329,7 +325,7 @@ editForm env cfg editor initPk = do
   pure $ leftmost
     [ attachPromptlyDynWith deleteLink env deleteEvSuccess
     , actionRouteEv
-    , fmapMaybe unMaybeLast rEv
+    , fmapMaybe getLast rEv
     ]
  where
   getButton'    = getButton (_formConfig_getReq cfg)

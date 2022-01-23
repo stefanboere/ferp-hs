@@ -28,6 +28,7 @@ import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Identity          ( Identity(..) )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Last(..) )
 import           Data.Text                      ( Text
                                                 , intercalate
                                                 )
@@ -46,9 +47,7 @@ import qualified Servant.Crud.API              as API
                                                 , page
                                                 )
 import qualified Servant.Crud.OrderBy          as API
-import           Servant.Crud.QueryOperator     ( Filter
-                                                , MaybeLast(..)
-                                                )
+import           Servant.Crud.QueryOperator     ( Filter )
 import qualified Servant.Links                 as L
                                                 ( Link
                                                 , linkURI
@@ -89,7 +88,7 @@ lookupInput
      , MonadIO (Performable m)
      , Prerender js t m
      , Ord (PrimaryKey a Identity)
-     , EventWriter t (MaybeLast URI) m
+     , EventWriter t (Last URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
      )
@@ -109,7 +108,7 @@ lookupInput env cfg = do
         requestOptions
         (fmap toCbValue cfg { _inputConfig_extra = Const () })
 
-  tellEvent (MaybeLast . Just <$> routeEv)
+  tellEvent (Last . Just <$> routeEv)
 
   pure (fmap fromCbValue x)
 
@@ -260,15 +259,15 @@ editFk
      , Prerender js t m
      , TriggerEvent t m
      , Beamable (PrimaryKey b)
-     , Monoid (PrimaryKey b MaybeLast)
-     , EventWriter t (MaybeLast URI) m
+     , Monoid (PrimaryKey b Last)
+     , EventWriter t (Last URI) m
      , Requester t (Prerender.Client m)
      , Response (Client m)  ~ Either ClientError
      )
   => Dynamic t (Maybe env)
   -> FkProperty t m env a b
-  -> Event t (a MaybeLast)
-  -> Compose m (Dynamic t) (a MaybeLast -> a MaybeLast)
+  -> Event t (a Last)
+  -> Compose m (Dynamic t) (a Last -> a Last)
 editFk env prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
   (_fkProp_label prp)
   (respectFocus (lookupInput env))
@@ -288,7 +287,7 @@ editFk env prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
 
   viewer x = case view (_fkProp_lens prp) x of
     Named mpk mlbl ->
-      fmap (`Named` fromMaybe "?" (unMaybeLast mlbl)) (joinPatch mpk)
+      fmap (`Named` fromMaybe "?" (getLast mlbl)) (joinPatch mpk)
 
 gridFkProp
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
@@ -296,7 +295,7 @@ gridFkProp
   -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
 gridFkProp prp = Column
   { _column_label    = _fkProp_label prp
-  , _column_viewer   = \d -> _edit_viewer e (MaybeLast . Just . view l <$> d)
+  , _column_viewer   = \d -> _edit_viewer e (Last . Just . view l <$> d)
   , _column_orderBy  = (_fkProp_key prp, _fkProp_orderBy prp)
   , _column_filterBy = ( _ilens_domain il'
                        , initFilterCondition il'
@@ -305,7 +304,7 @@ gridFkProp prp = Column
   }
  where
   il'   = filterWith (_fkProp_lens prp . name) strFilter
-  e     = coerceEditor MaybeLast unMaybeLast textEditor
+  e     = coerceEditor Last getLast textEditor
 
   l     = _fkProp_lens prp . name
   idStr = intercalate "." ("filter" : _fkProp_key prp)

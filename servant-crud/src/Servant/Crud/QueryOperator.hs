@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -97,7 +96,6 @@ module Servant.Crud.QueryOperator
   -- * Parameter kinds
   , ParamKindFunctor
   , TaggedBool(..)
-  , MaybeLast(..)
   , ParamKind(..)
   -- * Getting and setting data
   , setf
@@ -112,15 +110,13 @@ module Servant.Crud.QueryOperator
   , GetOp
   , Find
   , IsInDict
-  ) where
+  )
+where
 
 import           Prelude
 
 import           Control.Applicative            ( Alternative(..)
                                                 , empty
-                                                )
-import           Data.Aeson                     ( FromJSON
-                                                , ToJSON
                                                 )
 import           Data.Default                   ( Default
                                                 , def
@@ -130,7 +126,7 @@ import           Data.Kind                      ( Constraint
                                                 )
 import           Data.Maybe                     ( catMaybes )
 import           Data.Proxy                     ( Proxy(..) )
-import           Data.Semigroup
+import           Data.Monoid                    ( Last(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           GHC.Records
@@ -430,18 +426,6 @@ instance Alternative TaggedBool where
 instance Default (TaggedBool a) where
   def = NotPresent
 
--- | A newtype wrapper around 'Maybe a' providing the same functionality as 'Maybe (Last a)'
-newtype MaybeLast a = MaybeLast { unMaybeLast :: Maybe a }
-  deriving (Show, Eq)
-  deriving newtype (Functor, Applicative, Alternative, Default,  ToJSON, FromJSON)
-
-instance Semigroup (MaybeLast a) where
-  MaybeLast x <> MaybeLast y =
-    MaybeLast . fmap getLast $ fmap Last x <> fmap Last y
-
-instance Monoid (MaybeLast a) where
-  mempty = MaybeLast Nothing
-
 -- | What kind of query parameter it is (how many times it can appear)
 data ParamKind
   = Flag -- ^ Appears at most once without a value
@@ -453,7 +437,7 @@ data ParamKind
 -- appear and if a value should be supplied.
 -- This type family is injective
 type family ParamKindFunctor (k :: ParamKind) = (res :: Type -> Type) | res -> k where
-  ParamKindFunctor 'Normal = MaybeLast
+  ParamKindFunctor 'Normal = Last
   ParamKindFunctor 'Flag = TaggedBool
   ParamKindFunctor 'List = []
 
@@ -707,8 +691,8 @@ instance FromParamKindText 'Normal where
   parseParamKindText _ xs =
     let mx = headMaybe . catMaybes $ xs
     in  case mapM parseQueryParam mx of
-          Right Nothing  -> Absent (MaybeLast Nothing)
-          Right (Just x) -> Found (MaybeLast (Just x))
+          Right Nothing  -> Absent (Last Nothing)
+          Right (Just x) -> Found (Last (Just x))
           Left  err      -> ParseError err
 
 instance FromParamKindText 'Flag where
@@ -722,8 +706,8 @@ instance ToParamKindText 'List where
   toParamKindText _ = map (Just . toQueryParam)
 
 instance ToParamKindText 'Normal where
-  toParamKindText _ (MaybeLast (Just x)) = [Just (toQueryParam x)]
-  toParamKindText _ (MaybeLast Nothing ) = []
+  toParamKindText _ (Last (Just x)) = [Just (toQueryParam x)]
+  toParamKindText _ (Last Nothing ) = []
 
 instance ToParamKindText 'Flag where
   toParamKindText _ Present    = [Nothing]

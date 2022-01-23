@@ -59,6 +59,7 @@ import qualified Data.Map                      as Map
 import           Data.Maybe                     ( fromMaybe
                                                 , maybeToList
                                                 )
+import           Data.Monoid                    ( Last(..) )
 import qualified Data.Set                      as Set
 import           Data.Text                      ( Text
                                                 , intercalate
@@ -182,7 +183,7 @@ type SetStrFilter a
 toApiFilterStr
   :: (SetEqFilter a, SetOrdFilter a, SetStrFilter a)
   => FilterCondition
-  -> MaybeLast a
+  -> Last a
   -> Filter a
   -> Filter a
 toApiFilterStr f ml = case f of
@@ -197,7 +198,7 @@ toApiFilterStr f ml = case f of
 toApiFilterOrd
   :: (SetEqFilter a, SetOrdFilter a)
   => FilterCondition
-  -> MaybeLast a
+  -> Last a
   -> Filter a
   -> Filter a
 toApiFilterOrd f ml = case f of
@@ -208,9 +209,9 @@ toApiFilterOrd f ml = case f of
   _                  -> toApiFilterEq f ml
 
 toApiFilterEq
-  :: SetEqFilter a => FilterCondition -> MaybeLast a -> Filter a -> Filter a
+  :: SetEqFilter a => FilterCondition -> Last a -> Filter a -> Filter a
 toApiFilterEq f t =
-  let ls = maybeToList (unMaybeLast t)
+  let ls = maybeToList (getLast t)
   in  case f of
         Equal        -> setf @"" ls
         DoesNotEqual -> setf @"!" ls
@@ -223,7 +224,7 @@ setNotInFilter :: SetFilter "!" 'List a => [a] -> Filter a -> Filter a
 setNotInFilter = setf @"!"
 
 setContainsFilter
-  :: SetFilter "contains" 'Normal Text => MaybeLast Text -> Filter Text
+  :: SetFilter "contains" 'Normal Text => Last Text -> Filter Text
 setContainsFilter x = setf @"contains" x mempty
 
 setContains
@@ -252,14 +253,14 @@ type GetStrFilter a
     , GetFilter "!contains" 'Normal a
     )
 
-takeLast :: [a] -> MaybeLast a
+takeLast :: [a] -> Last a
 takeLast = foldMap pure
 
 fromApiFilterStr
   :: (GetEqFilter a, GetOrdFilter a, GetStrFilter a)
   => Filter a
   -> FilterCondition
-  -> MaybeLast a
+  -> Last a
 fromApiFilterStr f c = case c of
   StartsWith       -> getf @"start" f
   EndsWith         -> getf @"end" f
@@ -270,10 +271,7 @@ fromApiFilterStr f c = case c of
   _                -> fromApiFilterOrd f c
 
 fromApiFilterOrd
-  :: (GetEqFilter a, GetOrdFilter a)
-  => Filter a
-  -> FilterCondition
-  -> MaybeLast a
+  :: (GetEqFilter a, GetOrdFilter a) => Filter a -> FilterCondition -> Last a
 fromApiFilterOrd f c = case c of
   GreaterThan        -> getf @"gt" f
   LessThan           -> getf @"lt" f
@@ -281,7 +279,7 @@ fromApiFilterOrd f c = case c of
   LessThanOrEqual    -> getf @"le" f
   _                  -> fromApiFilterEq f c
 
-fromApiFilterEq :: GetEqFilter a => Filter a -> FilterCondition -> MaybeLast a
+fromApiFilterEq :: GetEqFilter a => Filter a -> FilterCondition -> Last a
 fromApiFilterEq f c = case c of
   Equal        -> takeLast $ getf @"" f
   DoesNotEqual -> takeLast $ getf @"!" f
@@ -304,7 +302,7 @@ strFilter
      , SetStrFilter a
      , GetStrFilter a
      )
-  => IndexLens FilterCondition (Filter a) (MaybeLast a)
+  => IndexLens FilterCondition (Filter a) (Last a)
 strFilter = IndexLens { _ilens_set    = toApiFilterStr
                       , _ilens_get    = fromApiFilterStr
                       , _ilens_domain = [minBound .. maxBound]
@@ -312,7 +310,7 @@ strFilter = IndexLens { _ilens_set    = toApiFilterStr
 
 ordFilter
   :: (SetEqFilter a, GetEqFilter a, SetOrdFilter a, GetOrdFilter a)
-  => IndexLens FilterCondition (Filter a) (MaybeLast a)
+  => IndexLens FilterCondition (Filter a) (Last a)
 ordFilter = IndexLens
   { _ilens_set    = toApiFilterOrd
   , _ilens_get    = fromApiFilterOrd
@@ -327,7 +325,7 @@ ordFilter = IndexLens
 
 eqFilter
   :: (SetEqFilter a, GetEqFilter a)
-  => IndexLens FilterCondition (Filter a) (MaybeLast a)
+  => IndexLens FilterCondition (Filter a) (Last a)
 eqFilter = IndexLens { _ilens_set    = toApiFilterEq
                      , _ilens_get    = fromApiFilterEq
                      , _ilens_domain = [Equal, DoesNotEqual]
@@ -359,13 +357,13 @@ gridProp
      , Monoid (OpDict (DefaultFilters b) b)
      )
   => Editor c t m (Maybe b)
-  -> IndexLens FilterCondition (Filter b) (MaybeLast b)
+  -> IndexLens FilterCondition (Filter b) (Last b)
   -> Property a b
   -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
 gridProp e' il prp = Column
   { _column_label    = _prop_label prp
   , _column_viewer   = \d ->
-    _edit_viewer e (MaybeLast . Just . view (_prop_lens prp) <$> d)
+    _edit_viewer e (Last . Just . view (_prop_lens prp) <$> d)
   , _column_orderBy  = (_prop_key prp, _prop_orderBy prp)
   , _column_filterBy = ( _ilens_domain il'
                        , initFilterCondition il'
@@ -374,25 +372,25 @@ gridProp e' il prp = Column
   }
  where
   il'   = filterWith (_prop_lens prp) il
-  e     = coerceEditor MaybeLast unMaybeLast e'
+  e     = coerceEditor Last getLast e'
   idStr = intercalate "." ("filter" : _prop_key prp)
 
 -- | Returns the first filter which is nonzero
 initFilterCondition
-  :: IndexLens FilterCondition f (MaybeLast b) -> f -> FilterCondition
+  :: IndexLens FilterCondition f (Last b) -> f -> FilterCondition
 initFilterCondition il f
   | null (_ilens_domain il) = def
   | otherwise = case mapMaybe tryGet (_ilens_domain il) of
     x : _ -> x
     [] -> if def `elem` _ilens_domain il then def else head (_ilens_domain il)
-  where tryGet c = fmap (const c) . unMaybeLast $ _ilens_get il f c
+  where tryGet c = fmap (const c) . getLast $ _ilens_get il f c
 
 
 filterEditor
   :: (DomBuilder t m, MonadFix m, MonadHold t m)
-  => Editor c t m (MaybeLast b)
+  => Editor c t m (Last b)
   -> Text
-  -> IndexLens FilterCondition f (MaybeLast b)
+  -> IndexLens FilterCondition f (Last b)
   -> f
   -> FilterCondition
   -> Event t FilterCondition
@@ -407,8 +405,8 @@ filterEditor e idStr l initF initVal updateC = do
 filterWith
   :: Monoid (OpDict (DefaultFilters b) b)
   => Lens' r (Filter b)
-  -> IndexLens FilterCondition (Filter b) (MaybeLast b)
-  -> IndexLens FilterCondition r (MaybeLast b)
+  -> IndexLens FilterCondition (Filter b) (Last b)
+  -> IndexLens FilterCondition r (Last b)
 filterWith l il = il { _ilens_get = _ilens_get il . view l
                      , _ilens_set = \c b -> set l (_ilens_set il c b mempty)
                      }

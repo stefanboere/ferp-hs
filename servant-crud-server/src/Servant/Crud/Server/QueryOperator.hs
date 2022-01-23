@@ -2,12 +2,10 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -26,7 +24,6 @@ import           Prelude
 
 import           Data.List                      ( intercalate )
 import           Data.Maybe                     ( fromMaybe )
-import           Data.Swagger                   ( ToSchema )
 import           Data.Swagger.Internal          ( _paramSchemaEnum )
 import           Data.Swagger.ParamSchema       ( ToParamSchema(..) )
 import qualified Data.Text                     as Text
@@ -40,18 +37,13 @@ import           Servant.Docs                   ( DocQueryParam(..)
                                                 , ToParam(..)
                                                 )
 import qualified Servant.Docs                  as Docs
-                                                ( ParamKind(..)
-                                                , ToSample
-                                                )
+                                                ( ParamKind(..) )
 import           Servant.Foreign                ( HasForeignType(..) )
 import           Test.QuickCheck                ( Arbitrary
                                                 , arbitrary
                                                 , elements
                                                 , shrink
                                                 )
-deriving newtype instance ToSchema a => ToSchema (MaybeLast a)
-deriving newtype instance Docs.ToSample a => Docs.ToSample (MaybeLast a)
-deriving newtype instance Arbitrary a => Arbitrary (MaybeLast a)
 
 instance (HasForeignType lang ftype (Filter a), ToParamSchema a, ToParams lang ftype (FilterT a))
     => ToParams lang ftype (Filter a) where

@@ -18,6 +18,7 @@ import           Control.Monad.Reader           ( MonadReader
 import           Data.Functor.Identity          ( Identity )
 import           Data.Functor.Compose
 import           Data.Maybe                     ( fromMaybe )
+import           Data.Monoid                    ( Last(..) )
 import           Data.Proxy
 import           Data.Text                      ( Text )
 import           Data.Time                      ( Day )
@@ -27,9 +28,7 @@ import           Reflex.Dom              hiding ( Link(..)
                                                 )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.QueryObject       ( QObj )
-import           Servant.Crud.QueryOperator     ( MaybeLast(..)
-                                                , Filter
-                                                )
+import           Servant.Crud.QueryOperator     ( Filter )
 import           Servant.Links           hiding ( URI(..) )
 import           Servant.Router
 import           Servant.Subscriber.Reflex
@@ -134,17 +133,13 @@ editFormAuth
      , Beamable a
      , FieldsFulfillConstraint Eq a
      , Eq (a Identity)
-     , Eq (a MaybeLast)
-     , Monoid (a MaybeLast)
+     , Eq (a Last)
+     , Monoid (a Last)
      )
   => EditFormConfig t m AuthUser a
   -> (  Dynamic t (Maybe AuthUser)
-     -> Event t (a MaybeLast)
-     -> EventWriterT
-          t
-          (MaybeLast URI)
-          (AppT t m)
-          (Dynamic t (a MaybeLast))
+     -> Event t (a Last)
+     -> EventWriterT t (Last URI) (AppT t m) (Dynamic t (a Last))
      )
   -> Maybe (PrimaryKey a Identity)
   -> AppT t m (Event t URI)
@@ -209,8 +204,8 @@ blogEdit = editFormAuth cfg $ \usr modBlogEv ->
   setBlogPk Nothing            x = x { _blogId = pure 0 }
 
   mkHeader x
-    | fromMaybe 0 (unMaybeLast (_blogId x)) > 0 = "Blog - "
-    <> fromMaybe "?" (unMaybeLast $ _blogName x)
+    | fromMaybe 0 (getLast (_blogId x)) > 0 = "Blog - "
+    <> fromMaybe "?" (getLast $ _blogName x)
     | otherwise = "New blog"
 
 blogIdProp :: Property BlogN SerialInt64
@@ -288,8 +283,8 @@ channelEdit = editFormAuth cfg $ \_ modBlogEv ->
   setChannelPk Nothing               x = x { _channelId = pure 0 }
 
   mkHeader x
-    | fromMaybe 0 (unMaybeLast (_channelId x)) > 0 = "Channel - "
-    <> fromMaybe "?" (unMaybeLast $ _channelName x)
+    | fromMaybe 0 (getLast (_channelId x)) > 0 = "Channel - "
+    <> fromMaybe "?" (getLast $ _channelName x)
     | otherwise = "New channel"
 
 channelIdProp :: Property ChannelT SerialInt64

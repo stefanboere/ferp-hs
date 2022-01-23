@@ -29,6 +29,7 @@ import           Prelude
 
 import           Data.Kind                      ( Constraint )
 import           Data.Functor.Identity
+import           Data.Monoid                    ( Last(..) )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.String                    ( IsString )
 import           Database.Beam
@@ -197,8 +198,8 @@ passesOrd
   -> OpEntry sym 'Normal a
   -> QGenExpr ctxt be s a
   -> Maybe (QGenExpr ctxt be s Bool)
-passesOrd _    (E (MaybeLast Nothing )) _ = Nothing
-passesOrd comp (E (MaybeLast (Just x))) y = Just $ y `comp` val_ x
+passesOrd _    (E (Last Nothing )) _ = Nothing
+passesOrd comp (E (Last (Just x))) y = Just $ y `comp` val_ x
 
 instance (BeamSqlBackendCanSerialize be a)
     => Operator (OpEntry "gt" 'Normal) be a where
@@ -226,9 +227,8 @@ passesStr
   -> OpEntry sym 'Normal a
   -> QGenExpr ctxt be s a
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStr _ (E (MaybeLast Nothing)) _ = Nothing
-passesStr f (E (MaybeLast (Just x))) y =
-  Just $ lower_ y `like_` lower_ (val_ (f x))
+passesStr _ (E (Last Nothing )) _ = Nothing
+passesStr f (E (Last (Just x))) y = Just $ lower_ y `like_` lower_ (val_ (f x))
 
 -- | Helper for negative string tests
 passesStrN
@@ -240,8 +240,8 @@ passesStrN
   -> OpEntry sym 'Normal a
   -> QGenExpr ctxt be s a
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStrN _ (E (MaybeLast Nothing)) _ = Nothing
-passesStrN f (E (MaybeLast (Just x))) y =
+passesStrN _ (E (Last Nothing)) _ = Nothing
+passesStrN f (E (Last (Just x))) y =
   Just $ not_ $ lower_ y `like_` lower_ (val_ (f x))
 
 instance ( BeamSqlBackendIsString be a
@@ -315,9 +315,9 @@ passesStrMaybe
   -> OpEntry sym 'Normal (Maybe a)
   -> QGenExpr ctxt be s (Maybe a)
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStrMaybe _ (E (MaybeLast Nothing       )) _ = Nothing
-passesStrMaybe _ (E (MaybeLast (Just Nothing))) _ = Nothing
-passesStrMaybe f (E (MaybeLast (Just (Just x)))) y =
+passesStrMaybe _ (E (Last Nothing       )) _ = Nothing
+passesStrMaybe _ (E (Last (Just Nothing))) _ = Nothing
+passesStrMaybe f (E (Last (Just (Just x)))) y =
   Just $ maybe_ (val_ False) (\z -> lower_ z `like_` lower_ (val_ (f x))) y
 
 -- | Helper for positive string tests with nullable fields
@@ -330,9 +330,9 @@ passesStrMaybeN
   -> OpEntry sym 'Normal (Maybe a)
   -> QGenExpr ctxt be s (Maybe a)
   -> Maybe (QGenExpr ctxt be s Bool)
-passesStrMaybeN _ (E (MaybeLast Nothing        )) _ = Nothing
-passesStrMaybeN _ (E (MaybeLast (Just Nothing ))) _ = Nothing
-passesStrMaybeN f (E (MaybeLast (Just (Just x)))) y = Just
+passesStrMaybeN _ (E (Last Nothing        )) _ = Nothing
+passesStrMaybeN _ (E (Last (Just Nothing ))) _ = Nothing
+passesStrMaybeN f (E (Last (Just (Just x)))) y = Just
   $ maybe_ (val_ True) (\z -> not_ $ lower_ z `like_` lower_ (val_ (f x))) y
 
 instance {-# OVERLAPPING  #-} ( BeamSqlBackendIsString be a
