@@ -95,7 +95,7 @@ codeInput
 codeInput cfg = do
 
   dynAttrs <- holdDynAttributes
-    (_inputConfig_attributes cfg <> "id" =: "editor") -- FIXME hardcoded id
+    (_inputConfig_attributes cfg <> "id" =: _inputConfig_id cfg)
     (_inputConfig_modifyAttributes cfg)
 
   (e, ())   <- elDynAttr' "div" dynAttrs (text initText)
@@ -104,13 +104,18 @@ codeInput cfg = do
     (postBuild, raiseLoad) <- newTriggerEvent
     liftJSM $ do
       window <- currentWindowUnchecked
-      rec tryInit <- function $ \_ _ _ -> do
-            ace   <- jsg ("ace" :: Text)
-            undef <- valIsUndefined ace
-            if undef
-              then setTimeout_ window tryInit (Just 50)
-              else do
-                liftIO $ raiseLoad ()
+      rec
+        tryInit <- function $ \_ _ _ -> do
+          ace        <- jsg ("ace" :: Text)
+          doc        <- jsg ("document" :: Text)
+          viewportEl <- doc
+            ^. js1 ("getElementById" :: Text) (_inputConfig_id cfg)
+          undef  <- valIsUndefined ace
+          undef2 <- valIsNull viewportEl
+          if undef || undef2
+            then setTimeout_ window tryInit (Just 50)
+            else do
+              liftIO $ raiseLoad ()
 
       _ <- call (makeObject (toJSVal tryInit)) global ()
       pure ()
@@ -118,6 +123,7 @@ codeInput cfg = do
       (pure triv)
       (  aceEditor (getConst $ _inputConfig_extra cfg)
                    readonlyDyn
+                   (_inputConfig_id cfg)
                    initText
                    (_inputConfig_setValue cfg)
       <$ postBuild
@@ -154,13 +160,14 @@ aceEditor
   => AceConfig
   -> Dynamic t Bool
   -> Text
+  -> Text
   -> Event t Text
   -> m (Dynamic t Text, Dynamic t Bool)
-aceEditor aceCfg readonlyDyn initText setTextEv = do
+aceEditor aceCfg readonlyDyn idStr initText setTextEv = do
   (ace, focusDyn) <- aceWidget' aceCfg
                                 (AceDynConfig Nothing)
                                 never
-                                "editor" -- FIXME hardcoded id
+                                idStr
                                 initText
                                 setTextEv
   postBuild <- getPostBuild

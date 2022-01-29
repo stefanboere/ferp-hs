@@ -525,9 +525,8 @@ commonAppHeaderStyle = do
       headerSeparatorStyle
       right nil
 
-  {-    ".header-actions" ** (a <> ".dropdown") # lastOfType # after ? do
+    ".header-actions" ** (a <> ".dropdown") # lastOfType # after ? do
       display none
-      -}
 
     "nav" ? do
       flexDirection row

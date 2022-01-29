@@ -2,4 +2,5 @@ compiler: ghcjs
 packages:
   common/
   frontend/
+  reflex-dom-hatex/
   servant-subscriber-reflex/
