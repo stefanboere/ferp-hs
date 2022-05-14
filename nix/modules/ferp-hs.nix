@@ -240,7 +240,8 @@ in {
       providerUri = mkOption {
         type = types.str;
         example = "https://id.example.com/realms/ferp-hs/";
-        default = "${config.services.keycloak.frontendUrl}/realms/ferp-hs/";
+        default =
+          "https://${config.services.keycloak.settings.hostname}${config.services.keycloak.settings.http-relative-path}/realms/ferp-hs/";
         description = "URL of the openid-connect provider.";
       };
 

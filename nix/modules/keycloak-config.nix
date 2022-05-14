@@ -65,7 +65,7 @@ in {
       requires = [ "keycloak.service" ];
       script = builtins.concatStringsSep "\n\n" (mapAttrsToList (n: v: ''
         ${pkgs.keycloak-config-cli}/bin/keycloak-config-cli \
-          --keycloak.url=${config.services.keycloak.frontendUrl} \
+          --keycloak.url="https://${config.services.keycloak.settings.hostname}${config.services.keycloak.settings.http-relative-path}" \
           --keycloak.user=admin \
           --keycloak.password="$(cat /run/secrets/keycloak-password)" \
           --import.path=${jsonFile n v} \
