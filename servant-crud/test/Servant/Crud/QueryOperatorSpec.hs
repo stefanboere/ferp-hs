@@ -13,6 +13,7 @@ where
 import           Prelude
 
 import           Data.Default                   ( def )
+import           Data.Monoid                    ( Last(..) )
 import           Data.String                    ( fromString )
 import qualified Data.Text                     as Text
 import           GHC.TypeLits                   ( KnownSymbol )

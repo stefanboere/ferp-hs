@@ -128,7 +128,9 @@
           # Fixes crashes of webkitgtk for spinner icon
           WEBKIT_DISABLE_COMPOSITING_MODE = "1";
           RUST_BACKTRACE = 1;
-          LD_LIBRARY_PATH = "${pkgs.vulkan-loader}/lib";
+          LD_LIBRARY_PATH =
+            "${pkgs-unstable.lib.makeLibraryPath [ pkgs-unstable.openssl ]}";
+          PKG_CONFIG_PATH = "${pkgs-unstable.openssl.dev}/lib/pkgconfig";
           nativeBuildInputs = old.nativeBuildInputs
             ++ [ pkgs-unstable.openssl pkgs-unstable.pkgconfig ];
         });

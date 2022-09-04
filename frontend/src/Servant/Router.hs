@@ -150,21 +150,21 @@ instance (HasRouter sublayout)
          => HasRouter (Auth' auths v r :> sublayout) where
   type RouteT (Auth' auths v r :> sublayout) m a = RouteT sublayout m a
   constHandler _ = constHandler (Proxy :: Proxy sublayout)
-  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt s
-  route _ m a page = route (Proxy :: Proxy sublayout) m a page
+  hoistRoute _ = hoistRoute (Proxy :: Proxy sublayout)
+  route _ = route (Proxy :: Proxy sublayout)
 
 instance (HasRouter sublayout, KnownSymbol path)
          => HasRouter (path :> sublayout) where
   type RouteT (path :> sublayout) m a = RouteT sublayout m a
   constHandler _ = constHandler (Proxy :: Proxy sublayout)
-  hoistRoute _ nt s = hoistRoute (Proxy :: Proxy sublayout) nt s
+  hoistRoute _ = hoistRoute (Proxy :: Proxy sublayout)
   route _ m a page =
     RPath (Proxy :: Proxy path) (route (Proxy :: Proxy sublayout) m a page)
 
 instance HasRouter View where
   type RouteT View m a = m a
   constHandler _ _ = return
-  hoistRoute _ nt s = nt s
+  hoistRoute _ nt = nt
   route _ _ _ = RPage
 
 -- | Use a handler to route a 'URIRef'.

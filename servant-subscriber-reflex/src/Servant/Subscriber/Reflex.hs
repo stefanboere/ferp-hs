@@ -207,7 +207,7 @@ performWebSocketRequests url req =
     | otherwise
     = Nothing
 
-  patchReqKeys (k, r, _) m = Map.insert k r m
+  patchReqKeys (k, r, _) = Map.insert k r
 
   statusCode = S.statusCode . httpStatus . snd
   isRetry r = statusCode r == 401 && "X-RETRY" `notElem` fmap
