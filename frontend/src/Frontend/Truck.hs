@@ -15,11 +15,13 @@ where
 import           Control.Applicative            ( liftA2 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Proxy
+import qualified Data.Map                      as Map
 import           GHC.Generics
 import           Hledger
 import           Math.LaTeX.Calculation
 import           Reflex.Dom              hiding ( Link(..)
                                                 , rangeInput
+                                                , textInput
                                                 )
 
 import           Reflex.Dom.HaTeX
@@ -33,12 +35,13 @@ import           Components
 
 -- brittany-disable-next-binding
 type TruckApi = "truck" :> "torus" :> View
+           :<|> "truck" :> "transaction" :> View
 
 truckApi :: Proxy TruckApi
 truckApi = Proxy
 
-truckTorusLink :: Link
-truckTorusLink = allLinks truckApi
+truckTorusLink, transactionLink :: Link
+truckTorusLink :<|> transactionLink = allLinks truckApi
 
 truckLinks
   :: (MonadFix m, MonadHold t m, DomBuilder t m, PostBuild t m)
@@ -46,10 +49,12 @@ truckLinks
   -> m (Event t Link)
 truckLinks dynUri = safelinkGroup
   (text "Parametric modeling")
-  [safelink dynUri truckTorusLink $ text "Torus"]
+  [ safelink dynUri truckTorusLink $ text "Torus"
+  , safelink dynUri transactionLink $ text "Transactions"
+  ]
 
 truckHandler :: WidgetConstraint js t m => RouteT TruckApi m (Event t URI)
-truckHandler = torusHandler
+truckHandler = torusHandler :<|> transactionHandler
 
 torusHandler :: (WidgetConstraint js t m) => m (Event t URI)
 torusHandler = do
@@ -170,3 +175,125 @@ cardTruckCosting params = cardCosting $ do
       "Cost calculations cannot be performed"
       (pure ())
     pure ()
+
+transactionHandler :: WidgetConstraint js t m => m (Event t URI)
+transactionHandler = do
+  el "h1" $ text "Transactions"
+
+  tabs $ Map.fromList
+    [ (0 :: Integer, ("Commits", commits))
+    , (1           , ("Branches", branches))
+    , (2           , ("Releases", releases))
+    ]
+
+  pure never
+ where
+  btnSecondary = btn def { _buttonConfig_priority = ButtonSecondary }
+
+  branchesList = Map.fromList
+    $ zip [(1 :: Integer), 2 ..] ["master", "develop", "feature/feature1"]
+  showOpt _ v = dynText v
+
+  branch = labeled "Branch"
+                   (comboboxInput showOpt branchesList)
+                   (inputConfig "branch" def)
+
+  branches = do
+    el "table" $ do
+      el "thead" $ do
+        el "tr" $ do
+          elAttr "th" (Map.singleton "colspan" "4") $ text "Branches"
+      el "tbody" $ do
+        el "tr" $ do
+          linkCell "#" angleDoubleRightIcon
+          el "td" $ text "Master"
+          _ <- el "td" $ tagEl def "Default"
+          _ <- el "td" $ btnSecondary (icon def plusIcon >> text "New branch")
+          pure ()
+        el "tr" $ do
+          linkCell "#" angleDoubleRightIcon
+          el "td" $ text "Develop"
+          el "td" blank
+          el "td" branchActions
+        el "tr" $ do
+          linkCell "#" angleDoubleRightIcon
+          el "td" $ text "Feature/feature1"
+          el "td" blank
+          el "td" branchActions
+
+  branchActions = do
+    _ <- btnSecondary (icon def plusIcon >> text "New branch") -- TODO change for forking
+    _ <- btnSecondary (icon def pencilIcon >> text "Merge") -- TODO maybe change for install or a custom merge icon
+    _ <- btnSecondary (icon def trashIcon >> text "Delete")
+    pure ()
+
+  commits = do
+    el "form" $ do
+      _ <- branch
+      _ <- labeled "Hide other transactions"
+                   (toggleInput "")
+                   (inputConfig "cmt1" False)
+      pure ()
+
+    timelineVertical $ do
+      _ <- timelineStep
+        (constDyn "")
+        (constDyn TimelineCurrent)
+        ""
+        (  textAreaInput (inputConfig "tltb2" "")
+        >> btnSecondary (text "Create new commit")
+        >> btnSecondary (icon def plusIcon >> text "New branch") -- TODO change for forking
+        )
+      _ <- timelineStep "2021-06-05\n22:24"
+                        (constDyn TimelineNotStarted)
+                        "Adam Smith"
+                        blank
+      _ <- timelineStep "2021-06-05\n22:22"
+                        (constDyn TimelineNotStarted)
+                        "Adam Smith"
+                        blank
+      _ <- timelineStep "2021-06-05\n22:19"
+                        (constDyn TimelineSuccess)
+                        "Adam Smith"
+                        (tagEl def "beta" >> el "p" (text "Bugfixes"))
+      _ <- timelineStep
+        "2021-06-05\n21:19"
+        (constDyn TimelineSuccess)
+        "John Doe"
+        (tagEl def "alpha" >> el
+          "p"
+          (text $ mconcat
+            [ "The timeline can also be used to build "
+            , "a comments component that can be put on just about any page."
+            ]
+          )
+        )
+      _ <- timelineStep "2021-06-05\n21:00"
+                        (constDyn TimelineSuccess)
+                        "John Doe"
+                        (el "p" (text "Initial commit"))
+      pure ()
+
+  releases = timelineVertical $ do
+    _ <- timelineStep
+      (constDyn "")
+      (constDyn TimelineCurrent)
+      ""
+      (do
+        _ <- labeled "Tag name" textInput (inputConfig "rls0" "")
+        _ <- branch
+        _ <- labeled "Title" textInput (inputConfig "rls2" "")
+        _ <- labeled "Content" textAreaInput (inputConfig "rls3" "")
+        _ <- toggleInput "Stable release" (inputConfig "rls4" True)
+        btnSecondary (text "Create new release")
+      )
+    _ <- timelineStep "Beta \n@ master"
+                      (constDyn TimelineSuccess)
+                      "Beta release (stable)"
+                      (el "p" $ text "2021-06-05\n22:25")
+    _ <- timelineStep "Alpha \n@ master"
+                      (constDyn TimelineNotStarted)
+                      "Alpha release"
+                      (el "p" $ text "2021-06-05\n21:25")
+    pure ()
+
