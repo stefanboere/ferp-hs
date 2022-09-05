@@ -151,3 +151,22 @@ Now you can test by running the backend executable and opening <http://localhost
 The login button is in the top right corner.
 The jsaddle-warp frontend can use the same cookie as backend,
 so you are now also logged in on <http://localhost:3003>.
+
+## Known issues
+
+- `cabal run backend-api:exes` is currently does not run on my system due to a GLIBC version error.
+  This should hopefully be solved when <https://github.com/reflex-frp/reflex-platform/pull/768> merges.
+  Until then it can be solved by not using `direnv` and running `nix run .\#backend-api`.
+- `backend` and `backend-api` cannot start if the OpenID Connect server is unavailable.
+  This restriction should be lifted to allow easier deployment and development.
+- Setting up a local development with database and keycloak is quite difficult.
+- Some reflex-dom components (especially the combobox) are quite slow
+
+## Features
+
+- REST api using servant with sorting, filtering and pagination.
+- Authentication using OpenID connect identity provider.
+- Specify Access control rules in servant types.
+- Reflex components based on the clarity design system, including the datagrid.
+- Server side rendering (prerendering)
+- Live updates using `servant-subscriber` and websockets.
