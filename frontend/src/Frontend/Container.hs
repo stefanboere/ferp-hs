@@ -14,7 +14,7 @@ where
 
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           Data.Proxy
 import           Data.Text                      ( pack )
 import           Data.Time                      ( fromGregorian )

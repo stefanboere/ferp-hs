@@ -20,7 +20,7 @@ import           Clay                    hiding ( icon )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.State
 import           Data.Default
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           Data.Text                      ( Text
                                                 , pack
                                                 )

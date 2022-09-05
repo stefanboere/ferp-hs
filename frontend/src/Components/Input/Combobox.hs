@@ -25,8 +25,8 @@ import           Control.Applicative            ( Const(..) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
 import           Data.Fixed                     ( divMod' )
-import           Data.Map                       ( Map )
-import qualified Data.Map                      as Map
+import           Data.Map.Strict                ( Map )
+import qualified Data.Map.Strict               as Map
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
 import           Data.Text                      ( Text

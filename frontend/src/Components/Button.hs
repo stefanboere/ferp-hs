@@ -34,7 +34,7 @@ import           Data.Char                      ( isLower
                                                 , isUpper
                                                 )
 import           Data.Default
-import           Data.Map                      as Map
+import           Data.Map.Strict               as Map
 import           Data.Maybe                     ( catMaybes )
 import           Data.Text                      ( Text
                                                 , pack

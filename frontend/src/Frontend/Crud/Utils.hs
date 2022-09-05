@@ -55,7 +55,7 @@ import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Default
 import           Data.Functor.Compose           ( Compose(..) )
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Monoid                    ( Last(..) )
 import           Data.Text                      ( Text

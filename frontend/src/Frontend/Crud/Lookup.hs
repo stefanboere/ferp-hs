@@ -26,7 +26,7 @@ import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose           ( Compose(..) )
 import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Identity          ( Identity(..) )
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           Data.Maybe                     ( fromMaybe )
 import           Data.Monoid                    ( Last(..) )
 import           Data.Text                      ( Text

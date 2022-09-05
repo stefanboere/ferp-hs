@@ -92,8 +92,8 @@ import           Control.Lens                   ( (%~) )
 import           Control.Monad                  ( join )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
-import           Data.Map                       ( Map )
-import qualified Data.Map                      as Map
+import           Data.Map.Strict                ( Map )
+import qualified Data.Map.Strict               as Map
 import           Data.Maybe                     ( fromJust
                                                 , isNothing
                                                 , fromMaybe
@@ -161,7 +161,7 @@ data InputConfig' extraConfig t m a = InputConfig
   { _inputConfig_initialValue     :: !a
   , _inputConfig_setValue         :: Event t a
   , _inputConfig_id               :: !Text
-  , _inputConfig_status           :: Dynamic t InputStatus
+  , _inputConfig_status           :: ~(Dynamic t InputStatus)
   , _inputConfig_attributes       :: !(Map AttributeName Text)
   , _inputConfig_modifyAttributes :: Event t (Map AttributeName (Maybe Text))
   , _inputConfig_eventSpec

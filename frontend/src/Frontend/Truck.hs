@@ -15,7 +15,7 @@ where
 import           Control.Applicative            ( liftA2 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Proxy
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           GHC.Generics
 import           Hledger
 import           Math.LaTeX.Calculation

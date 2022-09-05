@@ -20,7 +20,7 @@ import           Control.Lens                   ( (%~) )
 import           Control.Monad                  ( (>=>) )
 import           Control.Monad.Fix              ( MonadFix )
 import           Data.Default
-import qualified Data.Map                      as Map
+import qualified Data.Map.Strict               as Map
 import           GHCJS.DOM.File                 ( getName )
 import qualified GHCJS.DOM.Types               as DOM
                                                 ( File )
