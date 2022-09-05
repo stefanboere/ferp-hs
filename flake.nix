@@ -142,6 +142,9 @@
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
 
-        apps = { inherit (packages) backend backend-api; };
+        apps = {
+          backend = flake-utils.lib.mkApp { drv = packages.backend; };
+          backend-api = flake-utils.lib.mkApp { drv = packages.backend-api; };
+        };
       });
 }
