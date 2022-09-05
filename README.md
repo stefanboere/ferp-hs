@@ -27,3 +27,127 @@ The core libraries are:
 | `servant-crud`              | Filtering and sorting url parameters extension to servant                                                                      |
 | `servant-crud-server`       | Server implementation of `servant-crud-server`                                                                                 |
 | `servant-subscriber-reflex` | Connect to [servant-subscriber](https://github.com/eskimor/servant-subscriber) from `reflex-dom`                               |
+| `truck-js`                  | Run [truck](https://github.com/ricosjp/truck) in the browser                                                                   |
+| `truck-param-base`          | Collection of 3D models                                                                                                        |
+| `truck-param-js`            | Show `truck-param-base` in the browser.                                                                                        |
+
+## Getting started
+
+To run locally, first install the `nix` package manager with flake support.
+Then enter the development shell with `nix-shell --pure` or `nix develop`.
+
+There are three main executables to be run, namely `frontend`, `backend` and `backend-api`.
+
+`frontend` uses jsaddle-warp to serve the frontend on `localhost:3003` (using ghc).
+It can also build the .js files if ghcjs as compiler is used.
+To run, cd into the frontend directory and enter a cabal repl.
+
+```sh
+cd ./frontend && cabal repl
+```
+
+Once in the repl type in `mainWithHead` and hit enter.
+If you made changes to `frontend` you can just hit CTRL-C, then reload `:r`,
+run `mainWithHead` again and refresh the page <http://localhost:3003>.
+
+`backend` can be run as follows
+
+```sh
+cd ./backend && cabal run backend:exes
+```
+
+or
+
+```sh
+cd ./backend && nix run .\#backend
+```
+
+It is also possible to run it from within a cabal repl.
+`backend` serves the prerendered html and compiled javascript and css files and
+is therefore usually not needed for development.
+One exception is for authentication, this is also handled by `backend`.
+
+`backend-api` is run similarly
+
+```sh
+cd ./backend-api && cabal run backend-api:exes
+```
+
+or
+
+```sh
+cd ./backend-api && nix run .\#backend-api
+```
+
+### Vendor javascript files
+
+Some javascript libraries are used in this project, for example ace and mathjax.
+To create a directory with all these files in the right location, run
+
+```sh
+nix build .\#vendor-lib -o result-vendor
+```
+
+Serve `result-vendor` on localhost:8081 with
+
+```sh
+http-server -cors localhost
+```
+
+Now the jsaddle-warp frontend can access the vendor files (as configured in `frontend/config.json`).
+
+Similarly the minified frontend can be build with
+
+```sh
+nix build .\#frontend-min -o result-frontend-min
+```
+
+These files are served by `backend` as configured in `backend/config.dhall`
+(the setting `staticDirectory`).
+
+### Database
+
+A posgresql database is needed for `backend-api`.
+The connection information is configured in `backend-api/config.dhall`.
+An empty database with sufficient permissions is enough,
+the migration will then be done automatically.
+
+### Authentication
+
+For authentication we need an OpenID Connect provider, such as keycloak.
+The providerUri and clientId and clientSecret need to be configured in
+both `backend/config.dhall` as `backend-api/config.dhall`.
+
+In keycloak, create a new realm called `ferp-hs`.
+In this realm, add a new client with clientId `ferp-hs-backend` and
+the following options
+
+```json
+{
+  "clientId": "ferp-hs-backend",
+  "enabled": true,
+  "clientAuthenticatorType": "client-secret",
+  "redirectUris": [
+    "http://localhost:3007/",
+    "http://localhost:3007/auth/return"
+  ],
+  "webOrigins": ["http://localhost:3007"],
+  "publicClient": false,
+  "protocol": "openid-connect"
+}
+```
+
+This json can be imported into keycloak. If using the UI,
+the option `clientAuthenticatorType` is called `Access Type`.
+Then go to the Credentials tab and add a client secret
+(Client Authenticator: Client id and Secret).
+Save this client secret in the file `/run/secrets/oidc-client-secret`
+(as configured in `backend/config.dhall`).
+
+Create a new user account in the realm.
+Finally add the role `administrator` and add the user to this role.
+
+Now you can test by running the backend executable and opening <http://localhost:3007>.
+The login button is in the top right corner.
+The jsaddle-warp frontend can use the same cookie as backend,
+so you are now also logged in on <http://localhost:3003>.
