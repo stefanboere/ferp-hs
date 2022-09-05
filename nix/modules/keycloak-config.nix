@@ -77,6 +77,7 @@ in {
       serviceConfig = {
         User = "keycloak";
         Type = "oneshot";
+        ExecStartPre = "${pkgs.coreutils}/bin/sleep 10";
       };
     };
   };

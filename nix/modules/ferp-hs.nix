@@ -293,6 +293,7 @@ in {
         ExecStart =
           "${cfg.backend-api.package}/bin/backend-api ${backendApiConfig}";
         Restart = "always";
+        RestartSec = 30;
       };
     };
 
@@ -308,6 +309,7 @@ in {
         Group = "ferp-hs";
         ExecStart = "${cfg.backend.package}/bin/backend ${backendConfig}";
         Restart = "always";
+        RestartSec = 30;
       };
     };
 
