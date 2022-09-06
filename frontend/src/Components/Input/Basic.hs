@@ -732,12 +732,12 @@ statusMessageElement status = do
   message (InputNeutral (Just x)) = x
   message _                       = ""
 
--- | Creates a label with a random for string, which is returned
+-- | Creates a label with a given for string, which is returned
 labelFor :: (PostBuild t m, DomBuilder t m) => Text -> Dynamic t Text -> m ()
 labelFor idStr dynLabel = do
   elAttr "label" ("for" =: idStr) $ dynText dynLabel
 
--- | An editor with a label. Creates a random id and adds it to the editor
+-- | An editor with a label. Creates a given id and adds it to the editor
 labeled
   :: (PostBuild t m, DomBuilder t m)
   => Text

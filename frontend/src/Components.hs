@@ -13,7 +13,6 @@ module Components
   , module Components.Table
   , module Components.Tag
   , module Components.Timeline
-  , module Components.TruckParam
   )
 where
 
@@ -31,4 +30,3 @@ import           Components.Progress
 import           Components.Table
 import           Components.Tag
 import           Components.Timeline
-import           Components.TruckParam

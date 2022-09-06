@@ -68,7 +68,6 @@ library
     Components.Table
     Components.Tag
     Components.Timeline
-    Components.TruckParam
     DevelMain
     Frontend.Api
     Frontend.Container
@@ -80,7 +79,7 @@ library
     Frontend.Crud.Lookup
     Frontend.Crud.Utils
     Frontend.Input
-    Frontend.Truck
+    Frontend.Revision
     Nordtheme
 
   build-depends:
@@ -104,12 +103,10 @@ library
     , mtl
     , pandoc-types
     , process
-    , random
     , reflex
     , reflex-dom
     , reflex-dom-ace
     , reflex-dom-contrib
-    , reflex-dom-hatex
     , reflex-dom-pandoc
     , servant
     , servant-ac

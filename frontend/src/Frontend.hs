@@ -58,7 +58,7 @@ import           Frontend.Context
 import           Frontend.Core
 import           Frontend.Crud
 import           Frontend.Input
-import           Frontend.Truck
+import           Frontend.Revision
 
 main :: IO ()
 main = mainWidget $ do
@@ -88,14 +88,12 @@ mainWithHead = do
             )
             blank
           script' (configAceUrl cfg)
-          moduleScript (configTruckParamUrl cfg)
           deferScript (configMathjaxConfigUrl cfg)
           deferScript (configMathjaxUrl cfg)
     pure x
  where
   script' uri = elAttr "script" ("src" =: uri <> "async" =: "") blank
   deferScript uri = elAttr "script" ("src" =: uri <> "defer" =: "") blank
-  moduleScript uri = elAttr "script" ("src" =: uri <> "type" =: "module") blank
 
 headWidget :: (DomBuilder t m) => m ()
 headWidget = do
@@ -121,7 +119,6 @@ css = do
   timelineStyle
   codeInputStyle
   markdownInputStyle
-  truckParamStyle
   costingStyle
 
 withHeader
@@ -239,7 +236,7 @@ type Api = View
     :<|> InputApi
     :<|> CoreApi
     :<|> ContainerApi
-    :<|> TruckApi
+    :<|> RevisionApi
     :<|> CrudApi
 
 api :: Proxy Api
@@ -258,7 +255,7 @@ sideNav dynUri = leftmost <$> sequence
   [ coreLinks dynUri
   , inputLinks dynUri
   , containerLinks dynUri
-  , truckLinks dynUri
+  , revisionLinks dynUri
   , crudLinks dynUri
   ]
 
@@ -271,7 +268,7 @@ handler =
     :<|> inputHandler
     :<|> coreHandler
     :<|> containerHandler
-    :<|> truckHandler
+    :<|> revisionHandler
     :<|> crudHandler
 
 handlerOffline

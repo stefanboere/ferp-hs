@@ -3,6 +3,5 @@
   "mathjax_config_url": "http://localhost:8081/result-vendor/mathjax/mathjax-config.js",
   "mathjax_url": "http://localhost:8081/result-vendor/mathjax/tex-svg.js",
   "ace_url": "http://localhost:8081/result-vendor/ace/ace.js",
-  "fira_url": "http://localhost:8081/result-vendor/fira/fira.css",
-  "truck_param_url": "http://localhost:8081/truck-param-js/bootstrap.js"
+  "fira_url": "http://localhost:8081/result-vendor/fira/fira.css"
 }

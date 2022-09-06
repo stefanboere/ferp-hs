@@ -52,7 +52,6 @@ let
         brittany = ghc.brittany;
         inherit keycloak-config-cli;
         inherit (pkgs.xorg) libX11 libXcursor libXi libXrandr;
-        inherit (pkgs-unstable) moz-rust wasm-pack nodejs;
         inherit (pkgs-unstable.nodePackages) http-server;
       };
 
@@ -123,7 +122,6 @@ let
       cp ${./assets/favicon.ico} $out/favicon.ico
 
       cp -r ${vendor-lib} $out/vendor
-      cp -r ${truck-param-js} $out/truck-param
     '';
   };
 
@@ -197,53 +195,8 @@ let
       '';
     };
 
-  truck-param-wasm = with pkgs-unstable;
-    naersk-lib.buildPackage {
-      pname = "truck-param-wasm";
-      version = "0.1.0";
-
-      buildInputs = [ openssl ];
-      nativeBuildInputs = [ pkgconfig ];
-
-      cargoBuildOptions = xs: xs ++ [ "--target=wasm32-unknown-unknown" ];
-
-      copyLibs = true;
-
-      root = builtins.filterSource (path: type:
-        (type == "directory" && builtins.match ".*truck.*" path != null)
-        || (builtins.match ".*(Cargo.*|.rs)" path != null)) ./.;
-
-      meta = with lib; {
-        description = "Parametric modeling in Rust";
-        license = licenses.mit;
-      };
-    };
-
-  truck-param-js = with pkgs-unstable;
-    stdenv.mkDerivation {
-      name = "truck-param-js";
-      version = "0.1.0";
-      nativeBuildInputs = [ wasm-bindgen-cli binaryen ];
-      buildCommand = ''
-        mkdir -p $out/pkg
-        wasm-bindgen \
-          --target web \
-          --out-dir $out/pkg \
-          ${truck-param-wasm}/lib/truck_param_js.wasm
-        wasm-opt -Os $out/pkg/truck_param_js_bg.wasm -o truck_param_js_bg.wasm
-        mv truck_param_js_bg.wasm $out/pkg/truck_param_js_bg.wasm
-        cp ${./truck-param-js/app.js} $out/app.js
-        cp ${./truck-param-js/bootstrap.js} $out/bootstrap.js
-        ${pkgs-unstable.zopfli}/bin/zopfli -i1000 $out/pkg/*
-        ${pkgs-unstable.zopfli}/bin/zopfli -i1000 $out/app.js
-      '';
-    };
-
 in {
-  ferp-hs = project true // {
-    inherit frontend-min vendor-lib frontend-gtk truck-param-js;
-  };
+  ferp-hs = project true // { inherit frontend-min vendor-lib frontend-gtk; };
   brittany = pkgs.haskellPackages.brittany;
-  inherit (pkgs) vulkan-loader openssl pkgconfig;
   inherit keycloak-config-cli keycloak-nordtheme;
 }

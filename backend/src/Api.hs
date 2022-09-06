@@ -111,7 +111,6 @@ prerenderApp pageT = do
         asyncScript (Frontend.configAceUrl cfg)
         deferScript (Frontend.configMathjaxConfigUrl cfg)
         deferScript (Frontend.configMathjaxUrl cfg)
-        moduleScript (Frontend.configTruckParamUrl cfg)
       body_ $ do
         toHtmlRaw body
         deferScript "/static/all.min.js"
@@ -122,8 +121,6 @@ prerenderApp pageT = do
     ("" :: ByteString)
   asyncScript src =
     script_ [src_ src, type_ "text/javascript"] ("" :: ByteString)
-
-  moduleScript src = script_ [src_ src, type_ "module"] ("" :: ByteString)
 
   page' page _ = do
     x <- page

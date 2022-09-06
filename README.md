@@ -27,9 +27,6 @@ The core libraries are:
 | `servant-crud`              | Filtering and sorting url parameters extension to servant                                                                      |
 | `servant-crud-server`       | Server implementation of `servant-crud-server`                                                                                 |
 | `servant-subscriber-reflex` | Connect to [servant-subscriber](https://github.com/eskimor/servant-subscriber) from `reflex-dom`                               |
-| `truck-js`                  | Run [truck](https://github.com/ricosjp/truck) in the browser                                                                   |
-| `truck-param-base`          | Collection of 3D models                                                                                                        |
-| `truck-param-js`            | Show `truck-param-base` in the browser.                                                                                        |
 
 ## Getting started
 
