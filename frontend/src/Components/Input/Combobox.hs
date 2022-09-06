@@ -53,6 +53,10 @@ comboboxStyle = do
     important $ top (rem (7 / 4))
     width (pct 100)
 
+    ":active" Clay.& display flex
+
+    ".closed" Clay.& important (display none)
+
     (option <> ".option" <> i) ? do
       Clay.display flex
       alignItems center
@@ -96,6 +100,8 @@ comboboxStyle = do
       borderBottomWidth 2
       borderColor nord10'
       marginBottom (px (-1))
+
+      ".combobox-menu" ? Clay.display flex
 
     ".combobox" ? do
       borderBottomWidth nil
@@ -254,7 +260,6 @@ comboboxInputKS' before' setDynSelection showOpt initOpts mkSetOptsEv cfg =
     before'
     (comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg)
 
-
 comboboxInputRawInput
   :: forall t m k js
    . ( PostBuild t m
@@ -279,105 +284,200 @@ comboboxInputRawInput
        , Dynamic t InputStatus
        )
 comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
-  rec
-    searchStrInput <- textInputEl (_cb_text <$> cfg)
-      { _inputConfig_setValue         = leftmost
-        [_inputConfig_setValue (_cb_text <$> cfg), setTextEv]
-      , _inputConfig_attributes       = _inputConfig_attributes cfg
-                                        <> idAttrs
-                                             "list"
-                                             (_inputConfig_id cfg <> "-datalist")
-                                        <> "class"
-                                        =: "combobox"
-      , _inputConfig_modifyAttributes = mergeWith
-                                          (<>)
-                                          [ _inputConfig_modifyAttributes cfg
-                                          , setOpenAttrEv
-                                          ]
-      , _inputConfig_status           = dynStatusFull
-      , _inputConfig_eventSpec        = addEventSpecFlags
-                                          (Nothing :: Maybe (DomBuilderSpace m))
-                                          Keydown
-                                          preventArrowDef
-      }
+  rec (setOptsEvResult, loadingDyn) <- mkSetOptsEv reqEv
+      (r, dynStatus, reqEv)         <- comboboxInputRawInput'
+        setDynSelection
+        showOpt
+        initOpts
+        setOptsEvResult
+        loadingDyn
+        cfg { _inputConfig_status = dynStatusFull }
+      let dynStatusFull = dynStatus <> _inputConfig_status cfg
+  pure (r, dynStatusFull)
 
-    selectIcon
 
-    (e, (dynOptEv', pageEv, pageDyn)) <-
-      elDynAttr' "div" (mkDatalistAttr <$> openDyn) $ do
-        elDynClass
-            "i"
-            (   (\c loading -> mkVisible (c == Just 0 && Prelude.not loading))
-            <$> dynCount
-            <*> loadingDyn
-            )
-          $ text "No results found"
-        r' <-
-          prerender
-              (pure (constDyn (0, 0), (constDyn (0, 0), constDyn Map.empty)))
-            $ virtualListMaxHeightBuffered bufferSize
-                                           252
-                                           24
-                                           dynCountWithDef
-                                           0
-                                           scrollEv
-                                           Prelude.id
-                                           (_ms_data initOpts)
-                                           (_ms_data <$> updateRows)
-                                           (mkOption sdemux)
-        let r = snd . snd =<< r'
-        let pageEv' =
-              fmap (const pageSize) <$> switchDyn (updated . fst <$> r')
-        let pageDyn' = fmap (const 10) <$> (fst . snd =<< r')
-        elDynClass "i" (mkVisible <$> loadingDyn)
-          $ spinner Inline "Searching for matches"
-        pure (r, pageEv', pageDyn')
+comboboxInputRawInput'
+  :: forall t m k js
+   . ( PostBuild t m
+     , DomBuilder t m
+     , MonadFix m
+     , MonadHold t m
+     , Ord k
+     , Prerender js t m
+     )
+  => Event t (ComboboxValue (Maybe k))
+  -> (Dynamic t k -> Dynamic t Text -> Client m ())
+  -> MapSubset Int (k, Text)
+  -> Event t (Either Text (MapSubset Int (k, Text)))
+  -> Dynamic t Bool
+  -> InputConfig t m (ComboboxValue (Maybe k))
+  -> m
+       ( DomInputEl t m (ComboboxValue (Maybe k))
+       , Dynamic t InputStatus
+       , Event t (OptionsRequest k)
+       )
+comboboxInputRawInput' setDynSelection showOpt initOpts setOptsEvResult loadingDyn cfg
+  = do
 
-    let selectedIndexEv = maybe 0 fst . Map.lookupMin <$> switchDyn
-          (mergeMap . fmap fst <$> dynOptEv')
+    let (setOptsEvErr, setOptsEv) = fanEither setOptsEvResult
 
--- This keeps the dropdown open while the user is clicking an item, even though the input has lost focus
-    mousePressed <- holdDyn False
-      $ leftmost [True <$ domEvent Mousedown e, False <$ domEvent Click e]
+    dynCount <- holdDyn (_ms_totalCount initOpts) (_ms_totalCount <$> setOptsEv)
+    dynCountWithDef <- holdDyn (totalCountOrSize initOpts)
+                               (totalCountOrSize <$> setOptsEv)
 
-    openDyn <- holdDyn False $ leftmost
-      [ gate (Prelude.not <$> current mousePressed) (updated hasFocusDyn)
-      , False <$ selectedIndexEv
-      , setOpenEv
-      ]
+    dynError <- holdDyn def
+      $ leftmost [InputError <$> setOptsEvErr, def <$ setOptsEv]
 
-    let
-      setOpenAttrEv =
-        (\isOpen ->
-            Map.singleton "class" (if isOpen then Just "open" else Nothing)
-          )
-          <$> updated openDyn
+    rec
+      searchStrInput <- textInputEl (_cb_text <$> cfg)
+        { _inputConfig_setValue   = leftmost
+          [_inputConfig_setValue (_cb_text <$> cfg), setTextEv]
+        , _inputConfig_attributes = _inputConfig_attributes cfg
+                                    <> idAttrs
+                                         "list"
+                                         (_inputConfig_id cfg <> "-datalist")
+                                    <> "class"
+                                    =: "combobox"
+        , _inputConfig_eventSpec  = addEventSpecFlags
+                                      (Nothing :: Maybe (DomBuilderSpace m))
+                                      Keydown
+                                      preventArrowDef
+        }
+
+      selectIcon
+
+      (dynOptEv', pageEv, pageDyn) <-
+        elDynAttr "div" (mkDatalistAttr <$> openDyn) $ do
+          elDynClass
+              "i"
+              (   (\c loading -> mkVisible (c == Just 0 && Prelude.not loading))
+              <$> dynCount
+              <*> loadingDyn
+              )
+            $ text "No results found"
+          r' <-
+            prerender
+                (pure (constDyn (0, 0), (constDyn (0, 0), constDyn Map.empty)))
+              $ virtualListMaxHeightBuffered bufferSize
+                                             252
+                                             24
+                                             dynCountWithDef
+                                             0
+                                             scrollEv
+                                             Prelude.id
+                                             (_ms_data initOpts)
+                                             (_ms_data <$> updateRows)
+                                             (mkOption sdemux)
+          let r = snd . snd =<< r'
+          let pageEv' =
+                fmap (const pageSize) <$> switchDyn (updated . fst <$> r')
+          let pageDyn' = fmap (const 10) <$> (fst . snd =<< r')
+          elDynClass "i" (mkVisible <$> loadingDyn)
+            $ spinner Inline "Searching for matches"
+          pure (r, pageEv', pageDyn')
+
+      let selectedIndexEv = maybe 0 fst . Map.lookupMin <$> switchDyn
+            (mergeMap . fmap fst <$> dynOptEv')
 
 -- Tab completion
-    let inputEls      = _inputEl_elements searchStrInput
-    let keydownEv = switchDyn (leftmost . fmap (domEvent Keydown) <$> inputEls)
-    let arrowUpDownEv = ffilter (`elem` 9 : arrowKeys) keydownEv
+      let inputEls = _inputEl_elements searchStrInput
+      let keydownEv =
+            switchDyn (leftmost . fmap (domEvent Keydown) <$> inputEls)
+      let arrowUpDownEv = ffilter (`elem` 9 : arrowKeys) keydownEv
+
+      let hasFocusDyn   = _inputEl_hasFocus searchStrInput
+
+      openDyn <- holdDyn True $ leftmost
+        [ (/= 13) <$> keydownEv -- Close when hitting ENTER, remove force close otherwise
+        , ffilter Prelude.id $ Prelude.not <$> updated
+          (_inputEl_hasFocus searchStrInput) -- Remove force close when losing focus
+        ]
+
+      let searchStrUpdated = updated (_inputEl_value searchStrInput)
+
 -- The updated _inputEl_value occurs later than the input event
 -- We want to listen only to the input event, but with the current entered text
 -- Therefore, we store if the next updated _inputEl_value was a keyboard input event
-    isInputDyn <- hold False $ leftmost
-      [ True <$ switchDyn (leftmost . fmap (domEvent Input) <$> inputEls)
-      , False <$ updated (_inputEl_value searchStrInput)
-      ]
-    let searchEv = gate isInputDyn (updated (_inputEl_value searchStrInput))
-    searchText <- holdDyn "" searchEv
+      isInputDyn <- hold False $ leftmost
+        [ True <$ switchDyn (leftmost . fmap (domEvent Input) <$> inputEls)
+        , False <$ searchStrUpdated
+        ]
+      let searchEv = gate isInputDyn searchStrUpdated
+      searchText <- holdDyn "" searchEv
 
--- Whenever the current selection is not in the list any more, clear it
-    let setOpenEv = False <$ ffilter (== 13) arrowUpDownEv
+      let dynOptions = joinDynThroughMap (fmap snd <$> dynOptEv')
 
-    hasFocusDyn <-
-      holdUniqDyn $ (||) <$> _inputEl_hasFocus searchStrInput <*> mousePressed
+      let updateRows =
+            attachWith addDeletes (Map.keysSet <$> current dynOptions) setOptsEv
 
-    let dynOptions = joinDynThroughMap (fmap snd <$> dynOptEv')
+-- Clear the selection if the text is null
+      let autofillExact =
+            attachWithMaybe (flip findExactMatch) (current dynOptions) searchEv
 
-    let scrollEv = attachWithMaybe jumpToSelected
-                                   (current pageDyn)
-                                   (updated selectedIndex)
+-- Update the text on lose focus if a value has been selected
+      let
+        lostFocusEv =
+          gate
+              (current
+                (Prelude.not . Text.null <$> _inputEl_value searchStrInput)
+              )
+            $ ffilter Prelude.not (updated hasFocusDyn)
+      let selectedIndexWithValEv =
+            attachWith (Map.!?) (current dynOptions) selectedIndexEv
+
+      selectedIndex' <- holdDyn (findIndex initialKey initOpts) $ leftmost
+        [ attachWithMaybe findNewIndex
+                          (current (fmap fst <$> dynSelection))
+                          setOptsEv
+        , attachWith (flip findIndex')
+                     (current dynOptions)
+                     (fmap fst <$> updated dynSelection)
+        ]
+      selectedIndex <- holdUniqDyn selectedIndex'
+
+      let scrollEv = attachWithMaybe jumpToSelected
+                                     (current pageDyn)
+                                     (updated selectedIndex)
+
+
+      let sdemux = demux selectedIndex
+
+      let arrowUpDownWithValEv = attachWithMaybe
+            selectNext
+            ((,) <$> current dynOptions <*> current selectedIndex)
+            arrowUpDownEv
+      let setTextEv = fmapMaybe (fmap snd) $ leftmost
+            [ tag (current dynSelection) lostFocusEv
+            , arrowUpDownWithValEv
+            , selectedIndexWithValEv
+            ]
+
+      dynSelection <-
+        holdDyn (toPair $ _inputConfig_initialValue cfg) $ leftmost
+          [ toPair <$> setDynSelection
+          , attachWithMaybe fillOnSetOpts (current searchText) setOptsEv
+          , Nothing
+            <$ ffilter Text.null (updated (_inputEl_value searchStrInput))
+          , selectedIndexWithValEv
+          , arrowUpDownWithValEv
+          , Just <$> autofillExact
+          ]
+
+  -- Show an error if selection is null and the value is not null, and show it on lose focus
+    let dynStatus =
+          mkStatus
+            <$> _inputEl_value searchStrInput
+            <*> (fmap fst <$> dynSelection)
+            <*> hasFocusDyn
+
+
+    let comboVal =
+          ComboboxValue
+            <$> (fmap fst <$> dynSelection)
+            <*> _inputEl_value searchStrInput
+    comboValUniq <- holdUniqDyn comboVal
+
+    let dynStatusFull = dynError <> dynStatus
 
     let reqEv = leftmost
           [ (`NearSelection` (pageSize + 4)) . fmap fst <$> tag
@@ -393,80 +493,7 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
             )
           ]
 
-    (setOptsEvResult, loadingDyn) <- mkSetOptsEv reqEv
-
-    let (setOptsEvErr, setOptsEv) = fanEither setOptsEvResult
-
-    dynError <- holdDyn def
-      $ leftmost [InputError <$> setOptsEvErr, def <$ setOptsEv]
-
-    let updateRows =
-          attachWith addDeletes (Map.keysSet <$> current dynOptions) setOptsEv
-    dynCount <- holdDyn (_ms_totalCount initOpts) (_ms_totalCount <$> setOptsEv)
-    dynCountWithDef <- holdDyn (totalCountOrSize initOpts)
-                               (totalCountOrSize <$> setOptsEv)
-
--- Clear the selection if the text is null
-    let autofillExact =
-          attachWithMaybe (flip findExactMatch) (current dynOptions) searchEv
-
--- Update the text on lose focus if a value has been selected
-    let
-      lostFocusEv =
-        gate
-            (current (Prelude.not . Text.null <$> _inputEl_value searchStrInput)
-            )
-          $ ffilter Prelude.not (updated hasFocusDyn)
-    let selectedIndexWithValEv =
-          attachWith (Map.!?) (current dynOptions) selectedIndexEv
-    let arrowUpDownWithValEv = attachWithMaybe
-          selectNext
-          ((,) <$> current dynOptions <*> current selectedIndex)
-          arrowUpDownEv
-    let setTextEv = fmapMaybe (fmap snd) $ leftmost
-          [ tag (current dynSelection) lostFocusEv
-          , arrowUpDownWithValEv
-          , selectedIndexWithValEv
-          ]
-
-
-    selectedIndex' <- holdDyn (findIndex initialKey initOpts) $ leftmost
-      [ attachWithMaybe findNewIndex
-                        (current (fmap fst <$> dynSelection))
-                        setOptsEv
-      , attachWith (flip findIndex')
-                   (current dynOptions)
-                   (fmap fst <$> updated dynSelection)
-      ]
-    selectedIndex <- holdUniqDyn selectedIndex'
-
-    let sdemux = demux selectedIndex
-
-    dynSelection <- holdDyn (toPair $ _inputConfig_initialValue cfg) $ leftmost
-      [ toPair <$> setDynSelection
-      , attachWithMaybe fillOnSetOpts (current searchText) setOptsEv
-      , Nothing <$ ffilter Text.null (updated (_inputEl_value searchStrInput))
-      , selectedIndexWithValEv
-      , arrowUpDownWithValEv
-      , Just <$> autofillExact
-      ]
-
--- Show an error if selection is null and the value is not null, and show it on lose focus
-    let dynStatus =
-          mkStatus
-            <$> _inputEl_value searchStrInput
-            <*> (fmap fst <$> dynSelection)
-            <*> hasFocusDyn
-
-    let dynStatusFull = dynError <> _inputConfig_status cfg <> dynStatus
-
-    let comboVal =
-          ComboboxValue
-            <$> (fmap fst <$> dynSelection)
-            <*> _inputEl_value searchStrInput
-    comboValUniq <- holdUniqDyn comboVal
-
-  pure (InputEl comboValUniq hasFocusDyn inputEls, dynStatusFull)
+    pure (InputEl comboValUniq hasFocusDyn inputEls, dynStatusFull, reqEv)
  where
   fillOnSetOpts curSearchText setOpts
     | _ms_totalCount setOpts == Just 0
@@ -552,7 +579,7 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
   mkCurrentCls True  = Map.singleton "class" "option active"
 
   mkDatalistAttr isOpen =
-    Map.singleton "class" ("combobox-menu" <> if isOpen then " open" else "")
+    Map.singleton "class" ("combobox-menu" <> if isOpen then "" else " closed")
       <> idAttr (_inputConfig_id cfg <> "-datalist")
 
   arrowKeys = [13, 38, 40]
