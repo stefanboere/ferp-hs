@@ -42,10 +42,10 @@ revisionLinks dynUri = safelinkGroup
   (text "Revisions")
   [safelink dynUri transactionLink $ text "Transactions"]
 
-revisionHandler :: WidgetConstraint js t m => RouteT RevisionApi m (Event t URI)
+revisionHandler :: WidgetConstraint t m => RouteT RevisionApi m (Event t URI)
 revisionHandler = transactionHandler
 
-transactionHandler :: WidgetConstraint js t m => m (Event t URI)
+transactionHandler :: WidgetConstraint t m => m (Event t URI)
 transactionHandler = do
   el "h1" $ text "Transactions"
 

@@ -452,7 +452,7 @@ deleteListButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -483,7 +483,7 @@ getListButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -571,7 +571,7 @@ browseForm
   :: ( DomBuilder t m
      , PostBuild t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , MonadIO (Performable m)
      , TriggerEvent t m

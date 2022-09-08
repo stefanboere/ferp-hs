@@ -133,13 +133,13 @@ type GetListLabels be t
 type Get_ t = CaptureId t :> Get' (t Identity)
 
 -- | Regular patch requests
-type Patch_ t = CaptureId t :> Req' (t Last) :> Patch_'
+type Patch_ t = CaptureId t :> Req' (t Last) :> PatchNoContent
 
 -- | Regular put requests
-type Put_ t = CaptureId t :> Req' (t Identity) :> Put_'
+type Put_ t = CaptureId t :> Req' (t Identity) :> PutNoContent
 
 -- | Regular delete requests
-type Delete_ t = CaptureId t :> Delete_'
+type Delete_ t = CaptureId t :> DeleteNoContent
 
 -- | Delete list requests
 type DeleteList_ be t

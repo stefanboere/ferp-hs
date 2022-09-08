@@ -52,9 +52,6 @@ instance FromDhall Frontend.Config where
 instance FromDhall Config where
   autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
-instance FromDhall Int where
-  autoWith cfg = fromInteger <$> autoWith cfg
-
 -- | Convenient type alias
 type AppServer api = ServerT api App
 

@@ -27,7 +27,7 @@
     };
 
     reflex-dom-contrib = {
-      url = "github:reflex-frp/reflex-dom-contrib";
+      url = "github:typeable/reflex-dom-contrib";
       flake = false;
     };
 
@@ -37,7 +37,8 @@
     };
 
     reflex-platform = {
-      url = "github:reflex-frp/reflex-platform";
+      # TODO move back to the main branch after nixpkgs-21.05 is merged
+      url = "github:reflex-frp/reflex-platform/nixpkgs-21.05";
       flake = false;
     };
 

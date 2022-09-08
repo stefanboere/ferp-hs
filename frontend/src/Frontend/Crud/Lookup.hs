@@ -86,7 +86,7 @@ lookupInput
      , TriggerEvent t m
      , PerformEvent t m
      , MonadIO (Performable m)
-     , Prerender js t m
+     , Prerender t m
      , Ord (PrimaryKey a Identity)
      , EventWriter t (Last URI) m
      , Requester t (Prerender.Client m)
@@ -256,7 +256,7 @@ editFk
      , Ord (PrimaryKey b Identity)
      , PerformEvent t m
      , PostBuild t m
-     , Prerender js t m
+     , Prerender t m
      , TriggerEvent t m
      , Beamable (PrimaryKey b)
      , Monoid (PrimaryKey b Last)

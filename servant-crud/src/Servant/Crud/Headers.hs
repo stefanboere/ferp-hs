@@ -35,7 +35,7 @@ import           Data.Semigroup                 ( Min(..) )
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           GHC.Generics                   ( Generic )
-import           Network.HTTP.Link              ( Link(..)
+import           Network.HTTP.Link              ( IsURI, Link(..)
                                                 , parseLinkHeader'
                                                 , parseLinkHeaderBS'
                                                 )
@@ -135,11 +135,11 @@ instance FromHttpApiData Offset where
 instance ToHttpApiData Offset where
   toUrlPiece = toUrlPiece . unOffset
 
-instance FromHttpApiData [Link] where
+instance IsURI uri => FromHttpApiData [Link uri] where
   parseUrlPiece = either (Left . Text.pack) Right . parseLinkHeader'
   parseHeader   = either (Left . Text.pack) Right . parseLinkHeaderBS'
 
-instance FromHttpApiData Link where
+instance IsURI uri => FromHttpApiData (Link uri) where
   parseUrlPiece r =
     parseUrlPiece r >>= maybe (Left "No link found") Right . listToMaybe
   parseHeader r =

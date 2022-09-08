@@ -87,7 +87,7 @@ codeInput
   :: ( MonadHold t m
      , DomBuilder t m
      , PostBuild t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      )
   => CodeInputConfig t m Text
@@ -302,7 +302,7 @@ markdownInput
   :: ( MonadHold t m
      , DomBuilder t m
      , PostBuild t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      )
   => CodeInputConfig t m Text
@@ -324,7 +324,7 @@ markdownInputWithPreview
      , TriggerEvent t m
      , PerformEvent t m
      , MonadIO (Performable m)
-     , Prerender js t m
+     , Prerender t m
      )
   => SyntaxMap
   -> CodeInputConfig t m Text

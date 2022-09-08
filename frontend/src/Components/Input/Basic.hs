@@ -1279,7 +1279,7 @@ checkboxInputSimple' setAttrs initOpen setOpen attrs = do
   pure (_inputElement_checked r)
 
 multiSelectInput
-  :: forall t m a js
+  :: forall t m a
    . ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
@@ -1287,7 +1287,7 @@ multiSelectInput
      , Enum a
      , Bounded a
      , Ord a
-     , Prerender js t m
+     , Prerender t m
      )
   => ClientEnumInputConfig t m (Set a)
   -> m (DomInputEl t m (Set a))

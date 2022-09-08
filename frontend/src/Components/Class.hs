@@ -76,7 +76,7 @@ absoluteBlock = do
 spantext :: (PostBuild t m, DomBuilder t m) => Dynamic t Text -> m ()
 spantext = el "span" . dynText
 
-type WidgetConstraint js t m
+type WidgetConstraint t m
   = ( MonadFix m
     , DomBuilder t m
     , PostBuild t m
@@ -84,7 +84,7 @@ type WidgetConstraint js t m
     , PerformEvent t m
     , MonadHold t m
     , MonadIO (Performable m)
-    , Prerender js t m
+    , Prerender t m
     )
 
 -- | A subset of a map of known or unknown size.

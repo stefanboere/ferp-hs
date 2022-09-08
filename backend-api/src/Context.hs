@@ -52,7 +52,6 @@ import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
 import           Database.Beam.Postgres
 import           Dhall                   hiding ( maybe )
-import           GHC.Word                       ( Word16 )
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS        ( tlsManagerSettings )
 import qualified Network.URI                   as Network
@@ -91,12 +90,6 @@ instance FromDhall Network.URI where
    where
     go :: Text -> Network.URI
     go = fromMaybe (error "") . Network.parseURI . Text.unpack
-
-instance FromDhall Word16 where
-  autoWith cfg = fromInteger <$> autoWith cfg
-
-instance FromDhall Int where
-  autoWith cfg = fromInteger <$> autoWith cfg
 
 newtype CorsOrigins = CorsOrigins { unCorsOrigins :: [Origin] }
 
@@ -200,7 +193,7 @@ runDBinIO cfg query = do
 -- | Discover the JWK keys of the openid connect provider
 discoverJWKs :: URI -> IO Jose.JWKSet
 discoverJWKs uri = do
-  manager <- newManager tlsManagerSettings
+  manager <- Network.HTTP.Client.newManager tlsManagerSettings
 
   cfgReq  <- requestFromURI uri
     { uriPath = uriPath uri <> ".well-known/openid-configuration"

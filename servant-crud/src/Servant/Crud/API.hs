@@ -17,9 +17,6 @@ module Servant.Crud.API
   -- * Verbs without content
   -- | These all end with '_', indicating no content. The types are opiniated.
   , Post_'
-  , Delete_'
-  , Put_'
-  , Patch_'
   -- * Other
   , View'(..)
   , Page(..)
@@ -58,7 +55,7 @@ type TotalHdr = Header "X-Total-Count" TotalCount
 
 type OffsetHdr = Header "X-Offset" Offset
 
-type LinkHdr = Header "Link" Link
+type LinkHdr = Header "Link" (Link URI)
 
 type LocationHdr = Header "Location" PathInfo
 
@@ -78,15 +75,6 @@ type ReqCSV' = ReqBody '[JSON , CSV]
 
 -- | Empty response with status 201 with the link of the just created resource in the Location header
 type Post_' a = PostCreated '[JSON] (Headers '[LocationHdr] a)
-
--- | 'DELETE' status 204
-type Delete_' = DeleteNoContent '[JSON] NoContent
-
--- | 'PUT' status 204
-type Put_' = PutNoContent '[JSON] NoContent
-
--- | 'PATCH' status 204
-type Patch_' = PatchNoContent '[JSON] NoContent
 
 -- | All user supplied info about the results they want
 data View' c r filterType = View

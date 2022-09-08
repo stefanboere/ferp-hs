@@ -99,7 +99,7 @@ import           Frontend.Context               ( AppT, showClientError )
 import           Reflex.Dom.Ace                 ( AceConfig )
 
 replaceLocation
-  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  :: (TriggerEvent t m, PerformEvent t m, Prerender t m)
   => Event t L.Link
   -> m ()
 replaceLocation lEv = replaceLocationUri $ L.linkURI <$> lEv
@@ -116,7 +116,7 @@ encodeUri _path0 uri0 =
 #endif
 
 replaceLocationUri
-  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  :: (TriggerEvent t m, PerformEvent t m, Prerender t m)
   => Event t L.URI
   -> m ()
 replaceLocationUri lEv = prerender_ (pure ()) $ do
@@ -151,7 +151,7 @@ triStateBtn ico (x, xing, xed) stateDyn =
   stateText ActionSuccess   = xed
   stateText ActionDisabled  = xed
 
-backBtn :: (PostBuild t m, DomBuilder t m, Prerender js t m) => Text -> m ()
+backBtn :: (PostBuild t m, DomBuilder t m, Prerender t m) => Text -> m ()
 backBtn lbl = do
   ev <-
     btn def { _buttonConfig_priority = ButtonSecondary }
@@ -388,7 +388,7 @@ markdownEditor
      , PostBuild t m
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => Editor (Const AceConfig) t m (Maybe Text)
 markdownEditor = nullIfMempty $ Editor { _edit_editor      = markdownInput
@@ -420,7 +420,7 @@ requiredEditor e = e { _edit_editor = requiredInput (_edit_editor e) }
 
 
 orAlertF
-  :: ( Prerender js t m
+  :: ( Prerender t m
      , DomBuilder t m
      , PostBuild t m
      , MonadHold t m
@@ -434,18 +434,18 @@ orAlertF getResultEv = do
   alerts def { _alertConfig_status = Danger } (showError <$> errEv)
   pure rEv
 
-showError :: (Applicative m, Prerender js t m) => ClientError -> (Text, m ())
+showError :: (Applicative m, Prerender t m) => ClientError -> (Text, m ())
 showError =
   fmap (\statusI -> if statusI == Just 401 then reloadAction else pure ())
     . showClientError
 
-reloadAction :: (Applicative m, Prerender js t m) => m ()
+reloadAction :: (Applicative m, Prerender t m) => m ()
 reloadAction = prerender_ (pure ()) $ do
   loc <- getLocationAfterHost
   elAttr "a" ("href" =: loc) (text "Reload page")
 
 orAlert
-  :: ( Prerender js t m
+  :: ( Prerender t m
      , DomBuilder t m
      , PostBuild t m
      , MonadHold t m
@@ -458,7 +458,7 @@ orAlert resultEv = orAlertF (pure resultEv)
 requestBtn
   :: ( DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m

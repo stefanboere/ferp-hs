@@ -116,7 +116,7 @@ type AppT t m
   = EventWriterT t [GlobalAlert] (ReaderT (AppConfig t) (ApiWidget t m))
 
 runAppT
-  :: (PostBuild t m, MonadHold t m, MonadFix m, Prerender js t m)
+  :: (PostBuild t m, MonadHold t m, MonadFix m, Prerender t m)
   => Config
   -> AppT t m a
   -> m (a, Event t [GlobalAlert])

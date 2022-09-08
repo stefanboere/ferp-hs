@@ -54,7 +54,7 @@ coreLinks dynUri = safelinkGroup
   ]
 
 
-coreHandler :: WidgetConstraint js t m => RouteT CoreApi m (Event t URI)
+coreHandler :: WidgetConstraint t m => RouteT CoreApi m (Event t URI)
 coreHandler = coreButton :<|> coreAlert :<|> coreProgress :<|> coreTag
 
 coreAlert :: (DomBuilder t m, PostBuild t m) => m (Event t URI)

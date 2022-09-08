@@ -196,15 +196,15 @@
     "reflex-dom-contrib": {
       "flake": false,
       "locked": {
-        "lastModified": 1614209912,
-        "narHash": "sha256-Ah/lCpGtNMgEUEFQuDXs+tyokJaSZs+pgnwrLTz5IuM=",
-        "owner": "reflex-frp",
+        "lastModified": 1653899170,
+        "narHash": "sha256-PWfyjBLRpmxpu/4RsgpqoXDcPEforj7CB2s+iVCli9s=",
+        "owner": "typeable",
         "repo": "reflex-dom-contrib",
-        "rev": "09d1223a3eadda768a6701410b4532fda8c7033d",
+        "rev": "a30e6ec48dd5f020f577ed2c5f10d7c25db0e76b",
         "type": "github"
       },
       "original": {
-        "owner": "reflex-frp",
+        "owner": "typeable",
         "repo": "reflex-dom-contrib",
         "type": "github"
       }
@@ -212,11 +212,11 @@
     "reflex-dom-pandoc": {
       "flake": false,
       "locked": {
-        "lastModified": 1641059345,
-        "narHash": "sha256-AAJX2qaZ2KYkmJ+x1P0YffSVYUdV5QyBQT7mX4G4USU=",
+        "lastModified": 1662568615,
+        "narHash": "sha256-AFptdd9xOumsdxOqh+BP1ZmgsEWJPIroNwENm4ccIOU=",
         "owner": "stefanboere",
         "repo": "reflex-dom-pandoc",
-        "rev": "dd70b1d8af883dd91f1b402fbca13a82afde0c66",
+        "rev": "6560fd1d8c712efce922d99369c28c410f7af974",
         "type": "github"
       },
       "original": {
@@ -229,15 +229,16 @@
     "reflex-platform": {
       "flake": false,
       "locked": {
-        "lastModified": 1631565478,
-        "narHash": "sha256-jBMaISXFhn1HEOybe2kGFpOGF9i8hd1sZpbTtThHXN4=",
+        "lastModified": 1662470584,
+        "narHash": "sha256-op15LkU1L9kSJKNofgmVt0WzxyvsGti2Uux8yHSqya4=",
         "owner": "reflex-frp",
         "repo": "reflex-platform",
-        "rev": "2df765f73e7e638a795508a2fb67b98e9f3bbf7d",
+        "rev": "bcc0e5cf02fdbf603c66d8a0cc8589e4d5873a53",
         "type": "github"
       },
       "original": {
         "owner": "reflex-frp",
+        "ref": "nixpkgs-21.05",
         "repo": "reflex-platform",
         "type": "github"
       }

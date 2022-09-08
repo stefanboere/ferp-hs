@@ -65,7 +65,7 @@ containerLinks dynUri = safelinkGroup
   ]
 
 containerHandler
-  :: WidgetConstraint js t m => RouteT ContainerApi m (Event t URI)
+  :: WidgetConstraint t m => RouteT ContainerApi m (Event t URI)
 containerHandler =
   containerAccordion
     :<|> containerCard
@@ -285,7 +285,7 @@ containerTable
      , PostBuild t m
      , MonadHold t m
      , DomBuilder t m
-     , Prerender js t m
+     , Prerender t m
      )
   => m (Event t URI)
 containerTable = do
@@ -368,7 +368,7 @@ containerTable = do
   quickFilter = withFilterCondition [minBound .. maxBound] def
     $ \_ _ -> textInput (inputConfig "" "")
 
-containerTimeline :: WidgetConstraint js t m => m (Event t URI)
+containerTimeline :: WidgetConstraint t m => m (Event t URI)
 containerTimeline = do
   el "h1" $ text "Timeline"
   timeline timelineSteps

@@ -73,7 +73,7 @@ library
     , servant-ac-server
     , servant-auth-server
     , servant-crud-server
-    , servant-rawm
+    , servant-rawm-server
     , servant-server
     , text
     , time

@@ -46,10 +46,10 @@ fileDropzoneStyle = ".dropzone" ? do
 
 
 fileDropzone
-  :: forall t m js
+  :: forall t m
    . ( PostBuild t m
      , DomBuilder t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , MonadHold t m
      )

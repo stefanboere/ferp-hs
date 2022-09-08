@@ -76,7 +76,7 @@ elLaTeXM
      , PostBuild t m
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => Dynamic t (LaTeXM ())
   -> m ()
@@ -87,7 +87,7 @@ elLaTeX
      , PostBuild t m
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => Dynamic t LaTeX
   -> m ()
@@ -122,7 +122,7 @@ renderLaTeX
      , MonadFix m
      , MonadHold t m
      , MonadReader (Dynamic t (Map MetadataTag Text)) m
-     , Prerender js t m
+     , Prerender t m
      )
   => Dynamic t (DSum LaTeXTag Identity)
   -> m ()
@@ -162,7 +162,7 @@ renderLaTeXF
      , MonadFix m
      , MonadHold t m
      , MonadReader (Dynamic t (Map MetadataTag Text)) m
-     , Prerender js t m
+     , Prerender t m
      )
   => DSum LaTeXTag (Compose (Dynamic t) Identity)
   -> m ()
@@ -184,7 +184,7 @@ renderLaTeXF = \case
   TeXEmptyTag :=> Compose _ -> blank
 
 renderMath
-  :: (DomBuilder t m, Prerender js t m)
+  :: (DomBuilder t m, Prerender t m)
   => Dynamic t MathType
   -> Dynamic t LaTeX
   -> m ()
@@ -267,7 +267,7 @@ renderEnvDyn
      , MonadFix m
      , MonadHold t m
      , MonadReader (Dynamic t (Map MetadataTag Text)) m
-     , Prerender js t m
+     , Prerender t m
      )
   => Dynamic t (String, [TeXArg], DSum LaTeXTag Identity)
   -> m ()
@@ -296,7 +296,7 @@ renderEnv
      , MonadFix m
      , MonadHold t m
      , MonadReader (Dynamic t (Map MetadataTag Text)) m
-     , Prerender js t m
+     , Prerender t m
      )
   => DSum EnvTag (Compose (Dynamic t) Identity)
   -> m ()

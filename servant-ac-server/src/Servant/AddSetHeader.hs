@@ -60,6 +60,9 @@ type instance AddSetHeaderApi sym t (a :<|> b)
   = AddSetHeaderApi sym t a :<|> AddSetHeaderApi sym t b
 type instance AddSetHeaderApi sym t (Verb method stat ctyps a)
   = Verb method stat ctyps (AddSetHeaderApiVerb sym t a)
+-- See https://github.com/haskell-servant/servant/issues/1267
+type instance AddSetHeaderApi sym t (NoContentVerb method)
+  = Verb method 204 '[JSON] (AddSetHeaderApiVerb sym t NoContent)
 type instance AddSetHeaderApi sym t Raw = Raw
 type instance AddSetHeaderApi sym t (Stream method stat framing ctyps a)
   = Stream method stat framing ctyps (AddSetHeaderApiVerb sym t a)
@@ -101,14 +104,14 @@ instance {-# OVERLAPS #-}
 -- | for @servant <0.11@
 instance
   AddSetHeaders ('(sym, t) ': xs) Application Application where
-  addSetHeaders cookies r request respond =
-    r request $ respond . mapResponseHeaders (++ mkHeaders cookies)
+  addSetHeaders cookies r request respnd =
+    r request $ respnd . mapResponseHeaders (++ mkHeaders cookies)
 
 -- | for @servant >=0.11@
 instance
   AddSetHeaders ('(sym, t) ': xs) (Tagged m Application) (Tagged m Application) where
-  addSetHeaders cookies r = Tagged $ \request respond ->
-    unTagged r request $ respond . mapResponseHeaders (++ mkHeaders cookies)
+  addSetHeaders cookies r = Tagged $ \request respnd ->
+    unTagged r request $ respnd . mapResponseHeaders (++ mkHeaders cookies)
 
 mkHeaders :: SetHeaderList xs -> [HTTP.Header]
 mkHeaders SetHeaderNil                   = []

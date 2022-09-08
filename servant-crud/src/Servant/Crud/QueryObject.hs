@@ -557,7 +557,7 @@ instance (HasLink api, ToQueryText v, KnownSymbol sym)
     toParam (x, Just y ) = SingleParam (Text.unpack x) y
 
     addQueryParam :: Param -> Link -> Link
-    addQueryParam qp lk = mkLink (segments lk) (qp : linkQueryParams lk)
+    addQueryParam qp lk = mkLink (segments lk) (qp : linkQueryParams lk) (linkFragment lk)
 
     -- I just wanted to use addQueryParam, even though it is unexported
     -- Here is how, see the package true-name

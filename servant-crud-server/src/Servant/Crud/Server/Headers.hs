@@ -186,7 +186,7 @@ instance ToSample t => ToSample (ExceptLimited t) where
 
 instance ToSchema t => ToSchema (ExceptLimited t)
 
-instance ToSample Link where
+instance ToSample (Link URI) where
   toSamples _ =
     [ ( "A link to the next page"
       , Link (example_com "?limit=10&offset=30") [(Rel, "next")]
@@ -200,7 +200,7 @@ instance ToSample Link where
     example_com q =
       URI "http:" (Just (URIAuth "" "www.example.com" "")) "/users" q ""
 
-instance ToParamSchema Link where
+instance ToParamSchema (Link uri) where
   toParamSchema _ = mempty -- TODO
 
 -- | Add Link headers based on the limit, offset, and other query parameters, such as
@@ -210,7 +210,7 @@ instance ToParamSchema Link where
 --
 -- If the offet is 'Just 0'  or 'Nothing', then only a link to the next page is added.
 hLink
-  :: (AddHeader "Link" Link orig new, AddHeader "Link" Link new new2)
+  :: (AddHeader "Link" (Link URI) orig new, AddHeader "Link" (Link URI) new new2)
   => PathInfo
   -> QueryText
   -> Page
@@ -222,7 +222,7 @@ hLink path qs (Page moff mlim) = opt $ do
   url <- parseRelativeReference . Text.unpack $ toUrlPiece path
   pure $ mkLink lim off url
  where
-  mkLink :: Integer -> Integer -> URI -> (Link, Maybe Link)
+  mkLink :: Integer -> Integer -> URI -> (Link URI, Maybe (Link URI))
   mkLink lim off url =
     ( Link (url { uriQuery = mkQuery lim (off + lim) }) [(Rel, "next")]
     , if off > 0
@@ -247,8 +247,8 @@ hLink path qs (Page moff mlim) = opt $ do
     ]
 
   opt
-    :: (AddHeader "Link" Link orig new, AddHeader "Link" Link new new2)
-    => Maybe (Link, Maybe Link)
+    :: (AddHeader "Link" (Link URI) orig new, AddHeader "Link" (Link URI) new new2)
+    => Maybe (Link URI, Maybe (Link URI))
     -> orig
     -> new2
   opt Nothing             = noHeader . noHeader
@@ -263,8 +263,8 @@ hLink path qs (Page moff mlim) = opt $ do
 -- If the offet is 'Just 0'  or 'Nothing', then only a link to the next page is added.
 hLink'
   :: forall orig new new2 c r t
-   . ( AddHeader "Link" Link orig new
-     , AddHeader "Link" Link new new2
+   . ( AddHeader "Link" (Link URI) orig new
+     , AddHeader "Link" (Link URI) new new2
      , ToQueryText (View' c r t)
      )
   => PathInfo
@@ -296,8 +296,8 @@ hOffset _        = noHeader
 -- | Link header and total count header
 hTotalLink'
   :: forall orig new new2 new3 new4 c r t
-   . ( AddHeader "Link" Link orig new
-     , AddHeader "Link" Link new new2
+   . ( AddHeader "Link" (Link URI) orig new
+     , AddHeader "Link" (Link URI) new new2
      , AddHeader "X-Total-Count" TotalCount new2 new3
      , AddHeader "X-Offset" Offset new3 new4
      , ToQueryText (View' c r t)

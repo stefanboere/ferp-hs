@@ -78,7 +78,7 @@ inputLinks dynUri = safelinkGroup
   , safelink dynUri inputTimeLink $ text "Time"
   ]
 
-inputHandler :: WidgetConstraint js t m => RouteT InputApi m (Event t URI)
+inputHandler :: WidgetConstraint t m => RouteT InputApi m (Event t URI)
 inputHandler =
   basicHandler
     :<|> checkboxHandler
@@ -249,7 +249,7 @@ comboboxHandler
      , DomBuilder t m
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => m (Event t URI)
 comboboxHandler = do
@@ -378,7 +378,7 @@ fileHandler
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      )
   => m (Event t URI)
 fileHandler = do
@@ -489,7 +489,7 @@ printDomain Dev = text ".dev"
 printDomain Com = text ".com"
 printDomain Org = text ".org"
 
-markdownHandler :: WidgetConstraint js t m => m (Event t URI)
+markdownHandler :: WidgetConstraint t m => m (Event t URI)
 markdownHandler = do
   _ <- markdownInput
     (inputConfig'
@@ -625,7 +625,7 @@ selectHandler
      , DomBuilder t m
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => m (Event t URI)
 selectHandler = do

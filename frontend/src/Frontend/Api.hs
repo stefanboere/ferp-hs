@@ -35,7 +35,7 @@ usingCookie :: Token
 usingCookie = Token ""
 
 refreshAccessTokenEvery
-  :: (Applicative m, Prerender js t m) => NominalDiffTime -> m ()
+  :: (Applicative m, Prerender t m) => NominalDiffTime -> m ()
 refreshAccessTokenEvery interval = prerender_ (pure ()) $ do
   tickEv <- tickLossyFromPostBuildTime interval
   refreshAccessTokenXhr (() <$ tickEv)
@@ -44,7 +44,6 @@ refreshAccessTokenXhr
   :: ( MonadIO m
      , MonadJSM (Performable m)
      , PerformEvent t m
-     , HasJSContext (Performable m)
      , TriggerEvent t m
      )
   => Event t ()

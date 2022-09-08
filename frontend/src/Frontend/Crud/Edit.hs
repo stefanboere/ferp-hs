@@ -60,7 +60,7 @@ getButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -84,7 +84,7 @@ deleteButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -110,7 +110,7 @@ postButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -136,7 +136,7 @@ patchButton
   :: ( PostBuild t m
      , DomBuilder t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , PerformEvent t m
      , TriggerEvent t m
@@ -227,7 +227,7 @@ editPrimaryKey setPk initPk setPkEv = Compose $ do
 
 -- | Read the primary key from the post response and update the location
 applyPkFromPostResponse
-  :: (TriggerEvent t m, PerformEvent t m, Prerender js t m)
+  :: (TriggerEvent t m, PerformEvent t m, Prerender t m)
   => (env -> c -> Link)
   -> Dynamic t (Maybe env)
   -> Event t (Headers '[LocationHdr] c)
@@ -273,7 +273,7 @@ editForm
   :: ( DomBuilder t m
      , PostBuild t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , TriggerEvent t m
      , MonadIO (Performable m)

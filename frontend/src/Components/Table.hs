@@ -335,7 +335,7 @@ tableEl :: DomBuilder t m => m a -> m a
 tableEl = tableAttr Map.empty
 
 datagrid
-  :: (DomBuilder t m, Prerender js t m)
+  :: (DomBuilder t m, Prerender t m)
   => Int
   -> (Dynamic t (Maybe Double) -> m a)
   -> m a
@@ -808,7 +808,7 @@ datagridDyn
      , MonadHold t m
      , PostBuild t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => DatagridConfig t m a f k0 k r
   -> m (DatagridResult t a f k r)
@@ -997,7 +997,7 @@ virtualList'
      , MonadHold t m
      , MonadFix m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => Dynamic t Int -- ^ A 'Dynamic' of the visible region's height in pixels
   -> Int -- ^ The fixed height of each row in pixels
@@ -1079,7 +1079,7 @@ virtualListBuffered'
   :: ( DomBuilder t m
      , PostBuild t m
      , MonadHold t m
-     , Prerender js t m
+     , Prerender t m
      , MonadFix m
      , Ord k
      )

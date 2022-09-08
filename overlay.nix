@@ -53,46 +53,47 @@ let
         inherit keycloak-config-cli;
         inherit (pkgs.xorg) libX11 libXcursor libXi libXrandr;
         inherit (pkgs-unstable.nodePackages) http-server;
+
+        # This is because resolv is overridden and otherwise the original version is still used
+        cabal-install = pkgs.haskellPackages.cabal-install;
       };
 
       overrides = with pkgs.haskell.lib;
         self: super: {
-          # Prevents ghcjs build being stuck, see reflex-platform#717
-          mmorph = self.callHackage "mmorph" "1.1.3" { };
-          clay = self.callHackage "clay" "0.13.3" { };
+          backend = justStaticExecutables super.backend;
+          backend-api = justStaticExecutables super.backend-api;
+
           reflex-dom-ace =
-            self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { };
-          reflex-dom-contrib = doJailbreak
-            (self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
-          oidc-client =
-            dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
+            doJailbreak (self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { });
+          reflex-dom-contrib = doJailbreak (
+              self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
           servant-subscriber =
             self.callCabal2nix "servant-subscriber" servant-subscriber { };
           reflex-dom-core = disableCabalFlag
             (disableCabalFlag super.reflex-dom-core "hydration-tests")
             "gc-tests";
-
           reflex-dom-pandoc =
             self.callCabal2nix "reflex-dom-pandoc" reflex-dom-pandoc { };
-          servant-aeson-specs =
-            dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
+
+          unicode-data = self.callHackage "unicode-data" "0.1.0.1" { };
+          streamly = self.callHackage "streamly" "0.8.1" { };
+          curryer-rpc = self.callHackage "curryer-rpc" "0.2" { };
+
+          TeX-my-math = dontCheck super.TeX-my-math;
+          decimal-literals = unmarkBroken super.decimal-literals;
+          haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.0" { });
+          http-link-header = doJailbreak super.http-link-header;
+          modern-uri = self.callHackage "modern-uri" "0.3.4.0" { };
+          oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
+          project-m36 = dontCheck (self.callHackage "project-m36" "0.9.4" { });
+          resolv = self.callHackage "resolv" "0.1.1.3" { };
+          servant-aeson-specs = dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
           servant-docs = dontCheck super.servant-docs;
-          servant-quickcheck =
-            self.callHackage "servant-quickcheck" "0.0.7.4" { };
-          dhall = doJailbreak (super.dhall);
-
-          monoid-subclasses =
-            self.callHackage "monoid-subclasses" "0.4.6.1" { };
-
-          generic-aeson = doJailbreak (unmarkBroken super.generic-aeson);
+          servant-ekg = dontCheck (unmarkBroken super.servant-ekg);
+          servant-quickcheck = dontCheck ( self.callHackage "servant-quickcheck" "0.0.10.0" { });
           true-name = doJailbreak (unmarkBroken super.true-name);
-          servant-server = dontCheck super.servant-server;
-          dumb-cas = self.callHackage "dumb-cas" "0.2.0.0" { };
-          TeX-my-math =
-            dontCheck (self.callHackage "TeX-my-math" "0.201.2.0" { });
-
-          backend = justStaticExecutables super.backend;
-          backend-api = justStaticExecutables super.backend-api;
+          universe-base = doJailbreak super.universe-base;
+          vector-binary-instances = self.callHackage "vector-binary-instances" "0.2.5.1" { };
         };
     });
 

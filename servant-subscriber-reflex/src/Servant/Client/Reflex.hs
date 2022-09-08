@@ -91,7 +91,7 @@ fromXhrResponse XhrResponse {..} = C.Response
 type ApiEndpoint = Text
 
 performXhrRequests
-  :: (Prerender js t m, Applicative m)
+  :: (Prerender t m, Applicative m)
   => ApiEndpoint
   -> (forall a . XhrRequest a -> Performable (Client m) (XhrRequest a))
   -> Event t (RequesterData (Free ClientF))
@@ -105,7 +105,7 @@ performXhrRequests apiUrl patchReq req =
 
 apiRequestXhr
   :: forall m
-   . (MonadIO m, HasJSContext m, MonadJSM m)
+   . (MonadIO m, MonadJSM m)
   => ApiEndpoint
   -> (forall a . XhrRequest a -> m (XhrRequest a))
   -> RequesterData (Free ClientF)
@@ -124,7 +124,7 @@ apiRequestXhr apiUrl patchReq = traverseRequesterData mkRequest
       pure $ hoistPure . k . fromXhrResponse $ xhrResp
 
 runApiWidgetXhr
-  :: (Prerender js t m, MonadHold t m, MonadFix m)
+  :: (Prerender t m, MonadHold t m, MonadFix m)
   => ApiEndpoint
   -> (forall b . XhrRequest b -> Performable (Client m) (XhrRequest b))
   -> ApiWidget t m a

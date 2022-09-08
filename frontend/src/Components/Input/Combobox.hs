@@ -121,13 +121,13 @@ instance Functor ComboboxValue where
   fmap f x = x { _cb_selection = f (_cb_selection x) }
 
 comboboxInput
-  :: forall t m k js
+  :: forall t m k
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => (Dynamic t k -> Dynamic t Text -> Client m ())
   -> Map k Text
@@ -206,13 +206,13 @@ comboboxInputWrapper before' cbInput = do
   mkCls x             = colorCls x
 
 comboboxInputKS
-  :: forall t m k b js
+  :: forall t m k b
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => m b
   -> (Dynamic t k -> Dynamic t Text -> Client m ())
@@ -235,13 +235,13 @@ comboboxInputKS before' showOpt initOpts mkSetOptsEv cfg = comboboxInputWrapper
   )
 
 comboboxInputKS'
-  :: forall t m k b js
+  :: forall t m k b
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => m b
   -> Event t (ComboboxValue (Maybe k))
@@ -261,13 +261,13 @@ comboboxInputKS' before' setDynSelection showOpt initOpts mkSetOptsEv cfg =
     (comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg)
 
 comboboxInputRawInput
-  :: forall t m k js
+  :: forall t m k
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => Event t (ComboboxValue (Maybe k))
   -> (Dynamic t k -> Dynamic t Text -> Client m ())
@@ -297,13 +297,13 @@ comboboxInputRawInput setDynSelection showOpt initOpts mkSetOptsEv cfg = do
 
 
 comboboxInputRawInput'
-  :: forall t m k js
+  :: forall t m k
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => Event t (ComboboxValue (Maybe k))
   -> (Dynamic t k -> Dynamic t Text -> Client m ())
@@ -596,7 +596,7 @@ altSelectInput'
      , Ord a
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => (a -> Text)
   -> InputConfig' (OpElem (Client m)) t m (Maybe a)
@@ -619,20 +619,20 @@ altSelectInput
      , Show a
      , MonadHold t m
      , MonadFix m
-     , Prerender js t m
+     , Prerender t m
      )
   => InputConfig' (OpElem (Client m)) t m (Maybe a)
   -> m (DomInputEl t m (Maybe a))
 altSelectInput = altSelectInput' (Text.pack . show)
 
 multiComboboxInput
-  :: forall t m k js
+  :: forall t m k
    . ( PostBuild t m
      , DomBuilder t m
      , MonadFix m
      , MonadHold t m
      , Ord k
-     , Prerender js t m
+     , Prerender t m
      )
   => (Dynamic t k -> Dynamic t Text -> Client m ())
   -> Map k Text

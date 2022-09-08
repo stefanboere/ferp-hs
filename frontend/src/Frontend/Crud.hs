@@ -95,7 +95,7 @@ crudLinks dynUri = safelinkGroupAuth
   ]
 
 crudHandler
-  :: WidgetConstraint js t m => RouteT CrudApi (AppT t m) (Event t URI)
+  :: WidgetConstraint t m => RouteT CrudApi (AppT t m) (Event t URI)
 crudHandler =
   (blogsHandler :<|> blogEdit Nothing :<|> (blogEdit . Just))
     :<|> (channelsHandler :<|> channelEdit Nothing :<|> (channelEdit . Just))
@@ -116,7 +116,7 @@ safelinkAuth dynLoc mkLnk cnt = do
   safelinkAuth' usr dynLoc mkLnk cnt
 
 browseFormAuth
-  :: ( WidgetConstraint js t m
+  :: ( WidgetConstraint t m
      , Table a
      , Ord (PrimaryKey a Identity)
      , Eq (a Filter)
@@ -129,7 +129,7 @@ browseFormAuth cfg vw = do
   browseForm usr cfg vw
 
 editFormAuth
-  :: ( WidgetConstraint js t m
+  :: ( WidgetConstraint t m
      , Beamable a
      , FieldsFulfillConstraint Eq a
      , Eq (a Identity)
@@ -148,7 +148,7 @@ editFormAuth cfg editor initPk = do
   editForm usr cfg (editor usr) initPk
 
 blogsHandler
-  :: (WidgetConstraint js t m)
+  :: (WidgetConstraint t m)
   => Api.View Api.Be BlogN
   -> AppT t m (Event t URI)
 blogsHandler = browseFormAuth BrowseFormConfig
@@ -170,7 +170,7 @@ blogsHandler = browseFormAuth BrowseFormConfig
   }
   where unBlogId (BlogId x) = x
 
-blogEdit :: WidgetConstraint js t m => Maybe BlogNId -> AppT t m (Event t URI)
+blogEdit :: WidgetConstraint t m => Maybe BlogNId -> AppT t m (Event t URI)
 blogEdit = editFormAuth cfg $ \usr modBlogEv ->
   el "form"
     $    getCompose
@@ -240,7 +240,7 @@ blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")
 
 
 channelsHandler
-  :: (WidgetConstraint js t m)
+  :: (WidgetConstraint t m)
   => Api.View Api.Be ChannelT
   -> AppT t m (Event t URI)
 channelsHandler = browseFormAuth BrowseFormConfig
@@ -262,7 +262,7 @@ channelsHandler = browseFormAuth BrowseFormConfig
 
 
 channelEdit
-  :: WidgetConstraint js t m => Maybe ChannelId -> AppT t m (Event t URI)
+  :: WidgetConstraint t m => Maybe ChannelId -> AppT t m (Event t URI)
 channelEdit = editFormAuth cfg $ \_ modBlogEv ->
   el "form"
     $    getCompose

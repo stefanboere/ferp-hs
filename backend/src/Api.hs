@@ -32,7 +32,7 @@ import           Reflex.Dom
 import           Servant                 hiding ( URI(..) )
 import           Servant.Crud.Server.QueryObject
                                                 ( )
-import           Servant.RawM                  as RawM
+import           Servant.RawM.Server           as RawM
 import           Servant.Router
 import           URI.ByteString
 

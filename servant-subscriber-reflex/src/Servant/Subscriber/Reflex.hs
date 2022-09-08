@@ -158,7 +158,7 @@ data MultipleRequestsException = MultipleRequestsException
 instance Exception MultipleRequestsException
 
 performWebSocketRequests
-  :: (Prerender js t m, Applicative m)
+  :: (Prerender t m, Applicative m)
   => WebSocketEndpoint
   -> Event t (RequesterData FreeClient)
   -> m (Event t (RequesterData (Either C.ClientError)), Event t ())
@@ -400,7 +400,7 @@ requesterDataHash = fmap toHashSingle . requesterDataToList
 type ApiWidget t m = (RequesterT t FreeClient (Either ClientError) m)
 
 runApiWidget
-  :: (Prerender js t m, MonadHold t m, MonadFix m)
+  :: (Prerender t m, MonadHold t m, MonadFix m)
   => WebSocketEndpoint
   -> ApiWidget t m a
   -> m (a, Event t ())
@@ -410,7 +410,7 @@ runApiWidget ws start = do
   pure (x, errs)
 
 requestingJs
-  :: (Requester t (Client m), Applicative m, Prerender js t m)
+  :: (Requester t (Client m), Applicative m, Prerender t m)
   => Event t (Request (Client m) a)
   -> m (Event t (Response (Client m) a))
 requestingJs r =

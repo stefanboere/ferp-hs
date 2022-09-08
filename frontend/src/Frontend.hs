@@ -190,11 +190,9 @@ showAlerts xs = elClass "div" "alerts-app-level"
   showAlert WebsocketError = ("Could not connect to the server.", pure ())
 
 mainPage
-  :: ( WidgetConstraint js t m
+  :: ( WidgetConstraint t m
      , MonadJSM (Performable m)
      , MonadJSM m
-     , HasJSContext (Performable m)
-     , HasJSContext m
      )
   => Bool
   -> Event t Link
@@ -262,7 +260,7 @@ sideNav dynUri = leftmost <$> sequence
 homeHandler :: (DomBuilder t m) => m (Event t URI)
 homeHandler = pure never
 
-handler :: WidgetConstraint js t m => RouteT Api (AppT t m) (Event t URI)
+handler :: WidgetConstraint t m => RouteT Api (AppT t m) (Event t URI)
 handler =
   homeHandler
     :<|> inputHandler
@@ -272,7 +270,7 @@ handler =
     :<|> crudHandler
 
 handlerOffline
-  :: WidgetConstraint js t m => RouteT Api (ReaderT Config m) (Event t URI)
+  :: WidgetConstraint t m => RouteT Api (ReaderT Config m) (Event t URI)
 handlerOffline = hoistRoute (Proxy :: Proxy Api) runApi handler
   where runApi m = ReaderT $ \cfg -> fmap fst (runAppT cfg m)
 
