@@ -13,6 +13,7 @@ let
         beam-crud = ./beam-crud;
         common = ./common;
         frontend = ./frontend;
+        project-m36-crud = ./project-m36-crud;
         reflex-dom-hatex = ./reflex-dom-hatex;
         servant-ac = ./servant-ac;
         servant-ac-server = ./servant-ac-server;
@@ -29,6 +30,7 @@ let
           "beam-crud"
           "common"
           "frontend"
+          "project-m36-crud"
           "reflex-dom-hatex"
           "servant-ac"
           "servant-ac-server"
@@ -63,10 +65,10 @@ let
           backend = justStaticExecutables super.backend;
           backend-api = justStaticExecutables super.backend-api;
 
-          reflex-dom-ace =
-            doJailbreak (self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { });
-          reflex-dom-contrib = doJailbreak (
-              self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
+          reflex-dom-ace = doJailbreak
+            (self.callCabal2nix "reflex-dom-ace" reflex-dom-ace { });
+          reflex-dom-contrib = doJailbreak
+            (self.callCabal2nix "reflex-dom-contrib" reflex-dom-contrib { });
           servant-subscriber =
             self.callCabal2nix "servant-subscriber" servant-subscriber { };
           reflex-dom-core = disableCabalFlag
@@ -84,16 +86,20 @@ let
           haskeline = dontCheck (self.callHackage "haskeline" "0.8.0.0" { });
           http-link-header = doJailbreak super.http-link-header;
           modern-uri = self.callHackage "modern-uri" "0.3.4.0" { };
-          oidc-client = dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
+          oidc-client =
+            dontCheck (self.callHackage "oidc-client" "0.6.0.0" { });
           project-m36 = dontCheck (self.callHackage "project-m36" "0.9.4" { });
           resolv = self.callHackage "resolv" "0.1.1.3" { };
-          servant-aeson-specs = dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
+          servant-aeson-specs =
+            dontCheck (doJailbreak (unmarkBroken (super.servant-aeson-specs)));
           servant-docs = dontCheck super.servant-docs;
           servant-ekg = dontCheck (unmarkBroken super.servant-ekg);
-          servant-quickcheck = dontCheck ( self.callHackage "servant-quickcheck" "0.0.10.0" { });
+          servant-quickcheck =
+            dontCheck (self.callHackage "servant-quickcheck" "0.0.10.0" { });
           true-name = doJailbreak (unmarkBroken super.true-name);
           universe-base = doJailbreak super.universe-base;
-          vector-binary-instances = self.callHackage "vector-binary-instances" "0.2.5.1" { };
+          vector-binary-instances =
+            self.callHackage "vector-binary-instances" "0.2.5.1" { };
         };
     });
 

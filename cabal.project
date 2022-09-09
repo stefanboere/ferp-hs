@@ -5,6 +5,7 @@ packages:
   beam-crud/
   common/
   frontend/
+  project-m36-crud/
   reflex-dom-hatex/
   servant-ac/
   servant-ac-server/
