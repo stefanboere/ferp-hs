@@ -33,6 +33,12 @@ cradle:
     - path: "frontend/app/Css.hs"
       component: "frontend:exe:frontend-css"
 
+    - path: "project-m36-crud/src"
+      component: "lib:project-m36-crud"
+
+    - path: "reflex-dom-hatex/src"
+      component: "lib:reflex-dom-hatex"
+
     - path: "servant-ac/src"
       component: "lib:servant-ac"
 
