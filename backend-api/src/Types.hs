@@ -1,36 +1,17 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 module Types
   (-- * Re-exports
-    SqlSerial(..)
-  )
-where
+  ) where
 
 import           Data.Csv
-import           Data.Swagger                   ( ToParamSchema
-                                                , ToSchema
-                                                )
 import           Data.Time                      ( Day
                                                 , defaultTimeLocale
                                                 , formatTime
                                                 , parseTimeM
                                                 )
-import           Database.Beam.Backend.SQL.Types
-                                                ( SqlSerial(..) )
 
 import           Common.Types                   ( )
-
-deriving newtype instance ToSchema a => ToSchema (SqlSerial a)
-deriving newtype instance ToParamSchema a => ToParamSchema (SqlSerial a)
-deriving newtype instance ToField a => ToField (SqlSerial a)
-deriving newtype instance FromField a => FromField (SqlSerial a)
 
 -- * Date orphans
 

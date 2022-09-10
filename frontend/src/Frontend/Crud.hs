@@ -51,13 +51,13 @@ import           Frontend.Crud.Utils
 -- brittany-disable-next-binding
 type CrudApi =
   ("blogs" :>
-     (    Auth Everyone :> "all" :> QObj (Api.View Api.Be BlogN) :> View
+     (    Auth Everyone :> "all" :> QObj (Api.View BlogN) :> View
      :<|> Auth Everyone :> "new" :> View
-     :<|> Auth Everyone :> Capture "key" BlogNId :> View
+     :<|> Auth Everyone :> Capture "key" BlogId :> View
      )
   ) :<|>
   ("channels" :>
-     (    Auth Everyone :> "all" :> QObj (Api.View Api.Be ChannelT) :> View
+     (    Auth Everyone :> "all" :> QObj (Api.View ChannelT) :> View
      :<|> Auth Everyone :> "new" :> View
      :<|> Auth Everyone :> Capture "key" ChannelId :> View
      )
@@ -66,11 +66,11 @@ type CrudApi =
 crudApi :: Proxy CrudApi
 crudApi = Proxy
 
-blogsLink :: AuthUser -> Api.View Api.Be BlogN -> Link
+blogsLink :: AuthUser -> Api.View BlogN -> Link
 newBlogLink :: AuthUser -> Link
-blogLink :: AuthUser -> BlogNId -> Link
+blogLink :: AuthUser -> BlogId -> Link
 
-channelsLink :: AuthUser -> Api.View Api.Be ChannelT -> Link
+channelsLink :: AuthUser -> Api.View ChannelT -> Link
 newChannelLink :: AuthUser -> Link
 channelLink :: AuthUser -> ChannelId -> Link
 
@@ -117,12 +117,12 @@ safelinkAuth dynLoc mkLnk cnt = do
 
 browseFormAuth
   :: ( WidgetConstraint t m
-     , Table a
-     , Ord (PrimaryKey a Identity)
+     , TableT a
+     , Ord (PrimaryKey (BaseTable a) Identity)
      , Eq (a Filter)
      )
   => BrowseFormConfig t m AuthUser a c
-  -> Api.View Api.Be a
+  -> Api.View a
   -> AppT t m (Event t URI)
 browseFormAuth cfg vw = do
   usr <- asks getUserNow
@@ -141,7 +141,7 @@ editFormAuth
      -> Event t (a Last)
      -> EventWriterT t (Last URI) (AppT t m) (Dynamic t (a Last))
      )
-  -> Maybe (PrimaryKey a Identity)
+  -> Maybe (PrimaryKey (BaseTable a) Identity)
   -> AppT t m (Event t URI)
 editFormAuth cfg editor initPk = do
   usr <- asks getUserNow
@@ -149,7 +149,7 @@ editFormAuth cfg editor initPk = do
 
 blogsHandler
   :: (WidgetConstraint t m)
-  => Api.View Api.Be BlogN
+  => Api.View BlogN
   -> AppT t m (Event t URI)
 blogsHandler = browseFormAuth BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection blogId
@@ -170,7 +170,7 @@ blogsHandler = browseFormAuth BrowseFormConfig
   }
   where unBlogId (BlogId x) = x
 
-blogEdit :: WidgetConstraint t m => Maybe BlogNId -> AppT t m (Event t URI)
+blogEdit :: WidgetConstraint t m => Maybe BlogId -> AppT t m (Event t URI)
 blogEdit = editFormAuth cfg $ \usr modBlogEv ->
   el "form"
     $    getCompose
@@ -185,20 +185,17 @@ blogEdit = editFormAuth cfg $ \usr modBlogEv ->
   cfg = EditFormConfig
     { _formConfig_actions          = \_ _ _ _ -> pure never
     , _formConfig_getReq           = getBlog
-    , _formConfig_deleteReq        = deleteBlog usingCookie . coerce
-    , _formConfig_postReq          = fmap (fmap coerce)
-                                     . postBlog usingCookie
+    , _formConfig_deleteReq        = deleteBlog usingCookie
+    , _formConfig_postReq          = postBlog usingCookie
                                      . flattenNamed
     , _formConfig_patchReq         = \pk ->
-                                       patchBlog usingCookie (coerce pk) . flattenNamed
+                                       patchBlog usingCookie pk . flattenNamed
     , _formConfig_setPrimaryKey    = setBlogPk
     , _formConfig_header           = mkHeader
     , _formConfig_routeAfterDelete = (`blogsLink` mempty)
     , _formConfig_editRoute        = blogLink
     }
   req = requiredEditor
-
-  coerce (BlogId x) = BlogId x
 
   setBlogPk (Just (BlogId pk)) x = x { _blogId = pure pk }
   setBlogPk Nothing            x = x { _blogId = pure 0 }
@@ -208,7 +205,7 @@ blogEdit = editFormAuth cfg $ \usr modBlogEv ->
     <> fromMaybe "?" (getLast $ _blogName x)
     | otherwise = "New blog"
 
-blogIdProp :: Property BlogN SerialInt64
+blogIdProp :: Property BlogN Integer
 blogIdProp = prop "Id" blogId (Proxy :: Proxy "_blogId")
 
 blogChannelProp
@@ -241,7 +238,7 @@ blogDateProp = prop "Date" blogDate (Proxy :: Proxy "_blogDate")
 
 channelsHandler
   :: (WidgetConstraint t m)
-  => Api.View Api.Be ChannelT
+  => Api.View ChannelT
   -> AppT t m (Event t URI)
 channelsHandler = browseFormAuth BrowseFormConfig
   { _browseConfig_actions       = downloadButtonWithSelection channelId
@@ -287,7 +284,7 @@ channelEdit = editFormAuth cfg $ \_ modBlogEv ->
     <> fromMaybe "?" (getLast $ _channelName x)
     | otherwise = "New channel"
 
-channelIdProp :: Property ChannelT SerialInt64
+channelIdProp :: Property ChannelT Integer
 channelIdProp = prop "Id" channelId (Proxy :: Proxy "_channelId")
 
 channelNameProp :: Property ChannelT Text

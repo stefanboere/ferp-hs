@@ -13,14 +13,13 @@ module Frontend.Crud.Lookup
   , fkProp
   , editFk
   , gridFkProp
-  )
-where
+  ) where
 
+import           Control.Applicative            ( liftA2 )
 import           Control.Lens                   ( Lens'
                                                 , set
                                                 , view
                                                 )
-import           Control.Applicative            ( liftA2 )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose           ( Compose(..) )
@@ -57,10 +56,9 @@ import           Servant.Subscriber.Reflex      ( ClientError
                                                 )
 import           URI.ByteString                 ( URI )
 
-import           Common.Api                     ( Be
-                                                , OrderByScope
+import           Common.Api                     ( AttrName
+                                                , OrderBy'
                                                 , View
-                                                , ViewOrderBy
                                                 )
 import           Common.Schema
 import           Components.Input
@@ -172,7 +170,7 @@ safelinkNoTab cnt lnk = do
 labelEndpoint
   :: (Monoid (a Filter))
   => Lens' (a Filter) (C Filter Text)
-  -> (  View be a
+  -> (  View a
      -> Maybe (PrimaryKey a Identity)
      -> Request
           (Prerender.Client m)
@@ -208,9 +206,9 @@ data FkProperty t m env a b = FkProperty
   { _fkProp_label   :: Text
   , _fkProp_lens    :: forall f . Lens' (a f) (Named b f)
   , _fkProp_key     :: API.Path
-  , _fkProp_orderBy :: SortOrder -> ViewOrderBy Be a
+  , _fkProp_orderBy :: SortOrder -> OrderBy' a
   , _fkProp_endpoint
-      :: View Be b
+      :: View b
       -> Maybe (PrimaryKey b Identity)
       -> Request (Prerender.Client m) (API.GetListHeaders (Named b Identity))
   , _fkProp_searchField :: Lens' (b Filter) (C Filter Text)
@@ -219,15 +217,15 @@ data FkProperty t m env a b = FkProperty
 
 fkProp
   :: ( KnownSymbol s
-     , HasField s (a (OrderByScope Be)) (Named b (OrderByScope Be))
-     , Typeable (a (OrderByScope Be))
+     , HasField s (a AttrName) (Named b AttrName)
+     , Typeable (a AttrName)
      , Typeable b
      )
   => Text
   -> (forall f . Lens' (a f) (Named b f))
   -> Proxy s
   -> Lens' (b Filter) (C Filter Text)
-  -> (  View Be b
+  -> (  View b
      -> Maybe (PrimaryKey b Identity)
      -> Request
           (Prerender.Client m)
@@ -292,7 +290,7 @@ editFk env prp setEv = Compose $ fmap mksetter . _inputEl_value <$> labeled
 gridFkProp
   :: (DomBuilder t m, PostBuild t m, MonadFix m, MonadHold t m)
   => FkProperty t m env a b
-  -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
+  -> Column t m (OrderBy' a) (a Filter) API.Path (a Identity)
 gridFkProp prp = Column
   { _column_label    = _fkProp_label prp
   , _column_viewer   = \d -> _edit_viewer e (Last . Just . view l <$> d)

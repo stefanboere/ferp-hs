@@ -10,7 +10,8 @@ Module: Database.Beam.Named
 Description: Upgrade your records to return names together with keys in GET requests
 -}
 module Database.Beam.Named
-  ( module Database.Beam.Expand
+  ( Full
+  , Named
   ) where
 
 import qualified Data.Csv                      as Csv
@@ -26,9 +27,8 @@ import           Data.Swagger                   ( NamedSchema(..)
 import qualified Data.Swagger                  as Swagger
                                                 ( Referenced(Inline) )
 import           Data.Text                      ( Text )
-import           Database.Beam           hiding ( set )
-import           Database.Beam.Expand
 import           Lens.Micro
+import           ProjectM36.Beamable
 import           Servant.Crud.Server.QueryObject
                                                 ( ToParams
                                                 , toParams
@@ -65,8 +65,8 @@ instance (ToParams lang ftype (PrimaryKey t f), ToParams lang ftype (C f Text))
     nameProxy :: Proxy (C f Text)
     nameProxy = Proxy
 
-instance (ToName t, ToSample (t f)) => ToSample (Named t f) where
-  toSamples _ = fmap (fmap toNamed) (toSamples (Proxy :: Proxy (t f)))
+instance ToSample (Named t f) where
+  toSamples _ = []
 
 instance Csv.ToField (PrimaryKey t f) => Csv.ToField (Named t f) where
   toField x = Csv.toField (_id x)

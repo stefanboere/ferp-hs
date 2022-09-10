@@ -11,26 +11,22 @@ Module: Api
 Description: Specifies the combined api
 -}
 module Api
-  ( module Common.Api
-  , server
+  ( server
   , api
   , Api
-  )
-where
+  ) where
 
 import           Prelude                 hiding ( div )
 
 import           Control.Concurrent.STM         ( atomically )
+import           Control.Monad.IO.Class         ( MonadIO(..) )
 import           Control.Monad.Reader           ( MonadReader(..)
                                                 , asks
                                                 )
 import           Data.Default
+import           Data.Functor.Identity          ( Identity )
 import           Data.Text                      ( Text )
-import           Database.Beam
-import           Database.Beam.API
-import           Database.Beam.Expand
-import           Database.Beam.Postgres         ( Postgres )
-import           Database.Beam.Schema.Tables    ( Ignored(..) )
+import           ProjectM36.Beamable
 import           Servant
 import           Servant.Crud.Server.API
 import           Servant.Crud.Server.Headers    ( PathInfo(..) )
@@ -56,10 +52,6 @@ import           Common.Api
 import           Context
 import           Schema
 
-type Api = Api' Postgres
-type BlogApi = BlogApi' Postgres
-type ChannelApi = ChannelApi' Postgres
-
 type instance IsElem' sa (Auth r :> sb) = IsElem sa sb
 type instance IsElem' sa (PathInfo :> sb) = IsElem sa sb
 type instance IsElem' sa (QObj a :> sb) = IsElem sa sb
@@ -69,7 +61,8 @@ type instance IsSubscribable' sa (PathInfo :> sb) = IsSubscribable sa sb
 type instance IsSubscribable' sa (QObj r :> sb) = IsSubscribable sa sb
 
 -- For us any GET endpoint is subscribable
-type instance IsSubscribable' sa (Get '[JSON, CSV] r) = ()
+type instance IsSubscribable' sa (Get '[JSON , CSV] r)
+  = ()
 
 instance ToParam (QueryParam "key" Text) where
   toParam _ = DocQueryParam "key" [] "An authorization key" Normal
@@ -83,24 +76,20 @@ instance ToParam (QueryParam "around" (PrimaryKey t Identity)) where
 instance ToSample Text where
   toSamples _ = []
 
--- | A proxy of the api
-api :: Proxy Api
-api = Proxy
-
 -- | The combined server
 server :: AppServer Api
 server = blogServer :<|> channelServer
 
-type GetListSimple t = Get '[JSON, CSV] (GetListHeaders (t Identity))
-type GetSimple t = CaptureId t :> Get '[JSON] (t Identity)
+type GetListSimple t = Get '[JSON , CSV] (GetListHeaders (t Identity))
+type GetSimple t = CaptureId (BaseTable t) :> Get '[JSON] (t Identity)
 
 notifyModified
   :: ( MonadReader AppConfig m
      , MonadIO m
-     , IsElem endpoint (Api' Postgres)
+     , IsElem endpoint Api
      , HasLink endpoint
      , IsValidEndpoint endpoint
-     , IsSubscribable endpoint (Api' Postgres)
+     , IsSubscribable endpoint Api
      )
   => Proxy endpoint
   -> (MkLink endpoint Servant.Link -> URI)
@@ -137,10 +126,10 @@ blogServer =
     notifyBlog i
     pure x
 
-  getBlogs :: AppServer (GetList Postgres BlogN)
+  getBlogs :: AppServer (GetList BlogN)
   getBlogs pinfo v = _getList gBlog pinfo (buildNewView v)
 
-  getBlogsLabels :: AppServer (GetListLabels Postgres BlogN)
+  getBlogsLabels :: AppServer (GetListLabels BlogN)
   getBlogsLabels pinfo v = _getListLabels gBlog pinfo (buildNewView v)
 
   buildNewView v = v { filters = newFilt }
@@ -163,22 +152,7 @@ blogServer =
       Nothing -> filt { _blogIsPublished = def }
 
   gBlog :: CrudRoutes BlogN BlogT (AsServerT App)
-  gBlog =
-    defaultCrud runDB (_appDatabaseBlogs appDatabase) coerce coerceBack
-      $ all_' (_appDatabaseBlogs appDatabase) blogJoins
-   where
-    coerce (BlogId x) = BlogId x
-    coerceBack (BlogId x) = BlogId x
-
-  blogJoins :: BlogTT (Referenced Postgres AppDatabase) Ignored
-  blogJoins = Blog { _blogId          = Ignored
-                   , _blogChannel     = _appDatabaseChannels appDatabase
-                   , _blogName        = Ignored
-                   , _blogDescription = Ignored
-                   , _blogIsExtra     = Ignored
-                   , _blogIsPublished = Ignored
-                   , _blogDate        = Ignored
-                   }
+  gBlog = teapot
 
 
 notifyChannels :: (MonadReader AppConfig m, MonadIO m) => m ()
@@ -194,12 +168,12 @@ notifyChannel pk' = notifyModified
 channelServer :: AppServer ChannelApi
 channelServer =
   _get genericImpl
-    :<|> const (_put genericImpl)
-    :<|> const patchServer
-    :<|> const (_delete genericImpl)
-    :<|> const (_deleteList genericImpl)
-    :<|> const (_post genericImpl)
-    :<|> const (_postList genericImpl)
+    :<|> _put genericImpl
+    :<|> patchServer
+    :<|> _delete genericImpl
+    :<|> _deleteList genericImpl
+    :<|> _post genericImpl
+    :<|> _postList genericImpl
     :<|> _getList genericImpl
     :<|> _getListLabels genericImpl
  where
@@ -210,6 +184,5 @@ channelServer =
     pure x
 
   genericImpl :: CrudRoutes ChannelT ChannelT (AsServerT App)
-  genericImpl = defaultCrud runDB (_appDatabaseChannels appDatabase) id id
-    $ all_ (_appDatabaseChannels appDatabase)
+  genericImpl = defaultCrud runDB (Proxy :: Proxy ChannelT)
 

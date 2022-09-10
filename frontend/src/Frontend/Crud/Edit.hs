@@ -14,25 +14,25 @@ module Frontend.Crud.Edit
   , applyPkFromPostResponse
   , EditFormConfig(..)
   , editForm
-  )
-where
+  ) where
 
 import           Control.Lens
+import           Control.Monad                  ( void )
 import           Control.Monad.Fix              ( MonadFix )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Compose
-import           Data.Text                      ( Text )
 import           Data.Monoid                    ( Last(..) )
+import           Data.Text                      ( Text )
 import           Reflex.Dom              hiding ( Link )
 import qualified Reflex.Dom.Prerender          as Prerender
                                                 ( Client )
 import           Servant.API             hiding ( URI(..) )
 import           Servant.Crud.API               ( LocationHdr )
 import           Servant.Links           hiding ( URI(..) )
-import           URI.ByteString                 ( URI
-                                                , URIRef(..)
+import           URI.ByteString                 ( Query(..)
                                                 , Scheme(..)
-                                                , Query(..)
+                                                , URI
+                                                , URIRef(..)
                                                 )
 
 import           Common.Schema
@@ -127,7 +127,7 @@ postButton req dynRec Nothing  = requestBtn saveBtn
                                             (constDyn False)
                                             ((== Nothing) <$> dynRec)
                                             never
-  where postReq ev = attachPromptlyDynWithMaybe (\x () -> fmap req x) dynRec ev
+  where postReq = attachPromptlyDynWithMaybe (\x () -> fmap req x) dynRec
 
 
 -- | Create a save button, which performs the request if the dynamic is Just and not empty
@@ -159,8 +159,7 @@ patchButton req dynPatch patchEv (Just pk) = requestBtn
   ((Just mempty ==) <$> dynPatch)
   ((Nothing ==) <$> dynPatch)
   patchEv
- where
-  patchReq ev = attachPromptlyDynWithMaybe (\x () -> req pk <$> x) dynPatch ev
+  where patchReq = attachPromptlyDynWithMaybe (\x () -> req pk <$> x) dynPatch
 
 -- | If the edited value differs from the remote value,
 -- create an event to apply these changes after 3 seconds.
@@ -180,7 +179,7 @@ createPatchDyn
   -> m (Dynamic t (Maybe (r Last)), Event t ()) -- ^ The patch and debounced update event
 createPatchDyn dynRemote dynRec = do
   let dynPatch = makePatch' <$> dynRemote <*> dynRec
-  patchEv <- debounce 3 (() <$ fmapMaybe validAndNonempty (updated dynPatch))
+  patchEv <- debounce 3 (void $ fmapMaybe validAndNonempty (updated dynPatch))
   pure (dynPatch, patchEv)
 
  where
@@ -241,31 +240,31 @@ applyPkFromPostResponse mkLnk env postRespEv = do
 
 data EditFormConfig t m env a = EditFormConfig
   { _formConfig_actions
-      :: Maybe (PrimaryKey a Identity)
-      -> Event t (Maybe (PrimaryKey a Identity))
+      :: Maybe (PrimaryKey (BaseTable a) Identity)
+      -> Event t (Maybe (PrimaryKey (BaseTable a) Identity))
       -> Dynamic t (Maybe (a Identity))
       -> Dynamic t (a Last)
       -> AppT t m (Event t URI)
   , _formConfig_getReq
-      :: PrimaryKey a Identity
+      :: PrimaryKey (BaseTable a) Identity
       -> Request (Prerender.Client (AppT t m)) (a Identity)
   , _formConfig_deleteReq
-      :: PrimaryKey a Identity
+      :: PrimaryKey (BaseTable a) Identity
       -> Request (Prerender.Client (AppT t m)) NoContent
   , _formConfig_postReq
       :: a Identity
       -> Request
            (Prerender.Client (AppT t m))
-           (Headers '[LocationHdr] (PrimaryKey a Identity))
+           (Headers '[LocationHdr] (PrimaryKey (BaseTable a) Identity))
   , _formConfig_patchReq
-      :: PrimaryKey a Identity
+      :: PrimaryKey (BaseTable a) Identity
       -> a Last
       -> Request (Prerender.Client (AppT t m)) NoContent
   , _formConfig_setPrimaryKey
-      :: Maybe (PrimaryKey a Identity) -> a Last -> a Last
-  , _formConfig_header           :: a Last -> Text
+      :: Maybe (PrimaryKey (BaseTable a) Identity) -> a Last -> a Last
+  , _formConfig_header :: a Last -> Text
   , _formConfig_routeAfterDelete :: env -> Link
-  , _formConfig_editRoute        :: env -> PrimaryKey a Identity -> Link
+  , _formConfig_editRoute :: env -> PrimaryKey (BaseTable a) Identity -> Link
   }
 
 
@@ -289,7 +288,7 @@ editForm
   -> (  Event t (a Last)
      -> EventWriterT t (Last URI) (AppT t m) (Dynamic t (a Last))
      )
-  -> Maybe (PrimaryKey a Identity)
+  -> Maybe (PrimaryKey (BaseTable a) Identity)
   -> AppT t m (Event t URI)
 editForm env cfg editor initPk = do
 

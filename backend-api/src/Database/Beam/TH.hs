@@ -18,8 +18,7 @@ module Database.Beam.TH
   , instancesT
   , instancesTFull
   , instancesBody
-  )
-where
+  ) where
 
 import           Data.Aeson                     ( FromJSON(..)
                                                 , ToJSON(..)
@@ -28,20 +27,20 @@ import           Data.Aeson                     ( FromJSON(..)
                                                 )
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.Csv                      as Csv
+import           Data.Functor.Identity          ( Identity )
 import           Data.Monoid                    ( Last )
 import           Data.Swagger                   ( ToParamSchema
                                                 , ToSchema
                                                 , declareNamedSchema
                                                 , toParamSchema
                                                 )
-import           Database.Beam                  ( Columnar
-                                                , Identity
-                                                , PrimaryKey(..)
-                                                )
 import           Database.Beam.Named            ( Full
                                                 , Named
                                                 )
 import           Language.Haskell.TH
+import           ProjectM36.Beamable            ( Columnar
+                                                , PrimaryKey(..)
+                                                )
 import           Servant.Crud.Server.Deriving
 import           Servant.Crud.Server.QueryObject
                                                 ( NoContent

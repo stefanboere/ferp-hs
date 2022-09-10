@@ -23,10 +23,10 @@ module Schema
   , module Schema
   ) where
 
-import           Database.Beam
-import           Database.Beam.Migrate
-import           Database.Beam.Postgres         ( Postgres )
+import           Data.Functor.Identity          ( Identity )
+import           Data.Proxy                     ( Proxy(..) )
 import           GHC.Generics                   ( Generic )
+import           ProjectM36.Beamable
 import           Servant.Docs
 
 import           Database.Beam.TH               ( instances
@@ -43,9 +43,7 @@ import           Types                          ( )
 {- HLINT ignore "Redundant bracket" -}
 $(instancesT ''BlogTT)
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogT ''SerialInt64)
-{- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogN ''SerialInt64)
+$(instancesId ''BlogT ''Integer)
 
 instance ToSample Blog where
   toSamples _ = []
@@ -67,7 +65,7 @@ instance ToSample (PrimaryKey BlogN Identity) where
 {- HLINT ignore "Redundant bracket" -}
 $(instances ''ChannelT)
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''ChannelT ''SerialInt64)
+$(instancesId ''ChannelT ''Integer)
 
 instance ToSample Channel where
   toSamples _ = []
@@ -82,23 +80,13 @@ instance ToSample ChannelId where
 -- * The Database
 
 -- | Here live all the tables in the database
-data AppDatabase f = AppDatabase
-  { _appDatabaseBlogs    :: f (TableEntity BlogT)
-  , _appDatabaseChannels :: f (TableEntity ChannelT)
+data AppDatabaseT f = AppDatabase
+  { _appDatabaseBlogs    :: C f (Proxy BlogT)
+  , _appDatabaseChannels :: C f (Proxy ChannelT)
   }
-  deriving Generic
+  deriving (Generic, Beamable)
 
-instance Database be AppDatabase
+type AppDatabase = AppDatabaseT Identity
 
-
--- | This renames the database fields
-checkedAppDatabase :: CheckedDatabaseSettings Postgres AppDatabase
-checkedAppDatabase =
-  defaultMigratableDbSettings `withDbModification` dbModification
-    { _appDatabaseBlogs    = renameCheckedEntity (const "blog")
-    , _appDatabaseChannels = renameCheckedEntity (const "channel")
-    }
-
--- | The unchecked app database
-appDatabase :: DatabaseSettings Postgres AppDatabase
-appDatabase = unCheckDatabase checkedAppDatabase
+appDatabase :: AppDatabase
+appDatabase = AppDatabase Proxy Proxy

@@ -33,20 +33,14 @@ import           Control.Exception              ( bracket )
 import           Control.Monad.Logger           ( LogLevel(..) )
 import           Control.Monad.Metrics          ( initializeWith )
 import           Control.Monad.Metrics.Internal ( _metricsStore )
-import           Control.Monad.Reader           ( ReaderT(..) )
+import           Control.Monad.Reader           ( ReaderT(..)
+                                                , ask
+                                                , liftIO
+                                                )
 import           Data.Default                   ( def )
 import           Data.Pool                      ( Pool
                                                 , destroyAllResources
                                                 )
-import           Database.Beam.Backend          ( displaySyntax )
-import           Database.Beam.Migrate.Simple   ( VerificationResult(..)
-                                                , autoMigrate
-                                                , simpleMigration
-                                                , verifySchema
-                                                )
-import           Database.Beam.Postgres         ( Connection )
-import           Database.Beam.Postgres.Migrate ( migrationBackend )
-import           Database.Beam.Postgres.Syntax  ( fromPgCommand )
 import           Network.Wai.Handler.Warp
 import           Network.Wai.Metrics            ( metrics
                                                 , registerWaiMetrics
@@ -65,6 +59,14 @@ import           Network.Wai.Middleware.Servant.Options
 import qualified Network.Wai.Middleware.Timeout
                                                as Timeout
                                                 ( timeout )
+import           ProjectM36.Beamable
+import           ProjectM36.Client              ( commit
+                                                , relationVariablesAsRelation
+                                                )
+import           ProjectM36.Client.Monad        ( defineDatabase
+                                                , executeIO
+                                                )
+import           ProjectM36.Client.Simple       ( DbConn )
 import           Servant
 import qualified Servant.Auth.Server           as SAS
 import           Servant.Crud.Server.Middleware ( allowHeaderMiddleware )
@@ -135,30 +137,21 @@ initialize cfg application = do
 -- | Checks the database against the schema
 verifyDatabase :: AppConfig -> IO ()
 verifyDatabase cfg = do
-  verified <- runDBinIO cfg $ verifySchema migrationBackend checkedAppDatabase
+  simpleLog cfg LevelDebug "Defining database"
+
+  verified <- runDBinIO cfg $ do
+    defineDatabase appDatabase
+    mapM_ executeIO textAtomFuncs
+
   case verified of
-    VerificationSucceeded    -> pure ()
-    VerificationFailed preds -> do
-
+    Right ()  -> pure ()
+    Left  err -> do
       simpleLog cfg LevelError
-        . toLogStr
-        . unlines
-        . ("The following predicates are not satisfied:" :)
-        . map show
-        $ preds
+        .  toLogStr
+        $  "The following error occured while defining the database:\n"
+        <> show err
 
-      migration <- simpleMigration runDBinIO
-                                   migrationBackend
-                                   cfg
-                                   checkedAppDatabase
-      simpleLog cfg LevelError
-        . toLogStr
-        . unlines
-        . ("We will attempt the following migration:" :)
-        . maybe [] (map (displaySyntax . fromPgCommand))
-        $ migration
-
-      runDBinIO cfg $ autoMigrate migrationBackend checkedAppDatabase
+      fail "Error running migration"
 
 
 type AuthContext = '[SAS.JWTSettings , SAS.CookieSettings]
@@ -271,7 +264,7 @@ acquireConfig = do
   cfgFile []      = "config.dhall"
   cfgFile (x : _) = x
 
-  shutdownApp :: IO () -> ThreadId -> Pool Connection -> IO ()
+  shutdownApp :: IO () -> ThreadId -> Pool DbConn -> IO ()
   shutdownApp killTimedLog ekgThread pool = do
     killTimedLog
     killThread ekgThread

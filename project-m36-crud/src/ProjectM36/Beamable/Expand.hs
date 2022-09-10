@@ -102,7 +102,7 @@ module ProjectM36.Beamable.Expand
   , WithName(..)
   , ToName(..)
   , Full
-  , BaseTable
+  , TableT(..)
     -- * Querying functions
   , vwFromTuple
   , vwRelationalExpr
@@ -111,6 +111,8 @@ module ProjectM36.Beamable.Expand
     -- * Other
   , TablesFulfillConstraint
   , HasNameConstraint
+    -- * Re-exports
+  , AtomExprBase(..)
   ) where
 
 import           Prelude
@@ -119,6 +121,13 @@ import           Control.Monad.Writer           ( Endo(..)
                                                 , Writer
                                                 , execWriter
                                                 , tell
+                                                )
+import           Data.Aeson                     ( (.:)
+                                                , (.=)
+                                                , FromJSON(..)
+                                                , ToJSON(..)
+                                                , object
+                                                , withObject
                                                 )
 import           Data.Functor.Identity          ( Identity(..) )
 import           Data.Kind                      ( Constraint
@@ -138,6 +147,9 @@ import           ProjectM36.Beamable.Class
 import           ProjectM36.Beamable.Tupleable
 import           ProjectM36.Error
 import           ProjectM36.Tuple               ( atomForAttributeName )
+import           Servant.Crud.QueryObject       ( FromQueryText(..)
+                                                , ToQueryText(..)
+                                                )
 
 -- | A newtype storing the type data passed to 'D'. Analogous to 'Columnar''.
 newtype D' p t f = D' (D p t f)
@@ -212,6 +224,23 @@ instance (Show (PrimaryKey t f), Show (C f Text)) => Show (Named t f) where
   show (Named i n) =
     "Named { _id = " <> show i <> " , _name = " <> show n <> " }"
 
+instance ToJSON (PrimaryKey t Identity) => ToJSON (Named t Identity) where
+  toJSON (Named i n) = object ["id" .= toJSON i, "name" .= n]
+
+instance FromJSON (PrimaryKey t Identity) => FromJSON (Named t Identity) where
+  parseJSON =
+    withObject "Named t Identity" $ \v -> Named <$> v .: "id" <*> v .: "name"
+
+instance (FromQueryText (PrimaryKey t f), FromQueryText (C f Text))
+    => FromQueryText (Named t f) where
+  fromQueryText p qs =
+    Named <$> fromQueryText (p <> ".id") qs <*> fromQueryText p qs
+
+instance (ToQueryText (PrimaryKey t f), ToQueryText (C f Text))
+    => ToQueryText (Named t f) where
+  toQueryTextPrio p (Named i name) =
+    toQueryTextPrio (p <> ".id") i ++ toQueryTextPrio p name
+
 instance (Semigroup (PrimaryKey t f), Semigroup (C f Text))
   => Semigroup (Named t f) where
   Named i0 n0 <> Named i1 n1 = Named (i0 <> i1) (n0 <> n1)
@@ -256,18 +285,47 @@ instance (Monoid (t f), Monoid (C f Text))
   => Monoid (WithName t f) where
   mempty = WithName mempty mempty
 
-type family BaseTable (t :: (Type -> Type) -> Type) :: (Type -> Type) -> Type
-type instance BaseTable (WithName t) = BaseTable t
+-- | Represents a table together with calculated columns and a method for removing these calculations
+class TableT (t :: (Type -> Type) -> Type) where
+  type BaseTable t :: (Type -> Type) -> Type
+  getPrimaryKey :: t f -> PrimaryKey (BaseTable t) f
+
+instance (TableT t) => TableT (WithName t) where
+  type BaseTable (WithName t) = BaseTable t
+  getPrimaryKey = getPrimaryKey . _wn_data
+
+instance TableT (Named t) where
+  type BaseTable (Named t) = t
+  getPrimaryKey = _id
+
+instance (Table (t PrimaryKey), Beamable1 t, TablesFulfillConstraint Proxy TableT t)
+  => TableT (t Full) where
+  type BaseTable (t Full) = t PrimaryKey
+  getPrimaryKey = primaryKey . flattenFull
+
+instance (Table (t PrimaryKey), Beamable1 t) => TableT (t Named) where
+  type BaseTable (t Named) = t PrimaryKey
+  getPrimaryKey = primaryKey . flattenNamed
+
 
 class IsView (n :: ((Type -> Type) -> Type) -> (Type -> Type) -> Type) (t :: (Type -> Type) -> Type) where
   dbRelationalExpr :: Proxy n -> Proxy t -> RelationalExpr
   dbFromTuple :: Proxy n -> Proxy t -> RelationTuple -> Either RelationalError (D n t Identity)
 
-instance {-# OVERLAPPABLE #-} (Table t, FieldsFulfillConstraint Atomable t)
+instance {-# OVERLAPPABLE #-} (Table t, t ~ BaseTable t, FieldsFulfillConstraint Atomable t)
   => IsView Full t where
   dbRelationalExpr _ p =
     Restrict (dbFilterExpr p) (RelationVariable (tblEntityName p) ())
   dbFromTuple _ _ = tblFromTuple
+
+instance (Table (BaseTable t), FieldsFulfillConstraint Atomable (PrimaryKey (BaseTable t)), IsView Full t)
+  => IsView PrimaryKey t where
+  dbRelationalExpr _ t =
+    Project (AttributeNames (primaryKeyAttributeNames pt))
+      $ dbRelationalExpr (Proxy :: Proxy Full) t
+    where pt = Proxy :: Proxy (BaseTable t)
+
+  dbFromTuple _ _ = tblFromTuplePk
 
 instance (Table (BaseTable t), FieldsFulfillConstraint Atomable (PrimaryKey (BaseTable t)), IsView Full t
      , ToName t) => IsView Named t where
@@ -511,18 +569,12 @@ flattenNamed n = runIdentity $ zipBeamFieldsM1
   (tblSkeleton :: table PrimaryKey Proxy)
   n
 
-class HasPrimaryKey t where
-  getPrimaryKey :: t f -> PrimaryKey (BaseTable t) f
-
-instance (Table t, BaseTable t ~ t) => HasPrimaryKey t where
-  getPrimaryKey = primaryKey
-
 -- | Remove expanded extra data and only keep the primaryKey. See @flattenNamed@
 flattenFull
   :: forall table f
    . ( Beamable1 table
      , Beamable (table PrimaryKey)
-     , TablesFulfillConstraint Proxy HasPrimaryKey table
+     , TablesFulfillConstraint Proxy TableT table
      )
   => table Full f
   -> table PrimaryKey f
@@ -532,13 +584,13 @@ flattenFull n = runIdentity $ zipBeamFieldsM1
   n
  where
   combine
-    :: D' (WithConstraint1 HasPrimaryKey) t Proxy
+    :: D' (WithConstraint1 TableT) t Proxy
     -> D' Full t f
     -> Identity (D' PrimaryKey t f)
   combine (D' (WithConstraint1 c)) (D' x) = Identity $ D' $ go c x
 
   go
-    :: HasPrimaryKey t
+    :: TableT t
     => PrimaryKey (BaseTable t) Proxy
     -> t f
     -> PrimaryKey (BaseTable t) f

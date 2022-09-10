@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -25,24 +26,18 @@ module Common.Schema
   , C
   , Named(..)
   , ToName(..)
-  )
-where
+  , TableT(..)
+  ) where
 
+import           Data.Functor.Identity          ( Identity )
 import           Data.Monoid                    ( Last )
 import           Data.Text                      ( Text )
 import           Data.Time                      ( Day
                                                 , UTCTime
                                                 )
-import           Database.Beam
-import           Database.Beam.Deriving
-import           Database.Beam.Expand
-import           Database.Beam.Extra            ( FieldsFulfillConstraint
-                                                , joinPatch
-                                                , makePatch
-                                                , purePatch
-                                                )
 import           GHC.Generics                   ( Generic )
 import           Generic.Data
+import           ProjectM36.Beamable
 import           Servant.Crud.Deriving
 import           Servant.Crud.QueryOperator
 
@@ -53,7 +48,7 @@ import           Common.Types
 type instance DefaultFilters Text = StrFilter
 type instance DefaultFilters String = StrFilter
 type instance DefaultFilters Int = OrdFilter
-type instance DefaultFilters SerialInt64 = OrdFilter
+type instance DefaultFilters Integer = OrdFilter
 type instance DefaultFilters Bool = EqFilter
 type instance DefaultFilters (PrimaryKey t f) = EqFilter
 type instance DefaultFilters (Maybe a) = AddNullFilter (DefaultFilters a)
@@ -62,7 +57,7 @@ type instance DefaultFilters UTCTime = OrdFilter
 
 -- | A group of related blog posts
 data ChannelT f = Channel
-  { _channelId   :: C f SerialInt64
+  { _channelId   :: C f Integer
   , _channelName :: C f Text
   }
   deriving (Generic, Beamable)
@@ -74,19 +69,22 @@ type ChannelId = PrimaryKey ChannelT Identity
 {- HLINT ignore "Redundant bracket" -}
 $(instances ''ChannelT)
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''ChannelT ''SerialInt64)
+$(instancesId ''ChannelT ''Integer)
 
 instance ToName ChannelT where
-  toName = _channelName
+  toName _ = AttributeAtomExpr "_channelName"
 
 instance Table ChannelT where
-  data PrimaryKey ChannelT f = ChannelId (Columnar f SerialInt64) deriving (Generic, Beamable)
+  data PrimaryKey ChannelT f = ChannelId (Columnar f Integer) deriving (Generic, Beamable)
   primaryKey = ChannelId . _channelId
 
+instance TableT ChannelT where
+  type BaseTable ChannelT = ChannelT
+  getPrimaryKey = primaryKey
 
 -- | The full user blog info
 data BlogTT g f = Blog
-  { _blogId          :: C f SerialInt64
+  { _blogId          :: C f Integer
   , _blogChannel     :: D g ChannelT f
   , _blogName        :: C f Text
   , _blogDescription :: C f Text
@@ -102,20 +100,21 @@ type BlogT = BlogTT PrimaryKey
 type Blog = BlogT Identity
 type BlogPatch = BlogT Last
 type BlogId = PrimaryKey BlogT Identity
-type BlogNId = PrimaryKey BlogN Identity
 
 {- HLINT ignore "Redundant bracket" -}
 $(instancesT ''BlogTT)
 
-instance (Typeable g, Beamable (BlogTT g)) => ToName (BlogTT g) where
-  toName = _blogName
+instance ToName BlogT where
+  toName _ = AttributeAtomExpr "_blogName"
 
 -- | Beam boilerplate
-instance (Typeable g, Beamable (BlogTT g)) => Table (BlogTT g) where
-  data PrimaryKey (BlogTT g) f = BlogId (Columnar f SerialInt64) deriving (Generic, Beamable)
+instance Table BlogT  where
+  data PrimaryKey BlogT f = BlogId (Columnar f Integer) deriving (Generic, Beamable)
   primaryKey = BlogId . _blogId
 
+instance TableT BlogT where
+  type BaseTable BlogT = BlogT
+  getPrimaryKey = primaryKey
+
 {- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogT ''SerialInt64)
-{- HLINT ignore "Redundant bracket" -}
-$(instancesId ''BlogN ''SerialInt64)
+$(instancesId ''BlogT ''Integer)

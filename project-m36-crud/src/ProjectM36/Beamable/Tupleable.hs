@@ -34,14 +34,12 @@ import           Data.Foldable                  ( foldr'
 import           Data.Functor.Identity          ( Identity )
 import           Data.Kind                      ( Type )
 import           Data.List                      ( sortOn )
-import qualified Data.List.NonEmpty            as NE
 import           Data.Map                       ( Map )
 import qualified Data.Map                      as Map
 import           Data.Maybe                     ( maybeToList )
 import           Data.Monoid                    ( Last(..) )
 import           Data.Set                       ( Set )
 import qualified Data.Set                      as Set
-import           Data.Text                      ( Text )
 import qualified Data.Text                     as Text
 import           Data.Typeable
 import           ProjectM36.Atomable            ( Atomable(..)

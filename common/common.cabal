@@ -47,11 +47,10 @@ library
   other-modules:   Common.Schema.TH
   build-depends:
     , aeson
-    , beam-core
-    , beam-crud         ^>=0.1
     , generic-data
     , jose
     , lens
+    , project-m36-crud
     , servant
     , servant-ac
     , servant-auth

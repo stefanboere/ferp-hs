@@ -54,10 +54,6 @@ library
   build-depends:
     , aeson
     , backend-extra
-    , beam-core
-    , beam-crud               ^>=0.1
-    , beam-migrate
-    , beam-postgres
     , bytestring
     , case-insensitive
     , cassava
@@ -76,6 +72,8 @@ library
     , monad-metrics
     , mtl
     , network-uri
+    , project-m36
+    , project-m36-crud
     , resource-pool
     , servant
     , servant-ac-server

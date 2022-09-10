@@ -38,6 +38,7 @@ common common-options
 library
   import:          common-options
   build-depends:
+    , aeson
     , bytestring
     , containers
     , data-default

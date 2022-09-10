@@ -22,6 +22,7 @@ The core libraries are:
 | `beam-crud`                 | Helpers for writing common CRUD queries with [beam](https://haskell-beam.github.io/beam)                                       |
 | `frontend`                  | [reflex-dom](https://github.com/reflex-frp/reflex-dom) components based on the [Clarity](https://clarity.design) design system |
 | `keycloak-nordtheme`        | A [nordtheme](https://nordtheme.com) for the [Keycloak](https://www.keycloak.org) Identity and Access Management system        |
+| `project-m36-crud`          | Helpers for writing common CRUD queries with [project-m36](https://github.com/agentm/project-m36)                              |
 | `servant-ac`                | Type-level DSL for specifying role based access control rules for [servant](https://docs.servant.dev) API's                    |
 | `servant-ac-server`         | Server implementation of `servant-ac`                                                                                          |
 | `servant-crud`              | Filtering and sorting url parameters extension to servant                                                                      |

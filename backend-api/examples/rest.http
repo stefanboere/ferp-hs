@@ -1,0 +1,64 @@
+GET http://localhost:3005/channels
+
+
+GET http://localhost:3005/channels/labels
+
+
+GET http://localhost:3005/channels/1
+
+
+POST http:/localhost:3005/channels/0
+content-type: application/json; charset=utf-8
+
+{
+  "id": 1,
+  "name": "Cookbook"
+}
+
+
+PATCH http://localhost:3005/channels/1
+content-type: application/json; charset=utf-8
+
+{
+  "id": 2,
+  "name": "Kookboek"
+}
+
+
+PUT http://localhost:3005/channels/1
+content-type: application/json; charset=utf-8
+
+{
+  "id": 2,
+  "name": "Cookbook"
+}
+
+
+DELETE http://localhost:3005/channels/1
+
+
+POST http://localhost:3005/channels
+content-type: application/json; charset=utf-8
+
+[{
+  "id": 1,
+  "name": "Cookbook"
+},
+{
+  "id": 2,
+  "name": "Kookboek"
+}]
+
+
+DELETE http://localhost:3005/channels
+content-type: application/json; charset=utf-8
+
+{
+  "tag": "LimitedTo",
+  "contents": [1.0, 2.0]
+}
+
+
+GET http://localhost:3005/channels?name=Kookboek
+
+GET http://localhost:3005/channels?sort=-name

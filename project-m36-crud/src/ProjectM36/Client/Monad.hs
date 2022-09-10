@@ -257,6 +257,7 @@ runInsertOne
   -> m ()
 runInsertOne = runInsertMany . pure
 
+-- TODO should check they do not exist yet, or else it can be a security issue
 runInsertMany
   :: (Table t, FieldsFulfillConstraint Atomable t, MonadM36 m)
   => [t Identity]
@@ -322,30 +323,25 @@ runLookupIn
   -> Proxy t
   -> PrimaryKey (BaseTable t) Identity
   -> m (Maybe (D n t Identity))
-runLookupIn p _ key = do
+runLookupIn p pt key = do
   rel <- query $ C.Restrict (references_ TruePredicate key) $ dbRelationalExpr
     p
     pt
   vals <- liftIO $ Relation.toList rel
   pure (listToMaybe vals >>= either (const Nothing) Just . dbFromTuple p pt)
- where
-  pt :: Proxy t
-  pt = Proxy
-
 
 runIsInView
-  :: forall n m t
-   . ( IsView n t
-     , Table t
-     , t ~ BaseTable t
-     , FieldsFulfillConstraint Atomable (PrimaryKey t)
+  :: forall m t
+   . ( IsView PrimaryKey t
+     , Table (BaseTable t)
+     , FieldsFulfillConstraint Atomable (PrimaryKey (BaseTable t))
      , MonadM36 m
      )
-  => Proxy n
-  -> PrimaryKey t Identity
+  => Proxy t
+  -> PrimaryKey (BaseTable t) Identity
   -> m Bool
-runIsInView p key = do
-  v <- runLookupIn p (Proxy :: Proxy t) key
+runIsInView pt key = do
+  v <- runLookupIn (Proxy :: Proxy PrimaryKey) pt key
   pure $ isJust v
 
 

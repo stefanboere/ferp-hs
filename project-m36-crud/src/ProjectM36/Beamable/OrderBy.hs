@@ -13,12 +13,15 @@ module ProjectM36.Beamable.OrderBy
   , Orderable
   ) where
 
+import           Data.Functor.Const             ( Const(..) )
 import           Data.Functor.Contravariant     ( contramap )
+import           Data.Functor.Identity          ( Identity(..) )
 import           Data.Proxy                     ( Proxy(..) )
 import           Data.Typeable                  ( Typeable )
 import           GHC.Generics                   ( Generic
                                                 , Rep
                                                 )
+import           ProjectM36.Base                ( AttributeName )
 import           ProjectM36.Beamable.Class
 import           ProjectM36.Beamable.Expand
 import           ProjectM36.DataFrame           ( AttributeOrderExpr(..)
@@ -29,7 +32,6 @@ import           Servant.Crud.OrderBy
 import           Servant.Crud.QueryObject       ( Options(..)
                                                 , defaultOptions
                                                 )
-
 
 -- | Newtype for usage with -XDeriveVia to derive instances 'Selectors', using
 -- 'queryOptions'  instead of the default options.
@@ -43,7 +45,7 @@ instance ( Typeable r, Generic r, GSelectors Orderable (Rep r))
 
 
 -- | 'OrderBy' specialized for use with the ProjectM36 backend
-type OrderBy' t = OrderBy Orderable (TableSettings t)
+type OrderBy' t = OrderBy Orderable (t (Const AttributeName))
 
 -- | Expressions which can be turned into order syntax.
 --
@@ -51,26 +53,24 @@ type OrderBy' t = OrderBy Orderable (TableSettings t)
 class Orderable expr where
   toOrdering :: Direction -> expr -> AttributeOrderExpr
 
-instance Orderable (TableField t a) where
-  toOrdering Ascending n =
-    AttributeOrderExpr (fieldAttributeName n) AscendingOrder
-  toOrdering Descending n =
-    AttributeOrderExpr (fieldAttributeName n) DescendingOrder
+instance Orderable (Const AttributeName t) where
+  toOrdering Ascending  (Const n) = AttributeOrderExpr n AscendingOrder
+  toOrdering Descending (Const n) = AttributeOrderExpr n DescendingOrder
 
-instance Selectors Orderable (TableField t a) where
+instance Selectors Orderable (Const AttributeName a) where
   selectors = leaf
 
-type PrimaryKeySelectorsConstraint t s
-  = ( Generic (PrimaryKey t (TableField t))
-    , GSelectors Orderable (Rep (PrimaryKey t (TableField t)))
+type PrimaryKeySelectorsConstraint t
+  = ( Generic (PrimaryKey t (Const AttributeName))
+    , GSelectors Orderable (Rep (PrimaryKey t (Const AttributeName)))
     )
 
-instance PrimaryKeySelectorsConstraint t s
-    => Selectors Orderable (Named t (TableField t))
+instance PrimaryKeySelectorsConstraint t
+    => Selectors Orderable (Named t (Const AttributeName))
 
 instance
-    PrimaryKeySelectorsConstraint t s
-  => Selectors Orderable (PrimaryKey t (TableField t)) where
+    PrimaryKeySelectorsConstraint t
+  => Selectors Orderable (PrimaryKey t (Const AttributeName)) where
   selectors = defaultSelectors
     (defaultOptions { fieldLabelModifier     = const ""
                     , constructorTagModifier = const ""
@@ -83,7 +83,18 @@ toOrderExpr r ord = toVal (orderBySelector ord)
   toVal :: HSelector Orderable r -> AttributeOrderExpr
   toVal (HSelector sel) = toOrdering (orderByDirection ord) (sel r)
 
+tblAttributeNames :: forall t . Table t => t (Const AttributeName)
+tblAttributeNames = runIdentity
+  $ zipBeamFieldsM go (tblFieldSettings :: TableSettings t) tblSkeleton
+ where
+  go
+    :: Columnar' (TableField t) a
+    -> Columnar' Proxy a
+    -> Identity (Columnar' (Const AttributeName) a)
+  go (Columnar' x) _ = Identity $ Columnar' $ Const $ fieldAttributeName x
+
 -- | Order by a list of order parameters.
 orderByO_
   :: forall table . (Table table) => [OrderBy' table] -> [AttributeOrderExpr]
-orderByO_ = fmap (toOrderExpr (tblFieldSettings :: TableSettings table))
+orderByO_ =
+  fmap (toOrderExpr (tblAttributeNames :: table (Const AttributeName)))

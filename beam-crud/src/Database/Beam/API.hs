@@ -52,8 +52,7 @@ module Database.Beam.API
   , OrderBy'
   , ViewOrderBy
   , OrderByScope
-  )
-where
+  ) where
 
 import           Prelude
 
@@ -127,7 +126,7 @@ type GetList be t = PathInfo :> QObj (View be t) :> GetList' (t Identity)
 
 -- | Subroute compared to @GetList@ which only returns the primary keys and labels
 type GetListLabels be t
-  = "labels" :> PathInfo :> QObj (View be t) :> QueryParam "around" (PrimaryKey t Identity) :> Get '[JSON] (GetListHeaders (Named t Identity))
+  = "labels" :> PathInfo :> QObj (View be t) :> QueryParam "around" (PrimaryKey (BaseTable t) Identity) :> Get '[JSON] (GetListHeaders (Named (BaseTable t) Identity))
 
 -- | Regular get requests
 type Get_ t = CaptureId t :> Get' (t Identity)

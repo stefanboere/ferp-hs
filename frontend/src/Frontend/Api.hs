@@ -5,8 +5,7 @@
 module Frontend.Api
   ( module Frontend.Api
   , AppT
-  )
-where
+  ) where
 
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Data.Functor.Identity          ( Identity )
@@ -25,9 +24,9 @@ import           Servant.Crud.QueryOperator     ( Filter )
 import qualified Servant.Subscriber.Reflex     as Sub
 import           Servant.Subscriber.Reflex      ( FreeClient )
 
-import           Frontend.Context               ( AppT )
 import           Common.Api
 import           Common.Schema
+import           Frontend.Context               ( AppT )
 
 -- | Supplying a token is not needed for xhr because the cookie is sent.
 -- This is a utility for this.
@@ -41,11 +40,7 @@ refreshAccessTokenEvery interval = prerender_ (pure ()) $ do
   refreshAccessTokenXhr (() <$ tickEv)
 
 refreshAccessTokenXhr
-  :: ( MonadIO m
-     , MonadJSM (Performable m)
-     , PerformEvent t m
-     , TriggerEvent t m
-     )
+  :: (MonadIO m, MonadJSM (Performable m), PerformEvent t m, TriggerEvent t m)
   => Event t ()
   -> m ()
 refreshAccessTokenXhr ev = ignore <$> getAndDecode ("/auth/refresh" <$ ev)
@@ -53,19 +48,19 @@ refreshAccessTokenXhr ev = ignore <$> getAndDecode ("/auth/refresh" <$ ev)
   ignore :: Event t (Maybe ()) -> ()
   ignore _ = ()
 
-getBlog :: BlogNId -> FreeClient BlogN1
+getBlog :: BlogId -> FreeClient BlogN1
 putBlog :: Token -> BlogId -> Blog -> FreeClient NoContent
 patchBlog :: Token -> BlogId -> BlogPatch -> FreeClient NoContent
 deleteBlog :: Token -> BlogId -> FreeClient NoContent
 deleteBlogs
-  :: Token -> ExceptLimited [BlogNId] -> BlogN Filter -> FreeClient [BlogNId]
+  :: Token -> ExceptLimited [BlogId] -> BlogN Filter -> FreeClient [BlogId]
 postBlog :: Token -> Blog -> FreeClient (Headers '[LocationHdr] BlogId)
 postBlogs :: Token -> [Blog] -> FreeClient [BlogId]
-getBlogs :: View Be BlogN -> FreeClient (GetListHeaders BlogN1)
+getBlogs :: View BlogN -> FreeClient (GetListHeaders BlogN1)
 getBlogLabels
-  :: View Be BlogN
-  -> Maybe BlogNId
-  -> FreeClient (GetListHeaders (Named BlogN Identity))
+  :: View BlogN
+  -> Maybe BlogId
+  -> FreeClient (GetListHeaders (Named BlogT Identity))
 
 
 getChannel :: ChannelId -> FreeClient Channel
@@ -77,23 +72,23 @@ deleteChannels
   -> ExceptLimited [ChannelId]
   -> ChannelT Filter
   -> FreeClient [ChannelId]
-postChannel :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
+postChannel
+  :: Token -> Channel -> FreeClient (Headers '[LocationHdr] ChannelId)
 postChannels :: Token -> [Channel] -> FreeClient [ChannelId]
-getChannels :: View Be ChannelT -> FreeClient (GetListHeaders Channel)
+getChannels :: View ChannelT -> FreeClient (GetListHeaders Channel)
 getChannelLabels
-  :: View Be ChannelT
+  :: View ChannelT
   -> Maybe ChannelId
   -> FreeClient (GetListHeaders (Named ChannelT Identity))
 
 -- brittany-disable-next-binding
 (getBlog :<|> putBlog :<|> patchBlog :<|> deleteBlog :<|> deleteBlogs :<|> postBlog :<|> postBlogs :<|> getBlogs :<|> getBlogLabels) :<|>
   (getChannel :<|> putChannel :<|> patchChannel :<|> deleteChannel :<|> deleteChannels :<|> postChannel :<|> postChannels :<|> getChannels :<|> getChannelLabels)
-  = Sub.client clientApi
+  = Sub.client api
 
-getBlogsApiLink :: View Be BlogN -> Servant.API.Link
-getBlogsApiLink =
-  safeLink clientApi (Proxy :: Proxy ("blogs" :> GetList Be BlogN))
+getBlogsApiLink :: View BlogN -> Servant.API.Link
+getBlogsApiLink = safeLink api (Proxy :: Proxy ("blogs" :> GetList BlogN))
 
-getChannelsApiLink :: View Be ChannelT -> Servant.API.Link
+getChannelsApiLink :: View ChannelT -> Servant.API.Link
 getChannelsApiLink =
-  safeLink clientApi (Proxy :: Proxy ("channels" :> GetList Be ChannelT))
+  safeLink api (Proxy :: Proxy ("channels" :> GetList ChannelT))

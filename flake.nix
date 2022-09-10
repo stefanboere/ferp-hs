@@ -113,13 +113,14 @@
 
         packages = {
           inherit (pkgs.ferp-hs) frontend-min frontend-gtk vendor-lib;
-          inherit (pkgs.ferp-hs.ghc) backend backend-api;
+          inherit (pkgs.ferp-hs.ghc) backend backend-api project-m36;
           inherit (pkgs) keycloak-config-cli keycloak-nordtheme;
         };
 
         apps = {
           backend = flake-utils.lib.mkApp { drv = packages.backend; };
           backend-api = flake-utils.lib.mkApp { drv = packages.backend-api; };
+          project-m36 = flake-utils.lib.mkApp { drv = packages.project-m36; };
         };
       });
 }

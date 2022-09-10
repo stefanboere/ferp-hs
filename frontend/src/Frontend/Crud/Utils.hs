@@ -90,9 +90,7 @@ import           URI.ByteString                 ( URI )
 
 
 
-import           Common.Api                     ( Be
-                                                , ViewOrderBy
-                                                )
+import           Common.Api                     ( OrderBy' )
 import           Common.Schema                  ( C )
 import           Components
 import           Frontend.Context               ( AppT, showClientError )
@@ -255,7 +253,7 @@ data Property a b = Property
   { _prop_label   :: Text
   , _prop_lens    :: forall f . Lens' (a f) (C f b)
   , _prop_key     :: API.Path
-  , _prop_orderBy :: SortOrder -> ViewOrderBy Be a
+  , _prop_orderBy :: SortOrder -> OrderBy' a
   }
 
 editWith

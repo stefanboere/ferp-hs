@@ -6,6 +6,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-|
 Module: Context
@@ -19,6 +20,7 @@ module Context
   , AppInfo(..)
   , App
   , AppT(..)
+  , DBE(..)
   , AppServer
   , CorsOrigins(..)
   -- * Database
@@ -30,12 +32,12 @@ module Context
   -- * JWT
   , discoverJWKs
   , generateJwtSettings
-  )
-where
+  ) where
 
 import           Backend.Logger
 import           Control.Monad.Except           ( ExceptT
                                                 , MonadError
+                                                , runExceptT
                                                 )
 import           Control.Monad.IO.Class         ( MonadIO )
 import           Control.Monad.Logger
@@ -50,13 +52,21 @@ import           Data.Maybe                     ( fromMaybe )
 import           Data.Pool
 import qualified Data.Text                     as Text
 import qualified Data.Text.Encoding            as Text
-import           Database.Beam.Postgres
 import           Dhall                   hiding ( maybe )
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS        ( tlsManagerSettings )
 import qualified Network.URI                   as Network
 import           Network.Wai.Handler.Warp       ( Port )
 import           Network.Wai.Middleware.Cors    ( Origin )
+import           ProjectM36.Client              ( DatabaseName
+                                                , Hostname
+                                                , ServiceName
+                                                , TransactionGraphOperator(..)
+                                                , executeGraphExpr
+                                                )
+import qualified ProjectM36.Client.Monad       as Monad
+                                                ( DbConn )
+import           ProjectM36.Client.Simple
 import           Servant
 import           Servant.Auth.Server            ( JWTSettings
                                                 , defaultJWTSettings
@@ -68,6 +78,9 @@ import           Servant.Subscriber
 
 import           Common.Api
 
+data ConnectInfo = InProcessConnectInfo PersistenceStrategy
+                 | RemoteConnectInfo DatabaseName Hostname ServiceName
+                 deriving (Generic)
 
 -- | App configuration which can be read (mostly) from the environment
 data Config = Config
@@ -80,6 +93,11 @@ data Config = Config
   deriving Generic
 
 instance FromDhall Config where
+  autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
+
+deriving instance Generic PersistenceStrategy
+
+instance FromDhall PersistenceStrategy where
   autoWith _ = genericAutoWith skipLowerPrefixInterpretOptions
 
 instance FromDhall ConnectInfo where
@@ -107,11 +125,11 @@ type AppServer api = ServerT api App
 -- | Extra data for the custom monad
 data AppConfig = AppConfig
   { getConfig      :: Config
-  , getPool        :: Pool Connection
+  , getPool        :: Pool DbConn
   , getLogger      :: TimedFastLogger
   , getMetric      :: Metrics
   , getJwtSettings :: JWTSettings
-  , getSubscriber  :: Subscriber (Api' Postgres)
+  , getSubscriber  :: Subscriber Api
   }
 
 -- | Custom monad
@@ -152,41 +170,55 @@ simpleLog cfg =
 instance Monad m => MonadMetrics (AppT m) where
   getMetrics = asks getMetric
 
-
 -- DATABASE
 
 -- | Creates a pool from a connect info
-initConnPool :: ConnectInfo -> IO (Pool Connection)
-initConnPool info = createPool (connect info)
+initConnPool :: ConnectInfo -> IO (Pool DbConn)
+initConnPool info = createPool (connect (toConnectionInfo info))
                                close
                                2 -- stripes
                                60 -- unused connections are open for a minute
                                10 -- max. 10 connections per open stripe
+ where
+  connect x = simpleConnectProjectM36 x >>= either (fail . show) pure
+  toConnectionInfo (InProcessConnectInfo s) =
+    InProcessConnectionInfo s callback []
+  toConnectionInfo (RemoteConnectInfo d h s) =
+    RemoteConnectionInfo d h s callback
+
+  callback _ _ = pure ()
+
 
 -- * Various utilities
 
--- | Gets the pool and applies it to your function
-runDB :: Pg b -> App b
-runDB query = do
-  pool    <- asks getPool
-  envConf <- asks (appEnvironment . configInfo . getConfig)
-  logger  <- if envConf /= Production
-    then do
-      l <- askLoggerIO
-      pure (l defaultLoc "" LevelDebug . toLogStr)
-    else pure (\_ -> pure ())
-  liftIO $ withResource pool $ \conn -> runBeamPostgresDebug logger conn query
+newtype DBE a = DBE { runDBE :: ReaderT Monad.DbConn (ExceptT RelationalError Db) a }
+    deriving
+    ( Functor, Applicative, Monad, MonadError RelationalError, MonadReader Monad.DbConn, MonadIO)
 
+-- | Gets the pool and applies it to your function
+runDB :: (MonadReader AppConfig m, MonadIO m) => DBE b -> m b
+runDB q = do
+  pool <- asks getPool
+  r    <- liftIO $ withResource pool $ \conn ->
+    runProjectM36 conn (runExceptT $ runReaderT (runDBE q) conn)
+  either (fail . show) pure r
 
 -- | Runs the database in the IO monad
-runDBinIO :: AppConfig -> Pg b -> IO b
-runDBinIO cfg query = do
-  let pool    = getPool cfg
-  let envConf = appEnvironment . configInfo . getConfig $ cfg
-  let logger = if envConf /= Production
-        then simpleLog cfg LevelDebug . toLogStr
-        else const (pure ())
-  liftIO $ withResource pool $ \conn -> runBeamPostgresDebug logger conn query
+runDBinIO :: AppConfig -> DBE b -> IO (Either DbError b)
+runDBinIO cfg q = do
+  let pool = getPool cfg
+  r <- liftIO $ withResource pool $ \conn ->
+    withTransaction conn (runExceptT $ runReaderT (runDBE q) conn)
+  pure $ case r of
+    Right (Left  x) -> Left (RelError x)
+    Right (Right x) -> Right x
+    Left  y         -> Left y
+
+
+runProjectM36 :: DbConn -> Db b -> IO b
+runProjectM36 dbConn q = do
+  x <- withTransaction dbConn q
+  either (fail . show) pure x
 
 -- * JWT
 

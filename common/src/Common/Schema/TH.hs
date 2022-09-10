@@ -30,19 +30,10 @@ import qualified Data.List                     as L
 import           Data.Aeson                     ( FromJSON
                                                 , ToJSON
                                                 )
-import           Data.Typeable                  ( Typeable )
-import           Database.Beam                  ( Beamable
-                                                , Columnar
-                                                , PrimaryKey(..)
-                                                , QExpr
-                                                )
-import           Database.Beam.API              ( Orderable )
-import           Database.Beam.Backend.SQL      ( BeamSqlBackend )
-import           Database.Beam.Deriving         ( BeamOrderBy(..) )
-import           Database.Beam.Expand
 import           GHC.Generics                   ( Rep )
 import           Generic.Data
 import           Language.Haskell.TH
+import           ProjectM36.Beamable
 import           Servant.API                    ( FromHttpApiData(..)
                                                 , ToHttpApiData(..)
                                                 )
@@ -103,9 +94,8 @@ instancesBody t =
     deriving via (QueryType ($(t) Filter)) instance ToQueryText ($(t) Filter)
     deriving via (QueryType ($(t) Filter)) instance FromQueryText ($(t) Filter)
 
-    deriving via BeamOrderBy ($(t) (QExpr be s)) instance
-        (Typeable be, Typeable s, BeamSqlBackend be)
-      => Selectors (Orderable be) ($(t) (QExpr be s))
+    deriving via BeamOrderBy ($(t) AttrName) instance
+      Selectors Orderable ($(t) AttrName)
     |]
 
 -- | Creates relevant instances for 'NameId'

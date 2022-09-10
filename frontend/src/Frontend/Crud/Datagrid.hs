@@ -43,8 +43,7 @@ module Frontend.Crud.Datagrid
   , browseForm
   , linkWithSelection
   , downloadButtonWithSelection
-  )
-where
+  ) where
 
 import           Control.Lens                   ( Lens'
                                                 , over
@@ -95,10 +94,9 @@ import qualified Servant.Crud.OrderBy          as API
 import           Servant.Crud.QueryOperator
 import           URI.ByteString                 ( URI )
 
-import           Common.Api                     ( Be
-                                                , OrderByScope
+import           Common.Api                     ( AttrName
+                                                , OrderBy'
                                                 , View
-                                                , ViewOrderBy
                                                 )
 import           Common.Schema
 import           Components.Class
@@ -107,7 +105,7 @@ import           Components.Table
 import           Frontend.Context               ( AppT )
 import           Frontend.Crud.Utils
 
-fromApiView :: View Be a -> DatagridView API.Path (a Filter)
+fromApiView :: View a -> DatagridView API.Path (a Filter)
 fromApiView vw = DatagridView { _view_window = winFromApiPage $ API.page vw
                               , _view_sort   = fromApiOrdering $ API.ordering vw
                               , _view_filter = API.filters vw
@@ -227,8 +225,7 @@ setContainsFilter
   :: SetFilter "contains" 'Normal Text => Last Text -> Filter Text
 setContainsFilter x = setf @"contains" x mempty
 
-setContains
-  :: Lens' (a Filter) (C Filter Text) -> Text -> View be a -> View be a
+setContains :: Lens' (a Filter) (C Filter Text) -> Text -> View a -> View a
 setContains l c vw =
   vw { API.filters = set l (setContainsFilter (pure c)) (API.filters vw) }
 
@@ -333,8 +330,8 @@ eqFilter = IndexLens { _ilens_set    = toApiFilterEq
 
 prop
   :: ( KnownSymbol s
-     , HasField s (a (OrderByScope Be)) (C (OrderByScope Be) b)
-     , Typeable (a (OrderByScope Be))
+     , HasField s (a AttrName) (C AttrName b)
+     , Typeable (a AttrName)
      )
   => Text
   -> (forall f . Lens' (a f) (C f b))
@@ -359,7 +356,7 @@ gridProp
   => Editor c t m (Maybe b)
   -> IndexLens FilterCondition (Filter b) (Last b)
   -> Property a b
-  -> Column t m (ViewOrderBy Be a) (a Filter) API.Path (a Identity)
+  -> Column t m (OrderBy' a) (a Filter) API.Path (a Identity)
 gridProp e' il prp = Column
   { _column_label    = _prop_label prp
   , _column_viewer   = \d ->
@@ -413,15 +410,16 @@ filterWith l il = il { _ilens_get = _ilens_get il . view l
 
 -- | Delete keys from map subset while moving the others up
 deleteFromMapsubset
-  :: (Table r, Ord (PrimaryKey r Identity))
-  => [PrimaryKey r Identity]
+  :: (Ord (PrimaryKey (BaseTable r) Identity), TableT r)
+  => [PrimaryKey (BaseTable r) Identity]
   -> MapSubset Int (r Identity)
   -> MapSubset Int (r Identity)
 deleteFromMapsubset xs (MapSubset m c) =
-  let xsSet               = Set.fromList xs
-      (deleted, existing) = Map.partition ((`Set.member` xsSet) . primaryKey) m
-      deletedIndices      = Map.keysSet deleted
-      movedUpExisting     = Map.mapKeys
+  let xsSet = Set.fromList xs
+      (deleted, existing) =
+        Map.partition ((`Set.member` xsSet) . getPrimaryKey) m
+      deletedIndices  = Map.keysSet deleted
+      movedUpExisting = Map.mapKeys
         (\k -> k - Set.size (Set.takeWhileAntitone (< k) deletedIndices))
         existing
   in  MapSubset
@@ -522,9 +520,14 @@ getListToMapsubset resp = MapSubset
 -- | Compares the incoming get request results or delete results to the
 -- existing rows and constructs a diff which can be used in the datagrid
 toMapSubsetDiff
-  :: (MonadFix m, MonadHold t m, Reflex t, Table a, Ord (PrimaryKey a Identity))
+  :: ( MonadFix m
+     , MonadHold t m
+     , Reflex t
+     , Ord (PrimaryKey (BaseTable a) Identity)
+     , TableT a
+     )
   => Event t (API.GetListHeaders (a Identity)) -- ^ Get result
-  -> Event t [PrimaryKey a Identity] -- ^ Delete result
+  -> Event t [PrimaryKey (BaseTable a) Identity] -- ^ Delete result
   -> m (Event t (MapSubset Int (Maybe (a Identity))))
 toMapSubsetDiff getEvSuccess deleteEvSuccess = do
   rec
@@ -539,32 +542,27 @@ toMapSubsetDiff getEvSuccess deleteEvSuccess = do
 
 data BrowseFormConfig t m env a c = BrowseFormConfig
   { _browseConfig_actions
-      :: Dynamic t (View Be a)
-      -> Dynamic t (Selection (PrimaryKey a Identity))
+      :: Dynamic t (View a)
+      -> Dynamic t (Selection (PrimaryKey (BaseTable a) Identity))
       -> AppT t m c
   , _browseConfig_alerts :: c -> AppT t m (Event t URI)
   , _browseConfig_getListReq
-      :: View Be a
+      :: View a
       -> Request
            (Prerender.Client (AppT t m))
            (API.GetListHeaders (a Identity))
   , _browseConfig_deleteListReq
-      :: API.ExceptLimited [PrimaryKey a Identity]
+      :: API.ExceptLimited [PrimaryKey (BaseTable a) Identity]
       -> a Filter
-      -> Request (Prerender.Client (AppT t m)) [PrimaryKey a Identity]
+      -> Request
+           (Prerender.Client (AppT t m))
+           [PrimaryKey (BaseTable a) Identity]
   , _browseConfig_header      :: Text
   , _browseConfig_insertRoute :: env -> Link
-  , _browseConfig_editRoute   :: env -> PrimaryKey a Identity -> Link
-  , _browseConfig_browseRoute :: env -> View Be a -> Link
+  , _browseConfig_editRoute :: env -> PrimaryKey (BaseTable a) Identity -> Link
+  , _browseConfig_browseRoute :: env -> View a -> Link
   , _browseConfig_columns
-      :: [ Column
-          t
-          (AppT t m)
-          (ViewOrderBy Be a)
-          (a Filter)
-          API.Path
-          (a Identity)
-      ]
+      :: [Column t (AppT t m) (OrderBy' a) (a Filter) API.Path (a Identity)]
   }
 
 browseForm
@@ -576,13 +574,13 @@ browseForm
      , MonadIO (Performable m)
      , TriggerEvent t m
      , PerformEvent t m
-     , Table a
-     , Ord (PrimaryKey a Identity)
+     , Ord (PrimaryKey (BaseTable a) Identity)
      , Eq (a Filter)
+     , TableT a
      )
   => Dynamic t (Maybe env)
   -> BrowseFormConfig t m env a c
-  -> View Be a
+  -> View a
   -> AppT t m (Event t URI)
 browseForm env cfg vw = elClass "div" "flex-column" $ do
   el "h1" $ text (_browseConfig_header cfg)
@@ -608,9 +606,9 @@ browseForm env cfg vw = elClass "div" "flex-column" $ do
         [False <$ deleteEvSuccess, False <$ updated dynFilter]
       , _gridConfig_setValue    = updateRows
       , _gridConfig_toLink      = \r ->
-        fmap (\v -> _browseConfig_editRoute cfg v (primaryKey r)) <$> env
+        fmap (\v -> _browseConfig_editRoute cfg v (getPk r)) <$> env
       , _gridConfig_initialView = fromApiView vw
-      , _gridConfig_toPrimary   = primaryKey
+      , _gridConfig_toPrimary   = getPk
       }
 
     let selection = _grid_selection gridResult
@@ -628,13 +626,15 @@ browseForm env cfg vw = elClass "div" "flex-column" $ do
   browseRoute (Just x) y = Just $ _browseConfig_browseRoute cfg x y
   browseRoute Nothing  _ = Nothing
 
+  getPk = getPrimaryKey
+
 linkWithSelection
   :: (SetFilter "" 'List b, SetFilter "!" 'List b)
   => Lens' (a Filter) (Filter b)
-  -> (PrimaryKey a Identity -> b)
-  -> (View Be a -> Link)
-  -> View Be a
-  -> Selection (PrimaryKey a Identity)
+  -> (PrimaryKey (BaseTable a) Identity -> b)
+  -> (View a -> Link)
+  -> View a
+  -> Selection (PrimaryKey (BaseTable a) Identity)
   -> Link
 linkWithSelection l unId toLnk v (Selection neg pks _) =
   let setFilterFn = if neg then setNotInFilter else setInFilter
@@ -648,10 +648,10 @@ downloadButtonWithSelection
      , SetFilter "!" 'List b
      )
   => Lens' (a Filter) (Filter b)
-  -> (PrimaryKey a Identity -> b)
-  -> (View Be a -> Link)
-  -> Dynamic t (View Be a)
-  -> Dynamic t (Selection (PrimaryKey a Identity))
+  -> (PrimaryKey (BaseTable a) Identity -> b)
+  -> (View a -> Link)
+  -> Dynamic t (View a)
+  -> Dynamic t (Selection (PrimaryKey (BaseTable a) Identity))
   -> m ()
 downloadButtonWithSelection l unId toLnk dynVw dynSel =
   downloadButton (linkWithSelection l unId toLnk <$> dynVw <*> dynSel)
